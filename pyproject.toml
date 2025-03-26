@@ -1,0 +1,39 @@
+[project]
+name = "morpc"
+dynamic = ["version"]
+description = "Data managment tools used by MORPC"
+authors = [
+    {name = "MORPC data team", email = "dataandmaps@morpc.org"}
+]
+license = "MIT"
+readme = "README.md"
+requires-python = ">=3.10"
+classifiers = [
+    "Development Status :: 1 - Planning",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+
+]
+dependencies = [
+    "json",
+    "requests",
+    "pandas",
+    "geopandas",
+    "os",
+    "math",
+    "random",
+    "hashlib",
+    "frictionless",
+    "shapely",
+    "re",
+    "shutil",
+    "IPython",
+    "xlsxwriter",
+]
+
+[build-system]
+requires = ["setuptools>=61.0", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.dynamic]
+version = {attr = "morpc.__version__"}

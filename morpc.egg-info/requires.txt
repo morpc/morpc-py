@@ -1,0 +1,14 @@
+json
+requests
+pandas
+geopandas
+os
+math
+random
+hashlib
+frictionless
+shapely
+re
+shutil
+IPython
+xlsxwriter

@@ -1,0 +1,1185 @@
+# Demos of features of the morpc-common library
+
+## Introduction
+
+The MORPC data team maintains several libraries of commonly-used constants, mappings, and functions to allow for code-reuse in multiple scripts.  The libraries are available in the [morpc-common](https://github.com/morpc/morpc-common) repository in GitHub.  As of this writing there are two such libraries:
+
+  - morpc.py - Main library.  Includes contents which are broadly applicable for MORPC's work, including MORPC branding, region definitions and utilities, and general purpose data manipulation functions.
+  - morpcCensus.py - Constants and functions that are relevant when working with Census data, including decennial census, ACS, and PEP.
+
+## Set up for demos
+
+The following set up is required for the purposes of this demonstration notebook. Depending on your needs, the contents of this section may or may not be needed to make use of the library.
+
+
+```python
+import os
+import pandas as pd
+import geopandas as gpd
+import IPython
+import random
+import math
+import matplotlib.pyplot as plt
+import numpy as np
+import requests
+import json
+import xlsxwriter
+```
+
+## Importing the libraries
+
+To use the libraries, it is necessary to add the path of the library to search path used by the Python interpreter.  This is done by providing the path to your local copy of the morpc-common repository to the [sys.path.append()](https://docs.python.org/3/library/sys.html) function. The block below assumes that morpc-common can be found in the parent directory of this notebook, but the path may be different on your system.  After you append the path, you can import the library just like any other Python library.
+
+
+```python
+import sys
+sys.path.append(os.path.normpath("../morpc-common"))
+import morpc
+import morpcCensus
+```
+
+## Conversion factors
+
+As of Jan 2024, the following commonly used conversion factors are available in the library. Review the [source code](https://github.com/morpc/morpc-common/blob/main/morpc.py) to see if others are available.
+
+### Area
+
+Square feet per acre
+
+
+```python
+morpc.CONST_SQFT_PER_ACRE
+```
+
+
+
+
+    43560
+
+
+
+## Region definitions
+
+The following lists represent various definitions for "Central Ohio" based on collections of counties.
+
+
+```python
+for name in morpc.CONST_REGIONS.keys():
+    print("Region name: {}".format(name))
+    print("Counties in region: {}\n".format(morpc.CONST_REGIONS[name]))
+```
+
+    Region name: REGION7
+    Counties in region: ['Delaware', 'Fairfield', 'Franklin', 'Licking', 'Madison', 'Pickaway', 'Union']
+    
+    Region name: 7-County Region
+    Counties in region: ['Delaware', 'Fairfield', 'Franklin', 'Licking', 'Madison', 'Pickaway', 'Union']
+    
+    Region name: REGION10
+    Counties in region: ['Delaware', 'Fairfield', 'Franklin', 'Licking', 'Madison', 'Pickaway', 'Union', 'Knox', 'Marion', 'Morrow']
+    
+    Region name: 10-County Region
+    Counties in region: ['Delaware', 'Fairfield', 'Franklin', 'Licking', 'Madison', 'Pickaway', 'Union', 'Knox', 'Marion', 'Morrow']
+    
+    Region name: REGION15
+    Counties in region: ['Delaware', 'Fairfield', 'Franklin', 'Licking', 'Madison', 'Pickaway', 'Union', 'Knox', 'Marion', 'Morrow', 'Fayette', 'Hocking', 'Logan', 'Perry', 'Ross']
+    
+    Region name: 15-County Region
+    Counties in region: ['Delaware', 'Fairfield', 'Franklin', 'Licking', 'Madison', 'Pickaway', 'Union', 'Knox', 'Marion', 'Morrow', 'Fayette', 'Hocking', 'Logan', 'Perry', 'Ross']
+    
+    Region name: REGIONCORPO
+    Counties in region: ['Fairfield', 'Knox', 'Madison', 'Marion', 'Morrow', 'Pickaway', 'Union']
+    
+    Region name: CORPO Region
+    Counties in region: ['Fairfield', 'Knox', 'Madison', 'Marion', 'Morrow', 'Pickaway', 'Union']
+    
+    Region name: REGIONONECBUS
+    Counties in region: ['Delaware', 'Fairfield', 'Franklin', 'Licking', 'Madison', 'Pickaway', 'Union', 'Knox', 'Marion', 'Morrow', 'Logan']
+    
+    Region name: One Columbus Region
+    Counties in region: ['Delaware', 'Fairfield', 'Franklin', 'Licking', 'Madison', 'Pickaway', 'Union', 'Knox', 'Marion', 'Morrow', 'Logan']
+    
+    Region name: REGIONCEDS
+    Counties in region: ['Delaware', 'Fairfield', 'Franklin', 'Licking', 'Madison', 'Pickaway', 'Union', 'Knox', 'Marion', 'Morrow', 'Logan']
+    
+    Region name: CEDS Region
+    Counties in region: ['Delaware', 'Fairfield', 'Franklin', 'Licking', 'Madison', 'Pickaway', 'Union', 'Knox', 'Marion', 'Morrow', 'Logan']
+    
+    Region name: REGIONMSA
+    Counties in region: ['Delaware', 'Fairfield', 'Franklin', 'Licking', 'Madison', 'Pickaway', 'Union', 'Hocking', 'Morrow', 'Perry']
+    
+    
+
+## County three-letter abbreviations
+
+Map each MORPC county name to its three-letter abbreviation.
+
+
+```python
+morpc.CONST_COUNTY_ABBREV
+```
+
+
+
+
+    {'Delaware': 'DEL',
+     'Fairfield': 'FAI',
+     'Fayette': 'FAY',
+     'Franklin': 'FRA',
+     'Hocking': 'HOC',
+     'Knox': 'KNO',
+     'Licking': 'LIC',
+     'Logan': 'LOG',
+     'Madison': 'MAD',
+     'Marion': 'MAR',
+     'Morrow': 'MRW',
+     'Perry': 'PER',
+     'Pickaway': 'PIC',
+     'Ross': 'ROS',
+     'Union': 'UNI'}
+
+
+
+Map each three-letter abbreviation back to its county name.
+
+
+```python
+morpc.CONST_COUNTY_EXPAND
+```
+
+
+
+
+    {'DEL': 'Delaware',
+     'FAI': 'Fairfield',
+     'FAY': 'Fayette',
+     'FRA': 'Franklin',
+     'HOC': 'Hocking',
+     'KNO': 'Knox',
+     'LIC': 'Licking',
+     'LOG': 'Logan',
+     'MAD': 'Madison',
+     'MAR': 'Marion',
+     'MRW': 'Morrow',
+     'PER': 'Perry',
+     'PIC': 'Pickaway',
+     'ROS': 'Ross',
+     'UNI': 'Union'}
+
+
+
+Note that 'MRW' is the three-letter abbreviation for Morrow county that is used by ODOT. Sometimes it may be desired to use 'MOR' instead.  In that case, you can use the following code to update both mappings.
+
+
+```python
+morpc.CONST_COUNTY_ABBREV["Morrow"] = 'MOR'
+morpc.CONST_COUNTY_EXPAND = {value: key for key, value in morpc.CONST_COUNTY_ABBREV.items()}
+```
+
+Now you can see the new mappings:
+
+
+```python
+print(morpc.CONST_COUNTY_ABBREV["Morrow"])
+print(morpc.CONST_COUNTY_EXPAND["MOR"])
+```
+
+To revert to the old mapping you can either use a code block similar to the one above, or simply reload the library:
+
+
+```python
+import importlib
+importlib.reload(morpc)
+```
+
+Now the original mappings are restored.
+
+
+```python
+print(morpc.CONST_COUNTY_ABBREV["Morrow"])
+print(morpc.CONST_COUNTY_EXPAND["MRW"])
+```
+
+## County identifiers (GEOID)
+
+Map each MORPC county name to its five-character Census GEOID.  Note that the IDs are strings.  They are not integers and should not be handled as such.
+
+
+```python
+morpc.CONST_COUNTY_NAME_TO_ID
+```
+
+
+
+
+    {'Delaware': '39041',
+     'Fairfield': '39045',
+     'Fayette': '39047',
+     'Franklin': '39049',
+     'Hocking': '39073',
+     'Knox': '39083',
+     'Licking': '39089',
+     'Logan': '39091',
+     'Madison': '39097',
+     'Marion': '39101',
+     'Morrow': '39117',
+     'Perry': '39127',
+     'Pickaway': '39129',
+     'Ross': '39141',
+     'Union': '39159'}
+
+
+
+Map each GEOID back to its county name.
+
+
+```python
+morpc.CONST_COUNTY_ID_TO_NAME
+```
+
+
+
+
+    {'39041': 'Delaware',
+     '39045': 'Fairfield',
+     '39047': 'Fayette',
+     '39049': 'Franklin',
+     '39073': 'Hocking',
+     '39083': 'Knox',
+     '39089': 'Licking',
+     '39091': 'Logan',
+     '39097': 'Madison',
+     '39101': 'Marion',
+     '39117': 'Morrow',
+     '39127': 'Perry',
+     '39129': 'Pickaway',
+     '39141': 'Ross',
+     '39159': 'Union'}
+
+
+
+## Summary level identifiers.
+
+Summary level lookups for geographic jurisdictions. The summary levels include the Census sumlevel numbers, as well as some morpc summary levels, beginning with "M"
+
+
+```python
+morpc.SUMLEVEL_LOOKUP
+```
+
+
+
+
+    {'US': '010',
+     'CENSUSREGION': '020',
+     'DIVISION': '030',
+     'STATE': '040',
+     'COUNTY': '050',
+     'COUNTY-COUSUB': '060',
+     'COUNTY-TOWNSHIP-REMAINDER': '070',
+     'COUNTY-TRACT': '140',
+     'COUNTY-TRACT-BG': '150',
+     'PLACE-COUNTY': '155',
+     'PLACE': '160',
+     'CBSA': '310',
+     'URBANAREA': '400',
+     'CONGRESS': '500',
+     'STATESENATE': '610',
+     'STATEHOUSE': '620',
+     'COUNTY-TRACT-BG-BLOCK': '750',
+     'PUMA': '795',
+     'ZCTA3': '850',
+     'ZCTA5': '860',
+     'CENSUSMPOREGION': '930',
+     'SDELEM': '950',
+     'SDHIGH': '960',
+     'SDUNIFIED': '970',
+     'REGION15': 'M01',
+     'REGION10': 'M02',
+     'REGION7': 'M03',
+     'REGIONCORPO': 'M04',
+     'REGIONCEDS': 'M05',
+     'REGIONMPO': 'M06',
+     'REGIONTDM': 'M07',
+     'JURIS': 'M10',
+     'JURIS-COUNTY': 'M11'}
+
+
+
+
+```python
+morpc.HIERARCHY_STRING_LOOKUP
+```
+
+
+
+
+    {'010': 'US',
+     '020': 'CENSUSREGION',
+     '030': 'DIVISION',
+     '040': 'STATE',
+     '050': 'COUNTY',
+     '060': 'COUNTY-COUSUB',
+     '070': 'COUNTY-TOWNSHIP-REMAINDER',
+     '140': 'COUNTY-TRACT',
+     '150': 'COUNTY-TRACT-BG',
+     '155': 'PLACE-COUNTY',
+     '160': 'PLACE',
+     '310': 'CBSA',
+     '400': 'URBANAREA',
+     '500': 'CONGRESS',
+     '610': 'STATESENATE',
+     '620': 'STATEHOUSE',
+     '750': 'COUNTY-TRACT-BG-BLOCK',
+     '795': 'PUMA',
+     '850': 'ZCTA3',
+     '860': 'ZCTA5',
+     '930': 'CENSUSMPOREGION',
+     '950': 'SDELEM',
+     '960': 'SDHIGH',
+     '970': 'SDUNIFIED',
+     'M01': 'REGION15',
+     'M02': 'REGION10',
+     'M03': 'REGION7',
+     'M04': 'REGIONCORPO',
+     'M05': 'REGIONCEDS',
+     'M06': 'REGIONMPO',
+     'M07': 'REGIONTDM',
+     'M10': 'JURIS',
+     'M11': 'JURIS-COUNTY'}
+
+
+
+## List counties and convert between county names and codes (Central Ohio, Ohio, or U.S.)
+
+The library includes a Python class called `countyLookup`. Upon instantiation, this object is pre-loaded with a dataframe describing a set of counties whose scope is specified by the user.  The object includes methods for listing the counties by their names or GEOIDs and for two-way conversion between name and GEOID.
+
+  - `scope="morpc"`     Default. Loads only the counties in the MORPC 15-county region (see `CONST_REGIONS['15-County Region']` above)
+  - `scope="corpo"`     Loads only the counties in the CORPO region (see `CONST_REGIONS['CORPO Region']` above)
+  - `scope="ohio"`      Loads all counties in Ohio
+  - `scope="us"`      Loads all counties in the United States
+
+*NOTE: As of Jan 2024, some methods are not supported for scope="us".  See details below.*
+
+You can create an object containing the MORPC 15 counties as follows:
+
+
+```python
+countyLookup = morpc.countyLookup()
+```
+
+    Loading data for MORPC 15-County region only
+    
+
+Or if you prefer to be explicit:
+
+
+```python
+countyLookup = morpc.countyLookup(scope="morpc")
+```
+
+    Loading data for MORPC 15-County region only
+    
+
+Either way, the object is populated with the following dataframe.
+
+
+```python
+countyLookup.df
+```
+
+
+
+
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>GEOID</th>
+      <th>COUNTY_NAME</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>2159</th>
+      <td>39041</td>
+      <td>Delaware</td>
+    </tr>
+    <tr>
+      <th>2160</th>
+      <td>39045</td>
+      <td>Fairfield</td>
+    </tr>
+    <tr>
+      <th>2161</th>
+      <td>39047</td>
+      <td>Fayette</td>
+    </tr>
+    <tr>
+      <th>649</th>
+      <td>39049</td>
+      <td>Franklin</td>
+    </tr>
+    <tr>
+      <th>2169</th>
+      <td>39073</td>
+      <td>Hocking</td>
+    </tr>
+    <tr>
+      <th>1358</th>
+      <td>39083</td>
+      <td>Knox</td>
+    </tr>
+    <tr>
+      <th>1359</th>
+      <td>39089</td>
+      <td>Licking</td>
+    </tr>
+    <tr>
+      <th>2175</th>
+      <td>39091</td>
+      <td>Logan</td>
+    </tr>
+    <tr>
+      <th>2177</th>
+      <td>39097</td>
+      <td>Madison</td>
+    </tr>
+    <tr>
+      <th>2178</th>
+      <td>39101</td>
+      <td>Marion</td>
+    </tr>
+    <tr>
+      <th>1364</th>
+      <td>39117</td>
+      <td>Morrow</td>
+    </tr>
+    <tr>
+      <th>2362</th>
+      <td>39127</td>
+      <td>Perry</td>
+    </tr>
+    <tr>
+      <th>1366</th>
+      <td>39129</td>
+      <td>Pickaway</td>
+    </tr>
+    <tr>
+      <th>2366</th>
+      <td>39141</td>
+      <td>Ross</td>
+    </tr>
+    <tr>
+      <th>2372</th>
+      <td>39159</td>
+      <td>Union</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+
+
+You can create a list of the names of the counties:
+
+
+```python
+countyLookup.list_names()
+```
+
+
+
+
+    ['Delaware',
+     'Fairfield',
+     'Fayette',
+     'Franklin',
+     'Hocking',
+     'Knox',
+     'Licking',
+     'Logan',
+     'Madison',
+     'Marion',
+     'Morrow',
+     'Perry',
+     'Pickaway',
+     'Ross',
+     'Union']
+
+
+
+Or list their IDs:
+
+
+```python
+countyLookup.list_ids()
+```
+
+
+
+
+    ['39041',
+     '39045',
+     '39047',
+     '39049',
+     '39073',
+     '39083',
+     '39089',
+     '39091',
+     '39097',
+     '39101',
+     '39117',
+     '39127',
+     '39129',
+     '39141',
+     '39159']
+
+
+
+You can also look up the ID for a county given its name.
+
+
+```python
+countyLookup.get_id("Hocking")
+```
+
+Or look up its name given its ID.
+
+
+```python
+countyLookup.get_name("39091")
+```
+
+As mentioned previously, you can change the scope to include CORPO counties, Ohio counties, or all U.S. counties.  For example:
+
+
+```python
+countyLookupCORPO = morpc.countyLookup(scope="corpo")
+countyLookupCORPO.list_names()
+```
+
+As of Jan 2024, some methods are not supported when the scope is all U.S. counties.  This is because the county names are not unique and the underlying records do not include the state.  This might be fixed someday, but in the meantime only `countyLookup.list_ids()` is supported when `scope="us"`.
+
+## Write data and charts to Excel
+
+Excel-based charts are exceptionally useful to our customers because they are easy for our customers to manipulate, style, and include in downstream products such as PowerPoint slides.  They are, however, inconvenient to product programmatically.  The following functions are intended to simplify the production of Excel-based charts that are consistent with MORPC branding and, eventually, with Data & Mapping visualization standards.
+
+### data_chart_to_excel( )
+
+This function will create an Excel worksheet consisting of the contents of a pandas dataframe (as a formatted table) and, optionally, a chart to visualize the series included in the dataframe.  The simplest invocation will produce a table and a basic column (vertical bar) chart with default formatting that is consistent with MORPC branding guidelines, however the user can specify many of options supported by the xlsxwriter library (https://xlsxwriter.readthedocs.io/).
+
+The following blocks demonstrates some simple use cases.  First, create a dataframe with demonstration data.
+
+
+```python
+d = {'col1': [1, 2, 3, 4], 'col2':[3, 4, 5, 6]}
+df = pd.DataFrame(data=d)
+df
+```
+
+Next create an Excel object using the xlsxwriter package.  The object is linked to an Excel workbook, as indicated by the path in the first argument.
+
+
+```python
+# Create a directory to store the output (for demonstration purposes only)
+if not os.path.exists("./temp_data"):
+    os.makedirs("./temp_data")
+
+writer = pd.ExcelWriter("./temp_data/dataChartToExcelOutput.xlsx", engine='xlsxwriter')
+```
+
+The following block will create a new worksheet in the Excel object which contains a table representing the dataframe and column chart displaying the series in the table.  The new worksheet will be called "Sheet1" since no sheet name was specified.  Default presentation settings will be used since we did not specify any settings.  This will result in a column (vertical bar) chart.
+
+**Note: You will not be able to view the spreadsheet itself until the writer object is closed in a later block.**
+
+
+```python
+morpc.data_chart_to_excel(df, writer)  
+```
+
+The following block will add another worksheet to the xlsxwriter object.  This time we specified a sheet name ("LineChart") and a chart type ("line"), so the code will create the same table as the previous command but will produce a line chart instead of a column chart.  As before, the default presentation settings will be used.
+
+
+```python
+morpc.data_chart_to_excel(df, writer, sheet_name="LineChart", chartType="line")
+```
+
+The following block goes a step further and specifies a subtype for the chart.  Specifically it creates a stacked column chart.  As before, the default presentation settings will be used.  For more information about what chart types and subtypes are available, see https://xlsxwriter.readthedocs.io/workbook.html#workbook-add-chart.  The supported chart types as of this writing include column, bar, and line.  The stacked subtype has been minimally tested for column and bar charts.  Other chart types and subtypes may or may not work without further improvements to the function.
+
+
+```python
+morpc.data_chart_to_excel(df, writer, sheet_name="Stacked", chartType="column", chartOptions={"subtype":"stacked"})
+```
+
+The next block demonstrates the "bar" (horiztontal bar) chart type and applies some custom presentation settings, specifically a set of user-specified colors and titles, and omission of the legend, which is displayed by default.
+
+
+```python
+morpc.data_chart_to_excel(df, writer, sheet_name="Custom", chartType="bar", chartOptions={
+    "colors": ["cyan","magenta"],                   # Specify a custom color
+    "hideLegend": True,                             # Hide the legend
+    "titles": {                                     # Specify the chart title and axis titles
+        "chartTitle": "My Chart",
+        "xTitle": "My independent variable",
+        "yTitle": "My dependent variable",
+    }
+})
+```
+
+Finally, we have to close the xlsxwriter object to finalize the Excel workbook and make it readable.
+
+
+```python
+writer.close()
+```
+
+Now you should be able to open the Excel document at `./temp_data/dataChartToExcelOutput.xlsx`
+
+Note that many more customizations are possible.  To learn more, uncomment and run the following block, or enter the command in your own notebook or a Python interpreter.
+
+
+```python
+# help(morpc.data_chart_to_excel)
+```
+
+## Load spatial data
+
+Often we want to make a copy of some input data and work with the copy, for example to protect the original data or to create an archival copy of it so that we can replicate the process later.  With tabular data this is simple, but with spatial data it can be tricky.  Shapefiles actually consist of up to six files, so it is necessary to copy them all.  Geodatabases may contain many layers in addition to the one we care about.  The `load_spatial_data()` function simplifies the process of reading the data and (optionally) making an archival copy. It has three parameters:
+  - `sourcePath` - The path to the geospatial data. It may be a file path or URL. In the case of a Shapefile, this should point to the .shp file or a zipped file that contains all of the Shapefile components. You can point to other zipped contents as well, but see caveats below.
+  - `layerName` (required for GPKG and GDB, optional for SHP) - The name of the layer that you wish to extract from a GeoPackage or File Geodatabase.  Not required for Shapefiles, but may be specified for use in the archival copy (see below)
+  - `driverName` (required for zipped data or data with non-standard file extension) - which [GDAL driver](https://gdal.org/drivers/vector/index.html) to use to read the file. Script will attempt to infer this from the file extension, but you must specify it if the data is zipped, if the file extension is non-standard, or if the extension cannot be determined from the path (e.g. if the path is an API query)
+  - `archiveDir` (optional) - The path to the directory where a copy of a data should be archived.  If this is specified, the data will be archived in this location as a GeoPackage.  The function will determine the file name and layer name from the specified parameters, using generic values if necessary.
+  - `archiveFileName` (optional) - If `archiveDir` is specified, you may use this to specify the name of the archival GeoPackage.  Omit the extension.  If this is unspecified, the function will assign the file name automatically using a generic value if necessary.
+  
+The following example loads data from the MORPC Mid-Ohio Open Data website, however you can also load data from a local path or network drive.
+
+
+```python
+# Create a directory to store the archival data (for demonstration purposes only)
+if not os.path.exists("./temp_data"):
+    os.makedirs("./temp_data")
+
+# Load the data and create an archival copy
+gdf = morpc.load_spatial_data(
+    sourcePath="https://opendata.arcgis.com/api/v3/datasets/e42b50fbd17a47739c2a7695778c498e_17/downloads/data?format=shp&spatialRefId=3735&where=1%3D1", 
+    layerName="MORPC MPO Boundary",
+    driverName="ESRI Shapefile",
+    archiveDir="./temp_data"
+)
+```
+
+Let's take a look at the data and make sure it loaded correctly.
+
+
+```python
+gdf.explore()
+```
+
+Now let's read the archival copy and make sure it looks the same.  We'll use the `load_spatial_data()` function again, but this time we won't make an archival copy.
+
+
+```python
+gdfArchive = morpc.load_spatial_data("./temp_data/MORPC MPO Boundary.gpkg", layerName="MORPC MPO Boundary")
+```
+
+
+```python
+gdfArchive.explore()
+```
+
+## Assign geographic identifiers
+
+Sometimes we have a set of locations and we would like to know what geography (county, zipcode, etc.) they fall in. The `assign_geo_identifiers()` function takes a set of georeference points and a list of geography levels and determines for each level which area each point falls in.  The function takes two parameters:
+  - `points` - a GeoPandas GeoDataFrame consisting of the points of interest
+  - `geographies` - A Python list of one or more strings in which each element corresponds to a geography level. You can specify as many levels as you want from the following list, however note that the function must download the polygons and perform the analysis for each level so if you specify many levels it may take a long time.
+    - "county" - County (Census TIGER)
+    - "tract" - *Not currently implemented*
+    - "blockgroup" - *Not currently implemented*
+    - "block" - *Not currently implemented*
+    - "zcta" - *Not currently implemented*
+    - "place" - Census place (Census TIGER)
+    - "placecombo" - *Not currently implemented*
+    - "juris" - *Not currently implemented*
+    - "region15County" - *Not currently implemented*
+    - "region10County" - *Not currently implemented*
+    - "regionCORPO" - *Not currently implemented*
+    - "regionMPO" - *Not currently implemented*
+
+**NOTE:** Many of the geography levels are not currently implemented.  They are being implemented as they are needed.  If you need one that has not yet been implemented, please contact Adam Porr (or implement it yourself).
+
+In the following example, we will assign labels for the "county" and "place" geography levels to libraries in MORPC's Points of Interest layer.  First we'll download just the library locations from Mid-Ohio Open Data using the ArcGIS REST API.
+
+
+```python
+url = "https://services1.arcgis.com/EjjnBtwS9ivTGI8x/arcgis/rest/services/Points_of_Interest/FeatureServer/0/query?outFields=*&where=%22type%22=%27Library%27&f=geojson"
+librariesRaw = gpd.read_file(url)
+```
+
+The data incudes a bunch of fields that we don't need.  For clarity, extract only the relevant fields.
+
+
+```python
+libraries = librariesRaw.copy().filter(items=['NAME', 'ADDRESS','geometry'], axis="columns")
+```
+
+
+```python
+libraries.head()
+```
+
+Let's take a look at the library locations.
+
+
+```python
+libraries.explore(style_kwds={"radius":4})
+```
+
+Use the `assign_geo_identifiers()` function to iterate through the requested geography levels (in this case "county" and "place"), labeling each point with the identifier of the geography in each level where the point is located.
+
+
+```python
+librariesEnriched = morpc.assign_geo_identifiers(libraries, ["county","place"])
+```
+
+Note that two columns have been added to the dataframe, one that contains the identifier for the county the library is located in and one that contains the identifier for the place.  
+
+
+```python
+librariesEnriched.head()
+```
+
+Let's take a look at libraries, symbolizing each according to the county where it is located.
+
+
+```python
+librariesEnriched.explore(column="id_county", style_kwds={"radius":4})
+```
+
+Let's take another look, this time symbolizing each library according to the place where it is located.  The legend has been suppressed because there are too many unique values, but you can hover over each point to see the place identifier that has been assigned to it.
+
+
+```python
+librariesEnriched.explore(column="id_place", style_kwds={"radius":4}, legend=False)
+```
+
+## Schema tools (Apache Avro format)
+
+**DEPRECATION WARNING**:  As of January 2024 the Data Team is considering a new standard for machine-readable metadata, namely TableSchema (see below).  Code that makes use of the features described in this section will likely need to be updated to make use of the new standard when it is adopted. Use discretion when making use of these features.
+
+[Apache Avro](https://en.wikipedia.org/wiki/Apache_Avro) is an open source data serialization technology that includes a JSON-based [schema specification format](https://avro.apache.org/docs/1.11.1/specification/).  MORPC does not typically use the Avro format itself, however code written through 2023 may have relied on schemas specified in Avro format.  This section demonstrates utility functions for loading Avro-formatted schemas and using the schemas to manipulate data.
+
+The demonstration relies on a local copy of data from the [morpc-lookup](https://github.com/morpc/morpc-lookup) repository in GitHub.  Prior to running the code you must download the required data and schema and update the following paths (as needed) to point to the correct files.
+
+
+```python
+dataPath = "..\morpc-lookup\MORPC_Counties.csv"
+schemaPath = dataPath.replace(".csv", "_schema.json")
+print("Data path: {}".format(dataPath))
+print("Schema path: {}".format(schemaPath))
+```
+
+Load the data.
+
+
+```python
+dataRaw = pd.read_csv(dataPath)
+dataRaw.head()
+```
+
+The data is stored in a CSV file.  In a CSV, all data is stored as strings.  There is no built-in mechanism for specifying the data type for each field. Note that pandas (like many other software applications) tried to infer the data type.
+
+
+```python
+dataRaw.dtypes
+```
+
+Sometimes the inference works well, other times not so well.  It is safer to specify the field types explictly.  One way to do this is to create a schema definition for the data.  Here is an example of a schema definition specified in Apache Avro format:
+
+
+```python
+with open(schemaPath, "r") as f:
+    schemaRaw = f.read()
+print(schemaRaw)
+```
+
+Note that that this format allows for specification of the field names and types, as well as dataset-level and variable-level metadata. Because Avro-style schemas are formatted as JSON, Python can easily convert the schema to a dictionary structure so that we can access it programmatically. The morpc-common library contains a convenience function to load the schema and convert it to a dictionary.
+
+
+```python
+schema = morpc.load_avro_schema(schemaPath)
+print("The fields in this dataset are: " + ", ".join([field["name"] for field in schema["fields"]]))
+```
+
+The morpc-common library contains several convenience functions for interacting with Avro schemas.  One such function casts each of the fields in a dataset as the correct data type as specified in the schema.
+
+
+```python
+data = morpc.cast_field_types(dataRaw, schema)
+```
+
+Now the data types should match the schema, regardless of what pandas inferred originally.
+
+
+```python
+data.dtypes
+```
+
+**A note about integers**  The pandas "int" dtype does not support null values.  If a field contains null values and you try to cast it as "int", this function will automatically attempt to convert them to "Int64" (which does support null values) instead.  If this fails, it might be because the fractional part of one of your values (i.e. the part to the right of the decimal point) is non-zero.  You can either round the values before attempting the conversion or set `forceInteger=True` when calling the function. In the latter case, the function will round the values to the ones place prior to recasting the values.
+
+Here's another function that creates a list object containing the names of the fields included in the schema.
+
+
+```python
+morpc.avro_get_field_names(schema)
+```
+
+This one returns a dictionary mapping each field name to its type.
+
+
+```python
+morpc.avro_to_pandas_dtype_map(schema)
+```
+
+Sometimes a variable may be referred to by different names. It is possible to list the alternate names in the schema using the "aliases" property. The following function creates a dictionary that maps the original field name to the first (and presumably most common) alias.  This can be used to easily rename the fields in the dataset for use in a different application.
+
+
+```python
+morpc.avro_map_to_first_alias(schema)
+```
+
+The following function does the reverse of the previous one, namely it creates a dictionary mapping the first alias to the original field name.  This can be useful to reverse the previous remapping.  It is also useful for Shapefiles, which have a ten-character field name limit.  In that case, you can store the human-readable field name as the original field name and store the Shapefile-compliant field name as an alias.
+
+
+```python
+morpc.avro_map_from_first_alias(schema)
+```
+
+Using the schema dictionary and the helper functions, you can easily do transformations of the data.  Here are some examples. First, take a look at the original data.
+
+
+```python
+data.head()
+```
+
+Rename the columns in the data to the first alias for each column.
+
+
+```python
+data.rename(columns=morpc.avro_map_to_first_alias(schema)).head()
+```
+
+Filter and reorder fields.
+
+
+```python
+reverseOrder = morpc.avro_get_field_names(schema)
+reverseOrder.reverse()
+data[reverseOrder].head()
+```
+
+
+```python
+oneLessField = morpc.avro_get_field_names(schema)
+oneLessField.remove("STATE_ID")
+data[oneLessField].head()
+```
+
+## Schema tools (TableSchema)
+
+As of January 2024 the Data Team is considering a new standard for machine-readable metadata, namely [TableSchema](https://specs.frictionlessdata.io/table-schema/).  TableSchema is a schema for tabular formats that includes many of the features for Avro (see above) plus rich types and constraints. TableSchema is supported in [Python](https://pypi.org/project/tableschema/) and [R](https://www.rdocumentation.org/packages/tableschema.r/), and the libraries include many utilty functions .  This section is a placeholder for demonstrations of those functions. 
+
+## Branding
+
+The library includes the hex codes the MORPC brand colors and provides assigns of human-readable names to make the colors easier to work with.
+
+
+```python
+morpc.CONST_MORPC_COLORS
+```
+
+
+
+
+    {'darkblue': '#2e5072',
+     'blue': '#0077bf',
+     'darkgreen': '#2c7f68',
+     'lightgreen': '#66b561',
+     'bluegreen': '#00b2bf',
+     'midblue': '#2c6179'}
+
+
+
+Here's what the colors look like when rendered on-screen.
+
+
+```python
+outputString = "<table><th>colorname</th><th>morpc.CONST_MORPC_COLORS[colorname]</th>"
+for colorname in morpc.CONST_MORPC_COLORS:
+    outputString += "<tr><td>{0}</td><td bgcolor={1}><font color='white'>{1}</font></td>".format(colorname, morpc.CONST_MORPC_COLORS[colorname])
+outputString += "</table>"
+display(IPython.display.HTML(outputString))
+```
+
+
+<table><th>colorname</th><th>morpc.CONST_MORPC_COLORS[colorname]</th><tr><td>darkblue</td><td bgcolor=#2e5072><font color='white'>#2e5072</font></td><tr><td>blue</td><td bgcolor=#0077bf><font color='white'>#0077bf</font></td><tr><td>darkgreen</td><td bgcolor=#2c7f68><font color='white'>#2c7f68</font></td><tr><td>lightgreen</td><td bgcolor=#66b561><font color='white'>#66b561</font></td><tr><td>bluegreen</td><td bgcolor=#00b2bf><font color='white'>#00b2bf</font></td><tr><td>midblue</td><td bgcolor=#2c6179><font color='white'>#2c6179</font></td></table>
+
+
+## Round preserving sum (aka "bucket rounding")
+
+Imagine we have a series of values that need to be rounded, but we want the rounded values to sum to the same value as the original series.  Create a random series for demonstration purposes.
+
+
+```python
+rawValues = pd.Series([random.randrange(0, 100000)/100 for x in range(1,10)])
+list(rawValues)
+```
+
+Specify the number of decimal digits to preserve. For this demo we'll round to integers (i.e. zero decimal places), which is typically what we want, but the function supports rounding to other decimal places as well.
+
+
+```python
+digits = 0
+```
+
+Perform bucket-rounding
+
+
+```python
+bucketRoundedValues = morpc.round_preserve_sum(rawValues, digits, verbose=True)
+```
+
+Raw values:
+
+
+```python
+rawValues.tolist()
+```
+
+Bucket-rounded values:
+
+
+```python
+bucketRoundedValues.tolist()
+```
+
+Sum of raw values:
+
+
+```python
+round(sum(rawValues))
+```
+
+Sum of bucket-rounded values:
+
+
+```python
+sum(bucketRoundedValues)
+```
+
+## Control variable to group
+
+Often we have a set of values representing the members of some group and we need the sum of those values to match a total for the group that was computed independently. Perhaps the best known example of this is the annual [population estimates for sub-county jurisdictions](https://github.com/morpc/morpc-popest).  The estimates for all of the jurisdictions in the county must total to the [county-level population estimates](https://github.com/morpc/morpc-popest-county), which are derived independently.  In this case the county (group) totals are known as the "control values" or "control totals" and the process of adjusting the sub-county (group member) values so that their total is equal to the control total is known as "controlling" the variable.  The process includes the following steps, which will be described in more detail below.
+
+  - Establish control values for the groups (e.g. the county-level estimnates in the example above)
+  - Create a series of grouped values to be controlled (e.g. the sub-county estimates)
+  - Control the values in each group to the control total.  This consists of three sub-parts:
+    - Compute group sums
+    - Compute group shares
+    - Compute controlled values
+  
+In the sections that follow, we'll look at a more contrived example, namely controlling the 2021 ACS 5-year estimates for county subdivisions to the 2020 decennial county populations. This is not a recommended application and is used only for the sake of convenience.
+
+### Establish control values for groups
+
+Download county populations from 2020 decennial census
+
+
+```python
+r = requests.get(
+    url="https://api.census.gov/data/2020/dec/dhc",
+    params={
+        "get":",".join(["P1_001N"]),
+        "for":"county:{}".format(",".join([x[2:] for x in countyLookup.list_ids()])),
+        "in": "state:39"
+        }
+)
+records = r.json()
+countyPop = pd.DataFrame.from_records(records[1:], columns=records[0])
+countyPop["C_GEOID"] = countyPop["state"] + countyPop["county"]
+countyPop = countyPop.loc[countyPop["county"].isin([x[2:] for x in countyLookup.list_ids()])].copy() \
+    .rename(columns={"P1_001N":"C_POP"}) \
+    .drop(columns={"state","county"}) \
+    .astype({"C_POP":"int"}) \
+    .set_index("C_GEOID")
+```
+
+Now we have the population for each county (indexed by their GEOIDs) which will serve as the control totals.
+
+
+```python
+countyPop.head()
+```
+
+### Create series of grouped values to be controlled
+
+Download sub-county populations from the 2021 ACS 5-year estimates
+
+
+```python
+r = requests.get(
+    url="https://api.census.gov/data/2021/acs/acs5",
+    params={
+        "get":",".join(["NAME","GEO_ID","B01001_001E","B01001_001M"]),
+        "for":"county subdivision:*",
+        "in": [
+            "state:39",
+            "county:{}".format(",".join([x[2:] for x in countyLookup.list_ids()])),
+        ]
+    }
+)
+records = r.json()
+subdivPop = pd.DataFrame.from_records(records[1:], columns=records[0])
+subdivPop = subdivPop \
+    .rename(columns={"GEO_ID":"GEOID","B01001_001E":"POP","B01001_001M":"POP_MOE"}) \
+    .astype({"POP":"int"}) \
+    .set_index("GEOID")
+subdivPop["C_GEOID"] = subdivPop["state"] + subdivPop["county"]
+```
+
+Now we have population estimates for the members of each group (county).  Note that the county GEOID (C_GEOID) has been assigned to each member record.  We'll use this to iterate through groups.
+
+
+```python
+subdivPop.head()
+```
+
+Note that the sums of the subdivision populations doesn't match the sum of the county populations. This is expected and it is the reason we need to control the subdivision values.
+
+
+```python
+subdivPop["POP"].sum()
+```
+
+
+```python
+countyPop["C_POP"].sum()
+```
+
+### Control the values in each group to the control total
+
+Recall that this step has three sub-parts:
+
+  1. Compute group sums (see `morpc.compute_group_sum()`)
+  2. Compute group shares (see `morpc.compute_group_share()`)
+  3. Compute controlled values (see `morpc.compute_controlled_values()`)
+
+The morpc-common library has a function for each of these steps as noted above, but it also has a high-level function that performs all three steps in sequence, namely `morpc.control_variable_to_group()`.  It requires the following inputs:
+
+  - `inputDf` is a pandas DataFrame with a column containing the group shares and (optionally) a column containg the group labels.
+  - `controlValues` is one of the following:
+      - If `groupbyField == None`: `controlValues` is a scalar number (integer or float)
+      - If `groupbyField != None`: `controlValues` is a pandas Series of numbers indexed by group labels
+  - `groupbyField` (optional) is the name of the column of `inputDf` that contains the group labels.
+  - `shareField` (optional) is the name of the column of `inputDf` containing the shares that the values comprise.  If this is not specified, "GROUP_SHARE" will be used.
+  - `roundPreserveSumDigits` (optional) is the number of decimal places that the scaled values (i.e. the values in the "CONTROLLED_VALUE" column) should be rounded to. A "bucket rounding" technique (see `morpc.round_preserve_sum()` will be used to ensure that the sum of the values in the group is preserved. If this is not specified, the scaled values will be left unrounded.
+
+This is what the function call looks like for our example case:
+
+
+```python
+subdivPopControlled = morpc.control_variable_to_group(inputDf=subdivPop, controlValues=countyPop["C_POP"], valueField="POP", groupbyField="C_GEOID", roundPreserveSumDigits=0)
+subdivPopControlled.head()
+```
+
+### Check the results
+
+Now the sum of our controlled values should match the county control totals.  We can see that this is true by comparing the "POP_SUM_CONTROLLED" columns (which the sum of "CONTROLLED_VALUE" by county) and the "C_POP" column (which is the county control total) and verifying that the two are equal for all records.
+
+
+```python
+subdivPopControlled[["C_GEOID","POP","CONTROLLED_VALUE"]] \
+    .groupby("C_GEOID").sum() \
+    .rename(columns={"POP":"POP_SUM","CONTROLLED_VALUE":"POP_SUM_CONTROLLED"}) \
+    .join(countyPop)
+```
+
+We may want to get a sense of how much adjustment of the sub-county values was required. To do this we can compute the difference between the controlled value and the original value and do some desriptive analysis.
+
+
+```python
+subdivPopControlled["RESIDUAL"] = subdivPopControlled["CONTROLLED_VALUE"] - subdivPopControlled["POP"]
+subdivPopControlled["RESIDUAL_PCT"] = subdivPopControlled["RESIDUAL"]/subdivPopControlled["POP"]
+subdivPopControlled["RESIDUAL_PCT"] = subdivPopControlled["RESIDUAL_PCT"].replace(np.inf, 0)
+subdivPopControlled["RESIDUAL_PCT"] = subdivPopControlled["RESIDUAL_PCT"].replace(-np.inf, 0)
+subdivPopControlled["RESIDUAL_PCT"] = subdivPopControlled["RESIDUAL_PCT"].fillna(0)
+```
+
+First we'll look at the stats for the raw residual.
+
+
+```python
+subdivPopControlled["RESIDUAL"].describe()
+```
+
+
+```python
+subdivPopControlled["RESIDUAL"].hist(bins=25, log=True)
+```
+
+The residual is close to zero in the vast majority of cases.  Let's look at the ten cases with the greatest residual.
+
+
+```python
+subdivPopControlled[["NAME","POP","CONTROLLED_VALUE","RESIDUAL","RESIDUAL_PCT"]].sort_values("RESIDUAL", ascending=False).head(10)
+```
+
+And the ten cases with the smallest residual (which could be large but negative)
+
+
+```python
+subdivPopControlled[["NAME","POP","CONTROLLED_VALUE","RESIDUAL","RESIDUAL_PCT"]].sort_values("RESIDUAL", ascending=False).tail(10)
+```
+
+The raw residual for Columbus was very large, but as a percentage it is not that bad.  Let's look at the stats for the percentages.
+
+
+```python
+subdivPopControlled["RESIDUAL_PCT"].describe()
+```
+
+
+```python
+subdivPopControlled["RESIDUAL_PCT"].hist(bins=25)
+```
+
+
+```python
+subdivPopControlled[["NAME","POP","CONTROLLED_VALUE","RESIDUAL","RESIDUAL_PCT"]].sort_values("RESIDUAL_PCT", ascending=False).head(10)
+```
+
+
+```python
+subdivPopControlled[["NAME","POP","CONTROLLED_VALUE","RESIDUAL","RESIDUAL_PCT"]].sort_values("RESIDUAL_PCT", ascending=False).tail(10)
+```
+
+# Frictionless
+
+
+```python
+
+```
