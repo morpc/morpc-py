@@ -7,7 +7,19 @@
 #
 # Returns:
 #   - MD5 checksum for the file
+
+
+
 def md5(fname):
+    """
+    md5() computes the MD5 checksum for a file.  When the original checksum is known, the current checksum can be compared to it to determine whether the file has changed.
+
+    Input parameters:
+      - fname is a string representing the path to the file for which the checksum is to be computed
+
+     Returns:
+       - MD5 checksum for the file
+    """
     import hashlib
     hash_md5 = hashlib.md5()
     with open(fname, "rb") as f:
@@ -619,3 +631,7 @@ def schema_from_avro(path):
     frictionlessSchema = frictionless.Schema.from_descriptor(frictionlessSchemaDescriptor)
     
     return frictionlessSchema
+
+# TODO: reinclude the geojson specific functions
+
+# TODO: reinclude the ArcGIS functions

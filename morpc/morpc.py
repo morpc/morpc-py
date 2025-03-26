@@ -511,6 +511,9 @@ class countyLookup():
     # Given a county name of a county, return its ID
     # NOTE: As of January 2024, this is not supported for scope="us"
     def get_id(self, name):
+        """
+        TODO: add docstring
+        """
         if(self.scope == "us"):
             print("ERROR: countyLookup.get_id is not supported for scope='us'")
             raise RuntimeError
@@ -520,6 +523,9 @@ class countyLookup():
     # Given the ID of a county, return its name
     # NOTE: As of January 2024, this is not supported for scope="us"
     def get_name(self, geoid):
+        """
+        TODO: add docstring
+        """
         if(self.scope == "us"):
             print("ERROR: countyLookup.get_name is not supported for scope='us'")
             raise RuntimeError
@@ -528,11 +534,17 @@ class countyLookup():
 
     # List the IDs of all counties in the user-specified scope
     def list_ids(self):
+        """
+        TODO: add docstring
+        """
         return self.df["GEOID"].to_list()
 
     # List the names of all counties in the user-specified scope
     # NOTE: As of January 2024, this is not supported for scope="us"       
     def list_names(self):
+        """
+        TODO: add docstring
+        """
         if(self.scope == "us"):
             print("ERROR: countyLookup.list_names is not supported for scope='us'")
             raise RuntimeError
@@ -962,6 +974,9 @@ def load_spatial_data(sourcePath, layerName=None, driverName=None, archiveDir=No
 # **NOTE:** Many of the geography levels are not currently implemented.  They are being implemented as they are needed.  If you need one
 # that has not yet been implemented, please contact Adam Porr (or implement it yourself).
 def assign_geo_identifiers(points, geographies):
+    """
+    TODO: add docstring
+    """
     import geopandas as gpd
 
  
@@ -1045,6 +1060,9 @@ def assign_geo_identifiers(points, geographies):
 # each of tens of thousands of individual GridMAZ does not accumulate and cause significant 
 # error for combined population of all GridMAZ.
 def round_preserve_sum(inputValues, digits=0, verbose=False):
+    """
+    TODO: add docstring
+    """
     import math
     import pandas as pd
 
@@ -1141,6 +1159,9 @@ def round_preserve_sum(inputValues, digits=0, verbose=False):
 # Optional: groupbyField is the name of the column of inputDf that contains the group 
 # labels.
 def compute_group_sum(inputDf, valueField=None, groupbyField=None):
+    """
+    TODO: add docstring
+    """
     import pandas as pd
 
     if(type(inputDf) != pd.core.frame.DataFrame):
@@ -1208,6 +1229,9 @@ def compute_group_sum(inputDf, valueField=None, groupbyField=None):
 # Optional: groupSumField is the name of the column of inputDf that contains the group 
 # sums. If this is not specified, the column "GROUP_SUM" will be used.
 def compute_group_share(inputDf, valueField, groupSumField="GROUP_SUM"):
+    """
+    TODO: add docstring
+    """
     import pandas as pd
 
     if(type(inputDf) != pd.core.frame.DataFrame):
@@ -1267,6 +1291,9 @@ def compute_group_share(inputDf, valueField, groupSumField="GROUP_SUM"):
 # technique will be used to ensure that the sum of the values in the group is preserved. If
 # this is not specified, the scaled values will be left unrounded.
 def compute_controlled_values(inputDf, controlValues, groupbyField=None, shareField="GROUP_SHARE", roundPreserveSumDigits=None):
+    """
+    TODO: add docstring
+    """
     import pandas as pd
 
     if(type(inputDf) != pd.core.frame.DataFrame):
@@ -1352,6 +1379,9 @@ def compute_controlled_values(inputDf, controlValues, groupbyField=None, shareFi
 # that the the share of each value in the group is preserved but they sum to the control total.  Put another way, scale all of the values
 # in a series uniformly such that the scaled values sum to an arbitrary value (the control total).
 def control_variable_to_group(inputDf, controlValues, valueField=None, groupbyField=None, roundPreserveSumDigits=None):
+    """
+    TODO: add docstring
+    """
     import pandas as pd
 
     if(type(inputDf) != pd.core.frame.DataFrame):
@@ -1422,6 +1452,9 @@ def control_variable_to_group(inputDf, controlValues, valueField=None, groupbyFi
 #       in the output.  In this case, the sum of group members in the output will not necessdarily sum to the 
 #       total population for each "this level" geography.
 def groupAssignmentRandom(inDf, budgetThisLevel, groupsNextLevel, firstRoundGroupsExcluded=None):
+    """
+    TODO: add docsting
+    """
     import pandas as pd
     import random
     
@@ -1494,7 +1527,9 @@ def recursiveUpdate(original, updates):
     return original
 
 def data_chart_to_excel(df, writer, sheet_name="Sheet1", chartType="column", dataOptions=None, chartOptions=None):
-    """Create an Excel worksheet consisting of the contents of a pandas dataframe (as a formatted table)
+    # TODO: simplify docstring
+    """
+    Create an Excel worksheet consisting of the contents of a pandas dataframe (as a formatted table)
     and, optionally, a chart to visualize the series included in the dataframe.  The simplest invocation
     will produce a table and a basic column (vertical bar) chart with default formatting that is consistent
     with MORPC branding guidelines, however the user can specify many of options supported by the xlsxwriter library 
