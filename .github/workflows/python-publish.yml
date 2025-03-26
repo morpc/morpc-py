@@ -28,7 +28,7 @@ jobs:
 
       - name: Build release distributions
         run: |
-          pip install build
+          pip3 install build
           python -m build
 
       - name: Upload distributions
