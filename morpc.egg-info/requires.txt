@@ -1,4 +1,3 @@
-json
 requests
 pandas
 geopandas
