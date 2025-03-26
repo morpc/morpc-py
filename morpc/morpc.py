@@ -5,6 +5,8 @@ import json
 ## Area
 CONST_SQFT_PER_ACRE = 43560  # Square feet per acre
 
+# TODO: add other conversion rates
+
 # Commonly used geographic identifiers
 # The following are assigned by the U.S. Census Bureau
 CONST_COLUMBUS_MSA_ID = '18140'
@@ -106,6 +108,8 @@ CONST_MORPC_COLORS = {
     "bluegreen": "#00b2bf",
     "midblue": "#2c6179"
 }
+
+# TODO: add more colors to the morpc specific color and define colors for plots
 
 CONST_COLOR_CYCLES = {
     "morpc": list(CONST_MORPC_COLORS.values()),
@@ -432,6 +436,9 @@ SUMLEVEL_DESCRIPTIONS = {
         "nameField":None
     },        
 }
+
+# TODO: include the following sumlevels
+
 # The following summary levels are not implemented as of November 2024
 # GRID1MILE
 # GRIDQUARTERMILE
@@ -458,7 +465,7 @@ HIERARCHY_STRING_LOOKUP = {key:value["hierarchy_string"] for key, value in zip(S
 # scope="corpo"     Loads only the counties in the CORPO region (see CONST_REGIONS['CORPO Region'] above)
 # scope="ohio"      Loads all counties in Ohio
 # scope="us"      Loads all counties in the United States
-# NOTE: As of Jan 2024, some methods are not supported for scope="us".  See details below.
+# TODO: As of Jan 2024, some methods are not supported for scope="us".  See details below.
 class countyLookup():
     def __init__(self, scope="morpc"):
         import json
