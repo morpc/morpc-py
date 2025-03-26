@@ -1,5 +1,3 @@
-import json
-
 # Conversion factors
 # The following constants represent commonly used conversion factors for various units of measure
 ## Area
