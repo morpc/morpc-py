@@ -37,3 +37,8 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.dynamic]
 version = {attr = "morpc.__version__"}
+
+[tool.setuptools.packages.find]
+where = ["morpc"]
+exclude = ["demo"] 
+namespaces = false
