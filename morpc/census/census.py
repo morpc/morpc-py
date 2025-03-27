@@ -331,12 +331,12 @@ def acs_generate_dimension_table(acsDataRaw, schema, idFields, dimensionNames):
     dimensionTable = dimensionTable \
         .drop(columns=idFields) \
         .melt(id_vars=["GEOID"], var_name="Variable", value_name='Value')
-    dimensionTable["description"] = dimensionTable["Variable"].map(morpc.frictionless_name_to_desc_map(schema))
+    dimensionTable["description"] = dimensionTable["Variable"].map(morpc.frictionless.name_to_desc_map(schema))
 
     # Split the description string into dimensions and drop the description.  Add a field annotating whether the variable is a margin of error or an estimate.  
     # Show example results for Franklin County so it is possible to get a sense of the dimensions.
     dimensionTable = dimensionTable \
-        .join(acs_label_to_dimensions(dimensionTable['description'], dimensionNames=dimensionNames), how="left") \
+        .join(morpc.census.acs_label_to_dimensions(dimensionTable['description'], dimensionNames=dimensionNames), how="left") \
         .drop(columns=["description"])
     dimensionTable["Variable type"] = dimensionTable["Variable"].apply(lambda x:("Estimate" if x[-1]=="E" else "MOE"))
 
