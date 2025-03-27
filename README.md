@@ -25,3 +25,7 @@ Install via pip.
 ```python
 import morpc
 ```
+
+## Demos
+
+See [demo] notebook for more information on features and functionality.
