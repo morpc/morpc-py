@@ -9,5 +9,7 @@ topics:
   selector: h2
 pages:
   items:
+    - name: Introduction
+      path: index
     - name: Demo
-      path: demo/index
+      path: demo/demo.md

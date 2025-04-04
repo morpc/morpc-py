@@ -1,6 +1,11 @@
+---
+topics:
+  selector: h2
+---
+
 # Demos of features of the morpc python package
 
-# Introduction
+## Introduction
 
 The MORPC data team maintains a package with contains commonly-used constants, mappings, and functions to allow for code-reuse in multiple scripts.  The package documentation and code is available at the [morpc-py](https://github.com/morpc/morpc-py) repository in GitHub.  
 
@@ -10,7 +15,7 @@ This package is still in development but will contain the following modules:
   - morpc.frictionless -  Functions and classes for working with metadata, including schemas, resources, and data packages. These are for internal processes that us the [frictionless-py](https://github.com/frictionlessdata/frictionless-py/tree/main) package. Frictionless was implemented roughly 2025 to manage all metadata and to develop workflow documentation. 
   - morpc.census - Constants and functions that are relevant when working with Census data, including decennial census, ACS, and PEP.
 
-# Installation
+## Installation
 
 Install via pip.
 
@@ -19,18 +24,18 @@ Install via pip.
 # !pip install morpc --upgrade
 ```
 
-## Import morpc package 
+### Import morpc package 
 
 
 ```python
 import morpc
 ```
 
-# Conversion factors
+## Conversion factors
 
 As of Jan 2024, the following commonly used conversion factors are available in the library. Review the https://github.com/morpc/morpc-py/blob/main/morpc/morpc.py to see if others are available.
 
-## Area
+### Area
 
 Square feet per acre
 
@@ -39,7 +44,7 @@ Square feet per acre
 morpc.CONST_SQFT_PER_ACRE
 ```
 
-## Region definitions
+### Region definitions
 
 The following lists represent various definitions for "Central Ohio" based on collections of counties.
 
@@ -50,7 +55,7 @@ for name in morpc.CONST_REGIONS.keys():
     print("Counties in region: {}\n".format(morpc.CONST_REGIONS[name]))
 ```
 
-## County three-letter abbreviations
+### County three-letter abbreviations
 
 Map each MORPC county name to its three-letter abbreviation.
 
@@ -98,7 +103,7 @@ print(morpc.CONST_COUNTY_ABBREV["Morrow"])
 print(morpc.CONST_COUNTY_EXPAND["MRW"])
 ```
 
-# County identifiers (GEOID)
+## County identifiers (GEOID)
 
 Map each MORPC county name to its five-character Census GEOID.  Note that the IDs are strings.  They are not integers and should not be handled as such.
 
@@ -114,7 +119,7 @@ Map each GEOID back to its county name.
 morpc.CONST_COUNTY_ID_TO_NAME
 ```
 
-# Summary level identifiers.
+## Summary level identifiers.
 
 Summary level lookups for geographic jurisdictions. The summary levels include the Census sumlevel numbers, as well as some morpc summary levels, beginning with "M"
 
@@ -128,9 +133,9 @@ morpc.SUMLEVEL_LOOKUP
 morpc.HIERARCHY_STRING_LOOKUP
 ```
 
-# countyLookup() Class 
+## countyLookup() Class 
 
-## List counties and convert between county names and codes (Central Ohio, Ohio, or U.S.)
+### List counties and convert between county names and codes (Central Ohio, Ohio, or U.S.)
 
 The library includes a Python class called `countyLookup`. Upon instantiation, this object is pre-loaded with a dataframe describing a set of counties whose scope is specified by the user.  The object includes methods for listing the counties by their names or GEOIDs and for two-way conversion between name and GEOID.
 
@@ -190,7 +195,7 @@ Or look up its name given its ID.
 countyLookup.get_name("39091")
 ```
 
-# varLookup() class
+## varLookup() class
 
 Standard variable lookup class
 
@@ -198,14 +203,14 @@ Reads the list of "standard" variables from a lookup table.  Provides dataframe 
 
 
 ```python
-## PLACEHOLDER FOR EXAMPLES
+### PLACEHOLDER FOR EXAMPLES
 ```
 
-# Write data and charts to Excel
+## Write data and charts to Excel
 
 Excel-based charts are exceptionally useful to our customers because they are easy for our customers to manipulate, style, and include in downstream products such as PowerPoint slides.  They are, however, inconvenient to product programmatically.  The following functions are intended to simplify the production of Excel-based charts that are consistent with MORPC branding and, eventually, with Data & Mapping visualization standards.
 
-### data_chart_to_excel( )
+#### data_chart_to_excel( )
 
 This function will create an Excel worksheet consisting of the contents of a pandas dataframe (as a formatted table) and, optionally, a chart to visualize the series included in the dataframe.  The simplest invocation will produce a table and a basic column (vertical bar) chart with default formatting that is consistent with MORPC branding guidelines, however the user can specify many of options supported by the xlsxwriter library (https://xlsxwriter.readthedocs.io/).
 
@@ -228,7 +233,7 @@ Next create an Excel object using the xlsxwriter package.  The object is linked 
 
 
 ```python
-# Create a directory to store the output (for demonstration purposes only)
+## Create a directory to store the output (for demonstration purposes only)
 if not os.path.exists("./temp_data"):
     os.makedirs("./temp_data")
 
@@ -414,7 +419,7 @@ Let's take another look, this time symbolizing each library according to the pla
 librariesEnriched.explore(column="id_place", style_kwds={"radius":4}, legend=False)
 ```
 
-# morpc.frictionless - Schema tools (TableSchema)
+## morpc.frictionless - Schema tools (TableSchema)
 
 As of January 2024 the Data Team is considering a new standard for machine-readable metadata, namely [TableSchema](https://specs.frictionlessdata.io/table-schema/).  TableSchema is a schema for tabular formats that includes many of the features for Avro (see above) plus rich types and constraints. TableSchema is supported in [Python](https://pypi.org/project/tableschema/) and [R](https://www.rdocumentation.org/packages/tableschema.r/), and the libraries include many utilty functions.
 
@@ -502,7 +507,7 @@ resource
 schema
 ```
 
-# Branding
+## Branding
 
 The library includes the hex codes the MORPC brand colors and provides assigns of human-readable names to make the colors easier to work with.
 
@@ -522,7 +527,7 @@ outputString += "</table>"
 display(IPython.display.HTML(outputString))
 ```
 
-# Round preserving sum (aka "bucket rounding")
+## Round preserving sum (aka "bucket rounding")
 
 Imagine we have a series of values that need to be rounded, but we want the rounded values to sum to the same value as the original series.  Create a random series for demonstration purposes.
 
@@ -574,7 +579,7 @@ Sum of bucket-rounded values:
 sum(bucketRoundedValues)
 ```
 
-# Control variable to group
+## Control variable to group
 
 Often we have a set of values representing the members of some group and we need the sum of those values to match a total for the group that was computed independently. Perhaps the best known example of this is the annual [population estimates for sub-county jurisdictions](https://github.com/morpc/morpc-popest).  The estimates for all of the jurisdictions in the county must total to the [county-level population estimates](https://github.com/morpc/morpc-popest-county), which are derived independently.  In this case the county (group) totals are known as the "control values" or "control totals" and the process of adjusting the sub-county (group member) values so that their total is equal to the control total is known as "controlling" the variable.  The process includes the following steps, which will be described in more detail below.
 
@@ -760,7 +765,7 @@ subdivPopControlled[["NAME","POP","CONTROLLED_VALUE","RESIDUAL","RESIDUAL_PCT"]]
 subdivPopControlled[["NAME","POP","CONTROLLED_VALUE","RESIDUAL","RESIDUAL_PCT"]].sort_values("RESIDUAL_PCT", ascending=False).tail(10)
 ```
 
-# morpc.census
+## morpc.census
 
 MORPC works regularly with census data, including but not limited to ACS 5 and 1-year, Decennial Census, PEP, and geographies. The following module is useful for gathering and organizing census data for processes in various workflow. Those workflows are linked when appropriate. 
 
@@ -1090,7 +1095,7 @@ dim_table.loc[dim_table['Variable type'] == 'Estimate'].head()
 
 
 
-# Schema tools (Apache Avro format) - DEPRECIATED
+## Schema tools (Apache Avro format) - DEPRECIATED
 
 **DEPRECATION WARNING**:  As of January 2024 the Data Team is considering a new standard for machine-readable metadata, namely TableSchema (see below).  Code that makes use of the features described in this section will likely need to be updated to make use of the new standard when it is adopted. Use discretion when making use of these features.
 
