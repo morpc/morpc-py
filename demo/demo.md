@@ -5,32 +5,6 @@ topics:
 
 # Demos of features of the morpc python package
 
-## Introduction
-
-The MORPC data team maintains a package with contains commonly-used constants, mappings, and functions to allow for code-reuse in multiple scripts.  The package documentation and code is available at the [morpc-py](https://github.com/morpc/morpc-py) repository in GitHub.  
-
-This package is still in development but will contain the following modules:
-
-  - morpc - Main library.  Includes contents which are broadly applicable for MORPC's work, including MORPC branding, region definitions and utilities, and general purpose data manipulation functions.
-  - morpc.frictionless -  Functions and classes for working with metadata, including schemas, resources, and data packages. These are for internal processes that us the [frictionless-py](https://github.com/frictionlessdata/frictionless-py/tree/main) package. Frictionless was implemented roughly 2025 to manage all metadata and to develop workflow documentation. 
-  - morpc.census - Constants and functions that are relevant when working with Census data, including decennial census, ACS, and PEP.
-
-## Installation
-
-Install via pip.
-
-
-```python
-# !pip install morpc --upgrade
-```
-
-### Import morpc package 
-
-
-```python
-import morpc
-```
-
 ## Conversion factors
 
 As of Jan 2024, the following commonly used conversion factors are available in the library. Review the https://github.com/morpc/morpc-py/blob/main/morpc/morpc.py to see if others are available.

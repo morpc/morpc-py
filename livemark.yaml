@@ -12,4 +12,8 @@ pages:
     - name: Introduction
       path: index
     - name: Demo
-      path: demo/demo.md
+      path: demo/demo
+redirect:
+  items:
+    - prev: index
+      next: demo/
