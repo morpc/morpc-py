@@ -1038,7 +1038,7 @@ def assign_geo_identifiers(points, geographies):
             raise RuntimeError
         
         # Read the polygon data
-        r = requests(filePath, header = {"User-Agent": "Firefox"})
+        r = requests.get(filePath, header = {"User-Agent": "Firefox"})
         polys = pyogrio.read_dataframe(BytesIO(r.content))
         # polys = gpd.read_file(filePath, layer=layerName, driver=driverName) # Return 403 due to changes in Census website
 
