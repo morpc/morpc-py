@@ -978,6 +978,7 @@ def assign_geo_identifiers(points, geographies):
     TODO: add docstring
     """
     import geopandas as gpd
+    import pyogrio
     import requests
     from io import BytesIO
 
