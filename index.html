@@ -1,0 +1,2209 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="The MORPC data team maintains a package with contains commonly-used constants, mappings, and functions to allow for code-reuse in multiple scripts.  The package documentation and code is available at the  morpc-py  repository in GitHub.">
+<meta name="keywords" content="morpc,python,package">
+<link rel="icon" href="None">
+<title>MORPC Python package | MORPC</title>
+<link rel="stylesheet" href="https://unpkg.com/@fortawesome/fontawesome-free@5.15.4/css/all.min.css">
+<link rel="stylesheet" href="https://unpkg.com/bootstrap@4.6.0/dist/css/bootstrap.min.css">
+<link rel="stylesheet" href="https://unpkg.com/prismjs@1.23.0/themes/prism.css">
+<style>
+
+@import url('https://fonts.googleapis.com/css2?family=Roboto&display=swap');
+
+/* Base */
+
+html {
+  font-family: sans-serif;
+  line-height: 1.15;
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
+}
+
+body {
+  margin: 0;
+  font-family: Roboto, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, "Noto Sans", "Liberation Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.5;
+  color: #222;
+  text-align: left;
+  background-color: #fff;
+}
+
+*,
+::after,
+::before {
+	box-sizing: border-box;
+}
+
+ul,
+ol {
+	margin-top: 0;
+	margin-bottom: 1rem;
+}
+
+a {
+	color: #007bff;
+	text-decoration: none;
+	background-color: transparent;
+}
+
+a:hover {
+	color: #0056b3;
+	text-decoration: underline;
+}
+
+hr {
+  box-sizing: content-box;
+  height: 0;
+  overflow: visible;
+}
+
+p {
+  margin-top: 0;
+  margin-bottom: 1rem;
+}
+
+/* Main */
+
+#livemark-main {
+  padding: 24px 20px;
+  min-height: 100vh;
+}
+
+#livemark-main h1 {
+  margin-top: 4px !important;
+  padding-bottom: 12px !important;
+}
+
+#livemark-main h1 a.heading,
+#livemark-main h2 a.heading,
+#livemark-main h3 a.heading,
+#livemark-main h4 a.heading,
+#livemark-main h5 a.heading,
+#livemark-main h6 a.heading {
+  display: none;
+}
+
+#livemark-main h2:hover a.heading,
+#livemark-main h3:hover a.heading,
+#livemark-main h4:hover a.heading,
+#livemark-main h5:hover a.heading,
+#livemark-main h6:hover a.heading {
+  display: inline;
+  margin-left: 8px;
+  color: #aaa;
+  font-weight: normal;
+  text-decoration: none;
+}
+
+#livemark-main h2 a.heading:hover,
+#livemark-main h3 a.heading:hover,
+#livemark-main h4 a.heading:hover,
+#livemark-main h5 a.heading:hover,
+#livemark-main h6 a.heading:hover {
+  text-decoration: underline;
+}
+
+@media only screen and (min-width: 768px) {
+  #livemark-main {
+    margin-left: 300px;
+    border-left: dashed 1px #ccc;
+  }
+}
+
+@media only screen and (min-width: 992px) {
+  #livemark-main {
+    margin-right: 300px;
+    border-right: dashed 1px #ccc;
+  }
+}
+
+#livemark-main .octicon {
+  display: inline-block;
+  fill: currentColor;
+  vertical-align: text-bottom;
+}
+
+#livemark-main .anchor {
+  float: left;
+  line-height: 1;
+  margin-left: -20px;
+  padding-right: 4px;
+}
+
+#livemark-main .anchor:focus {
+  outline: none;
+}
+
+#livemark-main h1 .octicon-link,
+#livemark-main h2 .octicon-link,
+#livemark-main h3 .octicon-link,
+#livemark-main h4 .octicon-link,
+#livemark-main h5 .octicon-link,
+#livemark-main h6 .octicon-link {
+  color: #1b1f23;
+  vertical-align: middle;
+  visibility: hidden;
+}
+
+#livemark-main h1:hover .anchor,
+#livemark-main h2:hover .anchor,
+#livemark-main h3:hover .anchor,
+#livemark-main h4:hover .anchor,
+#livemark-main h5:hover .anchor,
+#livemark-main h6:hover .anchor {
+  text-decoration: none;
+}
+
+#livemark-main h1:hover .anchor .octicon-link,
+#livemark-main h2:hover .anchor .octicon-link,
+#livemark-main h3:hover .anchor .octicon-link,
+#livemark-main h4:hover .anchor .octicon-link,
+#livemark-main h5:hover .anchor .octicon-link,
+#livemark-main h6:hover .anchor .octicon-link {
+  visibility: visible;
+}
+
+#livemark-main h1:hover .anchor .octicon-link:before,
+#livemark-main h2:hover .anchor .octicon-link:before,
+#livemark-main h3:hover .anchor .octicon-link:before,
+#livemark-main h4:hover .anchor .octicon-link:before,
+#livemark-main h5:hover .anchor .octicon-link:before,
+#livemark-main h6:hover .anchor .octicon-link:before {
+  width: 16px;
+  height: 16px;
+  content: ' ';
+  display: inline-block;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' version='1.1' width='16' height='16' aria-hidden='true'%3E%3Cpath fill-rule='evenodd' d='M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z'%3E%3C/path%3E%3C/svg%3E");
+}
+
+#livemark-main {
+  -ms-text-size-adjust: 100%;
+  -webkit-text-size-adjust: 100%;
+  line-height: 1.5;
+  color: #222;
+  font-family: Roboto, system-ui, -apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif,Apple Color Emoji,Segoe UI Emoji;
+  line-height: 1.5;
+  word-wrap: break-word;
+}
+
+#livemark-main details {
+  display: block;
+}
+
+#livemark-main summary {
+  display: list-item;
+}
+
+#livemark-main a {
+  background-color: initial;
+}
+
+#livemark-main a:active,
+#livemark-main a:hover {
+  outline-width: 0;
+}
+
+#livemark-main strong {
+  font-weight: inherit;
+  font-weight: bolder;
+}
+
+#livemark-main h1 {
+  font-size: 2em;
+  margin: .67em 0;
+}
+
+#livemark-main img {
+  border-style: none;
+}
+
+#livemark-main code,
+#livemark-main kbd,
+#livemark-main pre {
+  font-family: monospace,monospace;
+  font-size: 1em;
+}
+
+#livemark-main hr {
+  box-sizing: initial;
+  height: 0;
+  overflow: visible;
+}
+
+#livemark-main input {
+  font: inherit;
+  margin: 0;
+}
+
+#livemark-main input {
+  overflow: visible;
+}
+
+#livemark-main [type=checkbox] {
+  box-sizing: border-box;
+  padding: 0;
+}
+
+#livemark-main * {
+  box-sizing: border-box;
+}
+
+#livemark-main input {
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+}
+
+#livemark-main a {
+  color: #0366d6;
+  text-decoration: none;
+}
+
+#livemark-main a:hover {
+  text-decoration: underline;
+}
+
+#livemark-main strong {
+  font-weight: 600;
+}
+
+#livemark-main hr {
+  height: 0;
+  margin: 15px 0;
+  overflow: hidden;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid #dfe2e5;
+}
+
+#livemark-main hr:after,
+#livemark-main hr:before {
+  display: table;
+  content: "";
+}
+
+#livemark-main hr:after {
+  clear: both;
+}
+
+/* NOTE: is it possible to find a better fix for not breaking TablePlugin's styles? */
+#livemark-main table:not(.dataTable) {
+  border-spacing: 0;
+  border-collapse: collapse;
+}
+
+#livemark-main td,
+#livemark-main th {
+  padding: 0;
+}
+
+#livemark-main details summary {
+  cursor: pointer;
+}
+
+#livemark-main kbd {
+  display: inline-block;
+  padding: 3px 5px;
+  font: 11px SFMono-Regular,Consolas,Liberation Mono,Menlo,monospace;
+  line-height: 10px;
+  color: #444d56;
+  vertical-align: middle;
+  background-color: #fafbfc;
+  border: 1px solid #d1d5da;
+  border-radius: 3px;
+  box-shadow: inset 0 -1px 0 #d1d5da;
+}
+
+#livemark-main h1,
+#livemark-main h2,
+#livemark-main h3,
+#livemark-main h4,
+#livemark-main h5,
+#livemark-main h6 {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+#livemark-main h1 {
+  font-size: 32px;
+}
+
+#livemark-main h1,
+#livemark-main h2 {
+  font-weight: 600;
+}
+
+#livemark-main h2 {
+  font-size: 24px;
+}
+
+#livemark-main h3 {
+  font-size: 20px;
+}
+
+#livemark-main h3,
+#livemark-main h4 {
+  font-weight: 600;
+}
+
+#livemark-main h4 {
+  font-size: 16px;
+}
+
+#livemark-main h5 {
+  font-size: 14px;
+}
+
+#livemark-main h5,
+#livemark-main h6 {
+  font-weight: 600;
+}
+
+#livemark-main h6 {
+  font-size: 12px;
+}
+
+#livemark-main p {
+  margin-top: 0;
+  margin-bottom: 10px;
+}
+
+#livemark-main blockquote {
+  margin: 0;
+}
+
+#livemark-main ol,
+#livemark-main ul {
+  padding-left: 0;
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+#livemark-main ol ol,
+#livemark-main ul ol {
+  list-style-type: lower-roman;
+}
+
+#livemark-main ol ol ol,
+#livemark-main ol ul ol,
+#livemark-main ul ol ol,
+#livemark-main ul ul ol {
+  list-style-type: lower-alpha;
+}
+
+#livemark-main dd {
+  margin-left: 0;
+}
+
+#livemark-main code,
+#livemark-main pre {
+  font-family: SFMono-Regular,Consolas,Liberation Mono,Menlo,monospace;
+  font-size: 12px;
+}
+
+#livemark-main pre {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+#livemark-main input::-webkit-inner-spin-button,
+#livemark-main input::-webkit-outer-spin-button {
+  margin: 0;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+#livemark-main :checked+.radio-label {
+  position: relative;
+  z-index: 1;
+  border-color: #0366d6;
+}
+
+#livemark-main .border {
+  border: 1px solid #e1e4e8!important;
+}
+
+#livemark-main .border-0 {
+  border: 0!important;
+}
+
+#livemark-main .border-bottom {
+  border-bottom: 1px solid #e1e4e8!important;
+}
+
+#livemark-main .rounded-1 {
+  border-radius: 3px!important;
+}
+
+#livemark-main .bg-white {
+  background-color: #fff!important;
+}
+
+#livemark-main .bg-gray-light {
+  background-color: #fafbfc!important;
+}
+
+#livemark-main .text-gray-light {
+  color: #666!important;
+}
+
+#livemark-main .mb-0 {
+  margin-bottom: 0!important;
+}
+
+#livemark-main .my-2 {
+  margin-top: 8px!important;
+  margin-bottom: 8px!important;
+}
+
+#livemark-main .pl-0 {
+  padding-left: 0!important;
+}
+
+#livemark-main .py-0 {
+  padding-top: 0!important;
+  padding-bottom: 0!important;
+}
+
+#livemark-main .pl-1 {
+  padding-left: 4px!important;
+}
+
+#livemark-main .pl-2 {
+  padding-left: 8px!important;
+}
+
+#livemark-main .py-2 {
+  padding-top: 8px!important;
+  padding-bottom: 8px!important;
+}
+
+#livemark-main .pl-3,
+#livemark-main .px-3 {
+  padding-left: 16px!important;
+}
+
+#livemark-main .px-3 {
+  padding-right: 16px!important;
+}
+
+#livemark-main .pl-4 {
+  padding-left: 24px!important;
+}
+
+#livemark-main .pl-5 {
+  padding-left: 32px!important;
+}
+
+#livemark-main .pl-6 {
+  padding-left: 40px!important;
+}
+
+#livemark-main .f6 {
+  font-size: 12px!important;
+}
+
+#livemark-main .lh-condensed {
+  line-height: 1.25!important;
+}
+
+#livemark-main .text-bold {
+  font-weight: 600!important;
+}
+
+#livemark-main .pl-c {
+  color: #666;
+}
+
+#livemark-main .pl-c1,
+#livemark-main .pl-s .pl-v {
+  color: #005cc5;
+}
+
+#livemark-main .pl-e,
+#livemark-main .pl-en {
+  color: #6f42c1;
+}
+
+#livemark-main .pl-s .pl-s1,
+#livemark-main .pl-smi {
+  color: #222;
+}
+
+#livemark-main .pl-ent {
+  color: #22863a;
+}
+
+#livemark-main .pl-k {
+  color: #d73a49;
+}
+
+#livemark-main .pl-pds,
+#livemark-main .pl-s,
+#livemark-main .pl-s .pl-pse .pl-s1,
+#livemark-main .pl-sr,
+#livemark-main .pl-sr .pl-cce,
+#livemark-main .pl-sr .pl-sra,
+#livemark-main .pl-sr .pl-sre {
+  color: #032f62;
+}
+
+#livemark-main .pl-smw,
+#livemark-main .pl-v {
+  color: #e36209;
+}
+
+#livemark-main .pl-bu {
+  color: #b31d28;
+}
+
+#livemark-main .pl-ii {
+  color: #fafbfc;
+  background-color: #b31d28;
+}
+
+#livemark-main .pl-c2 {
+  color: #fafbfc;
+  background-color: #d73a49;
+}
+
+#livemark-main .pl-c2:before {
+  content: "^M";
+}
+
+#livemark-main .pl-sr .pl-cce {
+  font-weight: 700;
+  color: #22863a;
+}
+
+#livemark-main .pl-ml {
+  color: #735c0f;
+}
+
+#livemark-main .pl-mh,
+#livemark-main .pl-mh .pl-en,
+#livemark-main .pl-ms {
+  font-weight: 700;
+  color: #005cc5;
+}
+
+#livemark-main .pl-mi {
+  font-style: italic;
+  color: #222;
+}
+
+#livemark-main .pl-mb {
+  font-weight: 700;
+  color: #222;
+}
+
+#livemark-main .pl-md {
+  color: #b31d28;
+  background-color: #ffeef0;
+}
+
+#livemark-main .pl-mi1 {
+  color: #22863a;
+  background-color: #f0fff4;
+}
+
+#livemark-main .pl-mc {
+  color: #e36209;
+  background-color: #ffebda;
+}
+
+#livemark-main .pl-mi2 {
+  color: #f6f8fa;
+  background-color: #005cc5;
+}
+
+#livemark-main .pl-mdr {
+  font-weight: 700;
+  color: #6f42c1;
+}
+
+#livemark-main .pl-ba {
+  color: #586069;
+}
+
+#livemark-main .pl-sg {
+  color: #959da5;
+}
+
+#livemark-main .pl-corl {
+  text-decoration: underline;
+  color: #032f62;
+}
+
+#livemark-main .mb-0 {
+  margin-bottom: 0!important;
+}
+
+#livemark-main .my-2 {
+  margin-bottom: 8px!important;
+}
+
+#livemark-main .my-2 {
+  margin-top: 8px!important;
+}
+
+#livemark-main .pl-0 {
+  padding-left: 0!important;
+}
+
+#livemark-main .py-0 {
+  padding-top: 0!important;
+  padding-bottom: 0!important;
+}
+
+#livemark-main .pl-1 {
+  padding-left: 4px!important;
+}
+
+#livemark-main .pl-2 {
+  padding-left: 8px!important;
+}
+
+#livemark-main .py-2 {
+  padding-top: 8px!important;
+  padding-bottom: 8px!important;
+}
+
+#livemark-main .pl-3 {
+  padding-left: 16px!important;
+}
+
+#livemark-main .pl-4 {
+  padding-left: 24px!important;
+}
+
+#livemark-main .pl-5 {
+  padding-left: 32px!important;
+}
+
+#livemark-main .pl-6 {
+  padding-left: 40px!important;
+}
+
+#livemark-main .pl-7 {
+  padding-left: 48px!important;
+}
+
+#livemark-main .pl-8 {
+  padding-left: 64px!important;
+}
+
+#livemark-main .pl-9 {
+  padding-left: 80px!important;
+}
+
+#livemark-main .pl-10 {
+  padding-left: 96px!important;
+}
+
+#livemark-main .pl-11 {
+  padding-left: 112px!important;
+}
+
+#livemark-main .pl-12 {
+  padding-left: 128px!important;
+}
+
+#livemark-main hr {
+  border-bottom-color: #eee;
+}
+
+#livemark-main kbd {
+  display: inline-block;
+  padding: 3px 5px;
+  font: 11px SFMono-Regular,Consolas,Liberation Mono,Menlo,monospace;
+  line-height: 10px;
+  color: #444d56;
+  vertical-align: middle;
+  background-color: #fafbfc;
+  border: 1px solid #d1d5da;
+  border-radius: 3px;
+  box-shadow: inset 0 -1px 0 #d1d5da;
+}
+
+#livemark-main:after,
+#livemark-main:before {
+  display: table;
+  content: "";
+}
+
+#livemark-main:after {
+  clear: both;
+}
+
+#livemark-main a:not([href]) {
+  color: inherit;
+  text-decoration: none;
+}
+
+#livemark-main blockquote,
+#livemark-main details,
+#livemark-main dl,
+#livemark-main ol,
+#livemark-main p,
+#livemark-main pre,
+#livemark-main table:not(.dataTable),
+#livemark-main ul {
+  margin-top: 0;
+  margin-bottom: 16px;
+}
+
+#livemark-main hr {
+  /* height: .25em; */
+  height: 1px;
+  padding: 0;
+  margin: 24px 0;
+  background-color: #e1e4e8;
+  border: 0;
+}
+
+#livemark-main blockquote {
+  padding: 0 1em;
+  color: #666;
+  border-left: .25em solid #dfe2e5;
+}
+
+#livemark-main blockquote>:first-child {
+  margin-top: 0;
+}
+
+#livemark-main blockquote>:last-child {
+  margin-bottom: 0;
+}
+
+#livemark-main h1,
+#livemark-main h2,
+#livemark-main h3,
+#livemark-main h4,
+#livemark-main h5,
+#livemark-main h6 {
+  margin-top: 24px;
+  margin-bottom: 16px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+#livemark-main h1 {
+  font-size: 2em;
+}
+
+#livemark-main h1,
+#livemark-main h2 {
+  padding-bottom: .3em;
+  border-bottom: 1px solid #eaecef;
+}
+
+#livemark-main h2 {
+  font-size: 1.5em;
+}
+
+#livemark-main h3 {
+  font-size: 1.25em;
+}
+
+#livemark-main h4 {
+  font-size: 1em;
+}
+
+#livemark-main h5 {
+  font-size: .875em;
+}
+
+#livemark-main h6 {
+  font-size: .85em;
+  color: #666;
+}
+
+#livemark-main ol,
+#livemark-main ul {
+  padding-left: 2em;
+}
+
+#livemark-main ol ol,
+#livemark-main ol ul,
+#livemark-main ul ol,
+#livemark-main ul ul {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+#livemark-main li {
+  word-wrap: break-all;
+}
+
+#livemark-main li>p {
+  margin-top: 16px;
+}
+
+#livemark-main li+li {
+  margin-top: .25em;
+}
+
+#livemark-main dl {
+  padding: 0;
+}
+
+#livemark-main dl dt {
+  padding: 0;
+  margin-top: 16px;
+  font-size: 1em;
+  font-style: italic;
+  font-weight: 600;
+}
+
+#livemark-main dl dd {
+  padding: 0 16px;
+  margin-bottom: 16px;
+}
+
+#livemark-main table:not(.dataTable) {
+  display: block;
+  width: 100%;
+  overflow: auto;
+}
+
+#livemark-main table:not(.dataTable) th {
+  font-weight: 600;
+}
+
+#livemark-main table:not(.dataTable) td,
+#livemark-main table:not(.dataTable) th {
+  padding: 6px 13px;
+  border: 1px solid #dfe2e5;
+}
+
+#livemark-main table:not(.dataTable) tr {
+  background-color: #fff;
+  border-top: 1px solid #c6cbd1;
+}
+
+#livemark-main table:not(.dataTable) tr:nth-child(2n) {
+  background-color: #f6f8fa;
+}
+
+#livemark-main img {
+  max-width: 100%;
+  box-sizing: initial;
+  background-color: #fff;
+}
+
+#livemark-main img[align=right] {
+  padding-left: 20px;
+}
+
+#livemark-main img[align=left] {
+  padding-right: 20px;
+}
+
+#livemark-main code {
+  padding: .2em .4em;
+  margin: 0;
+  font-size: 85%;
+  background-color: rgba(27,31,35,.05);
+  border-radius: 3px;
+}
+
+#livemark-main pre {
+  word-wrap: normal;
+}
+
+#livemark-main pre>code {
+  padding: 0;
+  margin: 0;
+  font-size: 100%;
+  word-break: normal;
+  white-space: pre;
+  background: transparent;
+  border: 0;
+}
+
+#livemark-main .highlight {
+  margin-bottom: 16px;
+}
+
+#livemark-main .highlight pre {
+  margin-bottom: 0;
+  word-break: normal;
+}
+
+#livemark-main .highlight pre,
+#livemark-main pre {
+  padding: 16px;
+  overflow: auto;
+  font-size: 85%;
+  line-height: 1.45;
+  background-color: #f6f8fa;
+  border-radius: 3px;
+}
+
+#livemark-main pre code {
+  display: inline;
+  max-width: auto;
+  padding: 0;
+  margin: 0;
+  overflow: visible;
+  line-height: inherit;
+  word-wrap: normal;
+  background-color: initial;
+  border: 0;
+}
+
+#livemark-main .commit-tease-sha {
+  display: inline-block;
+  font-family: SFMono-Regular,Consolas,Liberation Mono,Menlo,monospace;
+  font-size: 90%;
+  color: #444d56;
+}
+
+#livemark-main .full-commit .btn-outline:not(:disabled):hover {
+  color: #005cc5;
+  border-color: #005cc5;
+}
+
+#livemark-main .blob-wrapper {
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+#livemark-main .blob-wrapper-embedded {
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+#livemark-main .blob-num {
+  width: 1%;
+  min-width: 50px;
+  padding-right: 10px;
+  padding-left: 10px;
+  font-family: SFMono-Regular,Consolas,Liberation Mono,Menlo,monospace;
+  font-size: 12px;
+  line-height: 20px;
+  color: rgba(27,31,35,.3);
+  text-align: right;
+  white-space: nowrap;
+  vertical-align: top;
+  cursor: pointer;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+#livemark-main .blob-num:hover {
+  color: rgba(27,31,35,.6);
+}
+
+#livemark-main .blob-num:before {
+  content: attr(data-line-number);
+}
+
+#livemark-main .blob-code {
+  position: relative;
+  padding-right: 10px;
+  padding-left: 10px;
+  line-height: 20px;
+  vertical-align: top;
+}
+
+#livemark-main .blob-code-inner {
+  overflow: visible;
+  font-family: SFMono-Regular,Consolas,Liberation Mono,Menlo,monospace;
+  font-size: 12px;
+  color: #222;
+  word-wrap: normal;
+  white-space: pre;
+}
+
+#livemark-main .pl-token.active,
+#livemark-main .pl-token:hover {
+  cursor: pointer;
+  background: #ffea7f;
+}
+
+#livemark-main .tab-size[data-tab-size="1"] {
+  -moz-tab-size: 1;
+  tab-size: 1;
+}
+
+#livemark-main .tab-size[data-tab-size="2"] {
+  -moz-tab-size: 2;
+  tab-size: 2;
+}
+
+#livemark-main .tab-size[data-tab-size="3"] {
+  -moz-tab-size: 3;
+  tab-size: 3;
+}
+
+#livemark-main .tab-size[data-tab-size="4"] {
+  -moz-tab-size: 4;
+  tab-size: 4;
+}
+
+#livemark-main .tab-size[data-tab-size="5"] {
+  -moz-tab-size: 5;
+  tab-size: 5;
+}
+
+#livemark-main .tab-size[data-tab-size="6"] {
+  -moz-tab-size: 6;
+  tab-size: 6;
+}
+
+#livemark-main .tab-size[data-tab-size="7"] {
+  -moz-tab-size: 7;
+  tab-size: 7;
+}
+
+#livemark-main .tab-size[data-tab-size="8"] {
+  -moz-tab-size: 8;
+  tab-size: 8;
+}
+
+#livemark-main .tab-size[data-tab-size="9"] {
+  -moz-tab-size: 9;
+  tab-size: 9;
+}
+
+#livemark-main .tab-size[data-tab-size="10"] {
+  -moz-tab-size: 10;
+  tab-size: 10;
+}
+
+#livemark-main .tab-size[data-tab-size="11"] {
+  -moz-tab-size: 11;
+  tab-size: 11;
+}
+
+#livemark-main .tab-size[data-tab-size="12"] {
+  -moz-tab-size: 12;
+  tab-size: 12;
+}
+
+#livemark-main .task-list-item {
+  list-style-type: none;
+}
+
+#livemark-main .task-list-item+.task-list-item {
+  margin-top: 3px;
+}
+
+#livemark-main .task-list-item input {
+  margin: 0 .2em .25em -1.6em;
+  vertical-align: middle;
+}
+
+/* Left */
+
+#livemark-left {
+  visibility: hidden;
+  position: fixed;
+  width: 300px;
+  padding: 10px 40px;
+  padding-bottom: 100px;
+  left: 0px;
+  top: 25px;
+  font-size: 125%;
+  height: 100vh;
+  overflow-y: auto;
+  scrollbar-width: none;  /* Firefox */
+  -ms-overflow-style: none;  /* Internet Explorer 10+ */
+}
+
+/* NOTE: we need to move it to DisplayPlugin (currently unsetting doesn't work) */
+body:not(.with-readability) #livemark-left::-webkit-scrollbar {
+  display: none; /* Chrome; Safari */
+}
+
+#livemark-left > div:not(:last-child) {
+  border-bottom: 1px solid #eaecef;
+  padding-bottom: 15px;
+  margin-bottom: 15px;
+}
+
+@media only screen and (min-width: 768px) {
+  #livemark-left {
+    visibility: visible;
+  }
+}
+
+/* Right */
+
+#livemark-right {
+  visibility: hidden;
+  position: fixed;
+  width: 300px;
+  padding: 10px 40px;
+  padding-bottom: 100px;
+  right: 0px;
+  top: 25px;
+  font-size: 125%;
+  height: 100vh;
+  overflow-y: auto;
+  scrollbar-width: none;  /* Firefox */
+  -ms-overflow-style: none;  /* Internet Explorer 10+ */
+}
+
+/* NOTE: we need to move it to DisplayPlugin (currently unsetting doesn't work) */
+body:not(.with-readability) #livemark-right::-webkit-scrollbar {
+  display: none; /* Chrome; Safari */
+}
+
+#livemark-right > div:not(:last-child) {
+  border-bottom: 1px solid #eaecef;
+  padding-bottom: 15px;
+  margin-bottom: 15px;
+}
+
+@media only screen and (min-width: 992px) {
+  #livemark-right {
+    visibility: visible;
+  }
+}
+
+</style>
+<style>
+
+#livemark-brand {
+  color: #888;
+}
+
+#livemark-brand ul {
+  overflow: hidden;
+  position: relative;
+  padding-left: 0;
+  margin: 0;
+}
+
+#livemark-brand li {
+  list-style: none;
+}
+
+#livemark-brand a {
+  display: inline-block;
+  color: currentColor;
+  position: relative;
+  width: 100%;
+  line-height: 100%;
+  padding-top: 5px;
+  padding-bottom: 5px;
+}
+
+#livemark-brand a.active {
+  font-weight: 700;
+}
+
+#livemark-brand a:hover {
+  color: #80b2e6;
+}
+
+</style>
+<style>
+
+#livemark-pages {
+  color: #888;
+}
+
+#livemark-pages ul {
+  overflow: hidden;
+  position: relative;
+  padding-left: 0;
+  margin: 0;
+}
+
+#livemark-pages ul.secondary {
+  margin-left: 20px;
+  display: none;
+}
+
+#livemark-pages li.active ul.secondary {
+  display: block;
+}
+
+#livemark-pages li {
+  list-style: none;
+}
+
+#livemark-pages a {
+  display: inline-block;
+  color: currentColor;
+  position: relative;
+  width: 100%;
+  line-height: 100%;
+  padding-top: 5px;
+  padding-bottom: 5px;
+}
+
+#livemark-pages li.active > a {
+  font-weight: 700;
+}
+
+#livemark-pages li.group.active > a {
+  font-weight: normal;
+}
+
+#livemark-pages li.group a.primary::after {
+  content: "\f054";
+  font-size: 16px;
+  font-family: "Font Awesome 5 Free";
+  font-weight: 900;
+  position: absolute;
+  top: 2px;
+  right: 0px;
+}
+
+#livemark-pages li.group.active a.primary::after {
+  content: "\f078";
+}
+
+#livemark-pages a:hover {
+  color: #80b2e6;
+}
+
+</style>
+<style>
+
+.livemark-reference {
+  display: block;
+  /* font-family: ui-monospace, Menlo, Monaco, "Cascadia Mono", "Segoe UI Mono", "Roboto Mono", "Oxygen Mono", "Ubuntu Monospace", "Source Code Pro", "Fira Mono", "Droid Sans Mono", "Courier New", monospace;; */
+}
+
+.livemark-reference-heading {
+    background-color: #f6f8fa;
+    font-family: "Roboto Mono", ui-monospace, monospace;
+    padding: 1em 0;
+}
+
+</style>
+<style>
+
+#livemark-notes {
+  color: #aaa;
+  text-align: right;
+  font-size: 14px;
+  float: right;
+  visibility: hidden;
+}
+
+@media (min-width: 768px) {
+  #livemark-notes {
+    visibility: visible;
+  }
+}
+
+#livemark-notes a {
+  color: inherit;
+}
+
+#livemark-notes a:hover {
+  color: #80b2e6;
+}
+
+#livemark-notes a[target="_blank"]:after {
+  content: "\f35d";
+  font-family: "Font Awesome 5 Free";
+  font-weight: 900;
+  vertical-align: text-top;
+  text-decoration: none;
+  display: inline-block;
+  color: #ccc;
+  font-size: 10px;
+  margin-left: -1px;
+}
+
+#livemark-notes a[target="_blank"]:hover:after {
+  color: #80b2e6;
+}
+
+</style>
+<style>
+
+#livemark-signs {
+  color: #888;
+  border-top: 1px solid #eaecef;
+  margin-top: 24px;
+  padding-top: 20px;
+  height: 50px;
+}
+
+#livemark-signs .next {
+  float: right;
+}
+
+#livemark-signs a {
+  font-size: 20px;
+  color: currentColor;
+}
+
+#livemark-signs a:hover {
+  color: #80b2e6;
+}
+
+</style>
+<style>
+
+#livemark-rating {
+  height: 46px;
+}
+
+#livemark-rating iframe {
+  margin-top: -5px;
+  border: none;
+  opacity: 0.5;
+}
+
+</style>
+<style>
+
+#livemark-about {
+  color: #888;
+}
+
+</style>
+<style>
+
+#livemark-links {
+  color: #888;
+}
+
+#livemark-links ul {
+  overflow: hidden;
+  position: relative;
+  padding-left: 0;
+  margin: 0;
+}
+
+#livemark-links li {
+  list-style: none;
+}
+
+#livemark-links a {
+  display: inline-block;
+  color: currentColor;
+  position: relative;
+  width: 100%;
+  line-height: 100%;
+  padding-top: 5px;
+  padding-bottom: 5px;
+}
+
+#livemark-links a:hover {
+  color: #80b2e6;
+}
+
+#livemark-links a[target="_blank"]:after {
+  content: "\f35d";
+  font-family: "Font Awesome 5 Free";
+  font-weight: 900;
+  vertical-align: text-top;
+  text-decoration: none;
+  display: inline-block;
+  color: #aaa;
+  font-size: 12px;
+  margin-left: -2px;
+}
+
+#livemark-links a[target="_blank"]:hover:after {
+  color: #80b2e6;
+}
+
+</style>
+<style>
+
+.livemark-audio {
+  padding-bottom: 10px;
+}
+
+</style>
+<style>
+
+.livemark-blog-item {
+  margin-bottom: 16px;
+  text-align: justify;
+}
+
+.livemark-blog-item h2 a:not(.heading) {
+  color: #222 !important;
+}
+
+</style>
+<style>
+
+#livemark-cards .modal-lg {
+    max-width: 1000px;
+}
+
+</style>
+<style>
+
+#livemark-display {
+  display: flex;
+  position: fixed;
+  visibility: hidden;
+  justify-content: space-between;
+  font-size: 16px;
+  color: #888;
+  width: 240px;
+  bottom: 20px;
+  right: 30px;
+}
+
+@media only screen and (min-width: 992px) {
+  #livemark-display {
+    visibility: visible;
+  }
+}
+
+#livemark-display .control {
+  cursor: pointer;
+  background-color:#fff;
+  box-shadow: 0px 7px 10px #eee;
+  border-radius: 50%;
+  border: solid 1px #ddd;
+  z-index: 100;
+}
+
+#livemark-display .control .fa {
+  display: inline-block !important;
+  opacity: 1 !important;
+  padding: 15px;
+}
+
+.with-readability {
+  font-size: 20px;
+}
+
+.with-readability #livemark-main {
+  color: #000;
+}
+
+.with-readability #livemark-left > *,
+.with-readability #livemark-right > * {
+  color: #444;
+}
+
+.with-readability #livemark-left,
+.with-readability #livemark-right {
+  scrollbar-width: unset;  /* Firefox */
+  -ms-overflow-style: unset;  /* Internet Explorer 10+ */
+}
+
+/* NOTE: */
+/* temporarily implemented in HtmlPlugin */
+/* .with-readability #livemark-left::-webkit-scrollbar, */
+/* .with-readability #livemark-right::-webkit-scrollbar { */
+  /* display: unset !important; [> Chrome; Safari <] */
+/* } */
+
+</style>
+<style>
+
+.livemark-image {
+  padding-bottom: 10px;
+}
+
+</style>
+<style>
+
+.livemark-infinity {
+  display: none;
+}
+
+</style>
+<style>
+
+#livemark-mobile {
+  position: absolute;
+  visibility: hidden;
+  z-index: 10000;
+  /* NOTE: We can't use "right" because of Mobile Chrome and #34 */
+  left: calc(100vw - 60px);
+  top: 24px;
+}
+
+#livemark-mobile .stack {
+  margin-top: 15px;
+  display: block;
+  cursor: pointer;
+}
+
+#livemark-mobile .bar {
+  display: block;
+  width: 25px;
+  height: 3px;
+  margin: 5px auto;
+  -webkit-transition: all 0.3s ease-in-out;
+  transition: all 0.3s ease-in-out;
+  background-color: #aaa;
+}
+
+@media only screen and (max-width: 768px) {
+  #livemark-mobile {
+    visibility: visible;
+  }
+
+  #livemark-mobile.active {
+    position: fixed;
+  }
+
+  #livemark-mobile.active .bar:nth-child(2) {
+    opacity: 0;
+  }
+
+  #livemark-mobile.active .bar:nth-child(1) {
+    transform: translateY(8px) rotate(45deg);
+  }
+
+  #livemark-mobile.active .bar:nth-child(3) {
+    transform: translateY(-8px) rotate(-45deg);
+  }
+
+  #livemark-left {
+      position: fixed;
+      top: 0;
+      left: -100vw;
+      padding-top: 35px;
+      background-color: #fff;
+      width: 100vw;
+      border-radius: 10px;
+      text-align: center;
+      transition: 0.3s;
+      box-shadow: 0 10px 27px rgba(0, 0, 0, 0.05);
+      visibility: visible;
+      z-index: 1000;
+  }
+
+  #livemark-left.active {
+    left: 0;
+  }
+}
+
+</style>
+<link rel="stylesheet" href="https://unpkg.com/paginationjs@2.1.5/dist/pagination.css">
+<style>
+
+.livemark-pagination {
+  display: none;
+}
+
+</style>
+<style>
+
+.livemark-remark {
+  display: block;
+}
+
+</style>
+<style>
+
+#livemark-search {
+  position: fixed;
+  left: 30px;
+  width: 240px;
+  bottom: 20px;
+  z-index:100;
+  visibility: hidden;
+}
+
+@media only screen and (min-width: 992px) {
+  #livemark-search {
+    visibility: visible;
+  }
+}
+
+#livemark-search-input {
+  width: 100%;
+  outline: none;
+  font-size: 20px;
+  padding: 7px 10px;
+  border-radius: 20px;
+  border: solid 1px #ddd;
+  box-shadow: 0px 7px 10px #eee;
+  color: #888;
+}
+
+#livemark-search-input::placeholder {
+  color: #888;
+}
+
+#livemark-search-input::-webkit-search-decoration,
+#livemark-search-input::-webkit-search-cancel-button,
+#livemark-search-input::-webkit-search-results-button,
+#livemark-search-input::-webkit-search-results-decoration {
+  -webkit-appearance:none;
+}
+
+#livemark-search-output {
+  visibility: hidden;
+  width: 100%;
+  font-size: 16px;
+  padding: 10px 10px;
+  border-radius: 20px;
+  border: solid 1px #ddd;
+  box-shadow: 0px 7px 10px #eee;
+  background: white;
+  margin-bottom: 10px;
+}
+
+#livemark-search-output ul {
+  margin: 0;
+  padding: 0;
+  list-style-type: none;
+}
+
+#livemark-search-output li.active {
+  font-size: 20px;
+  font-weight: bold;
+}
+
+#livemark-search-output a {
+  color: #5CC820;
+  text-decoration: underline;
+}
+
+.livemark-search-found {
+  background-color: #5CC820;
+  color: white;
+  font-weight: bold;
+  padding: 5px;
+  border-radius: 5px;
+}
+
+</style>
+<style>
+
+#livemark-main h2 .livemark-source-button {
+  float: right;
+  display: none;
+}
+
+#livemark-main h2:hover .livemark-source-button {
+  display: inline;
+  margin-left: 8px;
+  color: #aaa;
+  font-weight: normal;
+  text-decoration: none;
+}
+
+#livemark-main h2 .livemark-source-button:hover {
+  text-decoration: underline;
+}
+
+.livemark-source-section {
+  border: dashed 1px #ccc;
+}
+
+</style>
+<style>
+
+.nav-tabs {
+    padding-left: 0 !important;
+}
+
+.nav-item {
+    margin-top: 0 !important;
+}
+
+</style>
+<style>
+
+.livemark-task pre:first-child {
+  margin-bottom: 0 !important;
+  border-bottom: dashed 1px #ccc;
+}
+
+</style>
+<style>
+
+.livemark-video {
+  padding-bottom: 10px;
+}
+
+</style>
+</head>
+<body>
+<div id="livemark-left">
+
+<div id="livemark-brand">
+  <ul>
+    <li>
+      <a class="active" href=".">
+        MORPC
+      </a>
+    </li>
+  </ul>
+</div>
+
+<div id="livemark-pages">
+  <ul class="primary">
+        <li class="primary  active">
+      <a href="index.html" class="primary">
+        Introduction
+      </a>
+          </li>
+        <li class="primary  ">
+      <a href="demo/demo.html" class="primary">
+        Demo
+      </a>
+          </li>
+      </ul>
+</div>
+</div>
+<div id="livemark-main">
+<div id="livemark-notes">
+      <a href="https://github.com/morpc/morpc-py/edit/main/index.md" target="_blank">Edit page </a> in <a href="https://livemark.frictionlessdata.io" target="_blank"> Livemark </a><br>
+    (2025-03-27 08:24)
+</div>
+
+<h1>MORPC Python package</h1>
+<h2>Introduction</h2>
+<p>The MORPC data team maintains a package with contains commonly-used constants, mappings, and functions to allow for code-reuse in multiple scripts.  The package documentation and code is available at the <a href="https://github.com/morpc/morpc-py">morpc-py</a> repository in GitHub.  </p>
+<p>This package is still in development but currently contains the following modules:</p>
+<ul>
+<li>morpc - Main library.  Includes contents which are broadly applicable for MORPC's work, including MORPC branding, region definitions and utilities, and general purpose data manipulation functions.</li>
+<li>morpc.frictionless -  Functions and classes for working with metadata, including schemas, resources, and data packages. These are for internal processes that use the <a href="https://github.com/frictionlessdata/frictionless-py/tree/main">frictionless-py</a> package. Frictionless was implemented by MORPRC roughly around 2025 to manage all metadata and to develop workflow documentation. </li>
+<li>morpc.census - Constants and functions that are relevant when working with Census data, including decennial census, ACS, and PEP.</li>
+</ul>
+<h2>Installation</h2>
+<p>Install via pip.</p>
+<div><pre><code class="language-python"># !pip install morpc --upgrade
+</code></pre>
+</div><h2>Import morpc package</h2>
+<div><pre><code class="language-python">import morpc
+</code></pre>
+</div><h2>Demos</h2>
+<p>See [demo] notebook for more information on features and functionality.</p>
+
+<div id="livemark-signs">
+  <div>
+        <div class="next">
+      <a href="demo/demo.html">
+        Demos of features of the morpc python package »
+      </a>
+    </div>
+          </div>
+</div>
+</div>
+<div id="livemark-right">
+
+<div id="livemark-rating">
+  <iframe src="https://ghbtns.com/github-btn.html?user=morpc&amp;repo=morpc-py&amp;type=star&amp;count=true&amp;size=large" width="160px" height="30px" title="GitHub">
+  </iframe>
+</div>
+
+<div id="livemark-about">
+  <div>
+    morpc-py is a set of tools for data management used by the MORPC Data Team
+  </div>
+</div>
+
+<div id="livemark-links">
+  <ul>
+        <li>
+      <a href="https://github.com/morpc/morpc-py/issues" target="_blank">
+        Report
+      </a>
+    </li>
+        <li>
+      <a href="https://github.com/morpc/morpc-py/fork" target="_blank">
+        Fork
+      </a>
+    </li>
+      
+</ul></div>
+</div>
+<script src="https://unpkg.com/lodash@4.17.21/lodash.min.js"></script>
+<script src="https://unpkg.com/jquery@3.6.0/dist/jquery.min.js"></script>
+<script src="https://unpkg.com/popper.js@1.16.1/dist/umd/popper.min.js"></script>
+<script src="https://unpkg.com/bootstrap@4.6.0/dist/js/bootstrap.min.js"></script>
+<script src="https://unpkg.com/prismjs@1.23.0/components/prism-core.min.js"></script>
+<script src="https://unpkg.com/prismjs@1.23.0/plugins/autoloader/prism-autoloader.min.js"></script>
+<script>
+
+document.addEventListener("DOMContentLoaded", function () {
+  const content = document.querySelector("#livemark-main");
+  const headings = content.querySelectorAll("h1, h2, h3, h4, h5, h6, h7");
+  const headingMap = {};
+
+  // Add identifiers
+  Array.prototype.forEach.call(headings, function (heading) {
+    const id = heading.id
+      ? heading.id
+      : heading.textContent
+          .trim()
+          .toLowerCase()
+          .split(" ")
+          .join("-")
+          .replace(/[!@#$%^&*():]/gi, "")
+          .replace(/\//gi, "-");
+    headingMap[id] = !isNaN(headingMap[id]) ? ++headingMap[id] : 0;
+    if (headingMap[id]) {
+      heading.id = id + "-" + headingMap[id];
+    } else {
+      heading.id = id;
+    }
+  });
+
+  // Add links
+  Array.prototype.forEach.call(headings, function (heading) {
+    const link = document.createElement("a");
+    link.href = "#" + heading.id;
+    link.innerText = "#";
+    link.classList.add("heading");
+    heading.appendChild(link);
+  });
+});
+
+</script>
+<script>
+
+document.addEventListener("DOMContentLoaded", function () {
+  const groups = $("#livemark-pages li.group");
+  for (const group of groups) {
+    $(group)
+      .children("a")
+      .click((ev) => {
+        ev.preventDefault();
+        $(group).toggleClass("active");
+        // $(group).find(".fa").toggleClass("fa-chevron-right");
+        // $(group).find(".fa").toggleClass("fa-chevron-down");
+      });
+  }
+});
+
+</script>
+<script>
+
+document.addEventListener("DOMContentLoaded", function () {
+  const handlePopstate = async () => {
+    const href = location.hash;
+    if (href.startsWith("#card=")) {
+      const code = href.split("=")[1];
+      const response = await fetch(`/assets/cards/${code}.html`);
+      const html = await response.text();
+      $("#livemark-cards .modal-title").html("");
+      $("#livemark-cards .modal-body").html(html);
+      $("#livemark-cards h1").appendTo("#livemark-cards .modal-title");
+      $("#livemark-cards .modal").modal();
+      $("#livemark-cards .modal").on("hidden.bs.modal", () => {
+        history.pushState("", document.title, window.location.pathname);
+      });
+    }
+  };
+  window.addEventListener("popstate", handlePopstate);
+  handlePopstate();
+});
+
+</script>
+
+<div id="livemark-cards">
+  <div class="modal fade" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-lg" role="document">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title"></h5>
+          <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+            <span aria-hidden="true">×</span>
+          </button>
+        </div>
+        <div class="modal-body">
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script src="https://unpkg.com/ue-scroll-js@2.0.2/dist/ue-scroll.min.js"></script>
+<script>
+
+document.addEventListener("DOMContentLoaded", function () {
+  // Init
+  const readability = localStorage.getItem("livemark-display-readability");
+  if (readability === "plus") {
+    document.body.classList.add("with-readability");
+  } else {
+    document.body.classList.remove("with-readability");
+  }
+
+  // Plus
+  document
+    .getElementById("livemark-display-plus")
+    .addEventListener("click", function () {
+      document.body.classList.add("with-readability");
+      localStorage.setItem("livemark-display-readability", "plus");
+    });
+
+  // Minus
+  document
+    .getElementById("livemark-display-minus")
+    .addEventListener("click", function () {
+      document.body.classList.remove("with-readability");
+      localStorage.setItem("livemark-display-readability", "minus");
+    });
+
+  // Print
+  document
+    .getElementById("livemark-display-print")
+    .addEventListener("click", function () {
+      window.print();
+    });
+
+  // Scroll
+  const scrollSpeed = parseInt("10");
+  UeScroll.init({ element: "#livemark-display-scroll .fa", scrollSpeed });
+});
+
+</script>
+
+<div id="livemark-display">
+  <div class="control" id="livemark-display-print" title="Print">
+    <span class="fa fa-print"></span>
+  </div>
+  <div class="control" id="livemark-display-plus" title="Increase readability">
+    <span class="fa fa-plus"></span>
+  </div>
+  <div class="control" id="livemark-display-minus" title="Decrease readability">
+    <span class="fa fa-minus"></span>
+  </div>
+  <div class="control" id="livemark-display-scroll" title="Back to top">
+    <span class="fa fa-chevron-up"></span>
+  </div>
+</div>
+<script>
+
+document.addEventListener("DOMContentLoaded", function () {
+  const container = $(".livemark-infinity");
+  if (container.length) {
+    const elements = container
+      .children()
+      .map((index, element) => element.outerHTML)
+      .get();
+    container.html(elements.splice(0, 100));
+    container.show();
+    window.addEventListener("scroll", () => {
+      const element = container.get(0);
+      const position = window.scrollY + window.innerHeight + 100;
+      const threshold = element.offsetTop + element.scrollHeight;
+      if (position > threshold) {
+        container.append(elements.splice(0, 100));
+      }
+    });
+  }
+});
+
+</script>
+<script>
+
+document.addEventListener("DOMContentLoaded", function () {
+  const left = document.getElementById("livemark-left");
+  const mobile = document.getElementById("livemark-mobile");
+  mobile.addEventListener("click", () => {
+    left.classList.toggle("active");
+    mobile.classList.toggle("active");
+  });
+  // NOTE: We can replace the selector by 'a:not[href=""]' after #57
+  left.querySelectorAll("li:not(.group) a").forEach((link) => {
+    link.addEventListener("click", () => {
+      if (left.classList.contains("active")) {
+        left.classList.remove("active");
+        mobile.classList.remove("active");
+      }
+    });
+  });
+});
+
+</script>
+
+<div id="livemark-mobile">
+  <div class="stack" title="Toggle menu">
+    <span class="bar"></span>
+    <span class="bar"></span>
+    <span class="bar"></span>
+  </div>
+</div>
+<script src="https://unpkg.com/paginationjs@2.1.5/dist/pagination.min.js"></script>
+<script>
+
+document.addEventListener("DOMContentLoaded", function () {
+  const container = $(".livemark-pagination");
+  if (container.length) {
+    const elements = container
+      .children()
+      .map((index, element) => element.outerHTML)
+      .get();
+    container.html(`
+      <div class="livemark-pagination-data"></div>
+      <div class="livemark-pagination-navs"></div>
+    `);
+    container.find(".livemark-pagination-navs").pagination({
+      dataSource: elements,
+      callback: (html) => {
+        container.find(".livemark-pagination-data").html(html);
+      },
+    });
+    container.show();
+  }
+});
+
+</script>
+<script src="https://unpkg.com/lunr@2.3.9/lunr.min.js"></script>
+<script src="https://unpkg.com/jquery-highlight@3.5.0/jquery.highlight.js"></script>
+<script src="https://unpkg.com/jquery.scrollto@2.1.3/jquery.scrollTo.js"></script>
+<script>
+
+document.addEventListener("DOMContentLoaded", function () {
+  const prepare = () => {
+    const searchParams = new URLSearchParams(window.location.search);
+    const query = searchParams.get('query') || ''
+    if (query.length >= 3) {
+      searchInput.value = query
+    }
+  }
+  const search = () => {
+    unhighlight()
+    query = searchInput.value
+    searchOutput.innerHTML = ''
+    searchOutput.style.visibility = 'hidden'
+    const searchParams = new URLSearchParams(window.location.search);
+    if (query.length < 3) return
+    const results = searchIndex.search(query)
+    if (!results.length) return
+    searchParams.set('query', query)
+    const newRelativePathQuery = window.location.pathname + '?' + searchParams.toString();
+    history.pushState(null, '', newRelativePathQuery);
+    const elements = []
+    for (const result of results) {
+      const item = searchItems[result.ref]
+      const link = `${item.relpath}.html`
+      const cls = window.location.pathname === link ? 'class="active"' : ''
+      elements.push(`<li ${cls}><a href="${link}?query=${query}">${item.name}</a></li>`)
+    }
+    searchOutput.innerHTML = `<ul>\n${elements.join('\n')}\n</ul>`
+    searchOutput.style.visibility = 'visible'
+    highlight()
+  }
+  const highlight = () => {
+    const stem = lunr.stemmer(new lunr.Token(query)).str
+    $('#livemark-main').highlight(stem, {className: 'livemark-search-found'});
+    setTimeout(() => {
+      $(window).scrollTo($('.livemark-search-found').first(), 1000)
+    }, 1000)
+  }
+  const unhighlight = () => {
+    $('#livemark-main').unhighlight({className: 'livemark-search-found'});
+  }
+  const searchItems = {
+          'index': {
+          'name': 'MORPC Python package',
+          'path': 'index',
+          'relpath': 'index',
+          'text': "# MORPC Python package ## Introduction The MORPC data team maintains a package with contains commonly-used constants, mappings, and functions to allow for code-reuse in multiple scripts. The package documentation and code is available at the [morpc-py](https://github.com/morpc/morpc-py) repository in GitHub. This package is still in development but currently contains the following modules: - morpc - Main library. Includes contents which are broadly applicable for MORPC\u0027s work, including MORPC branding, region definitions and utilities, and general purpose data manipulation functions. - morpc.frictionless - Functions and classes for working with metadata, including schemas, resources, and data packages. These are for internal processes that use the [frictionless-py](https://github.com/frictionlessdata/frictionless-py/tree/main) package. Frictionless was implemented by MORPRC roughly around 2025 to manage all metadata and to develop workflow documentation. - morpc.census - Constants and functions that are relevant when working with Census data, including decennial census, ACS, and PEP. ## Installation Install via pip. ```python # !pip install morpc --upgrade ``` ## Import morpc package ```python import morpc ``` ## Demos See [demo] notebook for more information on features and functionality.",
+      },
+          'demo/demo.md': {
+          'name': 'Demos of features of the morpc python package',
+          'path': 'demo/demo.md',
+          'relpath': 'demo/demo.md',
+          'text': "# Demos of features of the morpc python package ## Introduction The MORPC data team maintains a package with contains commonly-used constants, mappings, and functions to allow for code-reuse in multiple scripts. The package documentation and code is available at the [morpc-py](https://github.com/morpc/morpc-py) repository in GitHub. This package is still in development but will contain the following modules: - morpc - Main library. Includes contents which are broadly applicable for MORPC\u0027s work, including MORPC branding, region definitions and utilities, and general purpose data manipulation functions. - morpc.frictionless - Functions and classes for working with metadata, including schemas, resources, and data packages. These are for internal processes that us the [frictionless-py](https://github.com/frictionlessdata/frictionless-py/tree/main) package. Frictionless was implemented roughly 2025 to manage all metadata and to develop workflow documentation. - morpc.census - Constants and functions that are relevant when working with Census data, including decennial census, ACS, and PEP. ## Installation Install via pip. ```python # !pip install morpc --upgrade ``` ### Import morpc package ```python import morpc ``` ## Conversion factors As of Jan 2024, the following commonly used conversion factors are available in the library. Review the https://github.com/morpc/morpc-py/blob/main/morpc/morpc.py to see if others are available. ### Area Square feet per acre ```python morpc.CONST_SQFT_PER_ACRE ``` ### Region definitions The following lists represent various definitions for \"Central Ohio\" based on collections of counties. ```python for name in morpc.CONST_REGIONS.keys(): print(\"Region name: {}\".format(name)) print(\"Counties in region: {}\\n\".format(morpc.CONST_REGIONS[name])) ``` ### County three-letter abbreviations Map each MORPC county name to its three-letter abbreviation. ```python morpc.CONST_COUNTY_ABBREV ``` Map each three-letter abbreviation back to its county name. ```python morpc.CONST_COUNTY_EXPAND ``` Note that \u0027MRW\u0027 is the three-letter abbreviation for Morrow county that is used by ODOT. Sometimes it may be desired to use \u0027MOR\u0027 instead. In that case, you can use the following code to update both mappings. ```python morpc.CONST_COUNTY_ABBREV[\"Morrow\"] = \u0027MOR\u0027 morpc.CONST_COUNTY_EXPAND = {value: key for key, value in morpc.CONST_COUNTY_ABBREV.items()} ``` Now you can see the new mappings: ```python print(morpc.CONST_COUNTY_ABBREV[\"Morrow\"]) print(morpc.CONST_COUNTY_EXPAND[\"MOR\"]) ``` To revert to the old mapping you can either use a code block similar to the one above, or simply reload the library: ```python import importlib importlib.reload(morpc) ``` Now the original mappings are restored. ```python print(morpc.CONST_COUNTY_ABBREV[\"Morrow\"]) print(morpc.CONST_COUNTY_EXPAND[\"MRW\"]) ``` ## County identifiers (GEOID) Map each MORPC county name to its five-character Census GEOID. Note that the IDs are strings. They are not integers and should not be handled as such. ```python morpc.CONST_COUNTY_NAME_TO_ID ``` Map each GEOID back to its county name. ```python morpc.CONST_COUNTY_ID_TO_NAME ``` ## Summary level identifiers. Summary level lookups for geographic jurisdictions. The summary levels include the Census sumlevel numbers, as well as some morpc summary levels, beginning with \"M\" ```python morpc.SUMLEVEL_LOOKUP ``` ```python morpc.HIERARCHY_STRING_LOOKUP ``` ## countyLookup() Class ### List counties and convert between county names and codes (Central Ohio, Ohio, or U.S.) The library includes a Python class called `countyLookup`. Upon instantiation, this object is pre-loaded with a dataframe describing a set of counties whose scope is specified by the user. The object includes methods for listing the counties by their names or GEOIDs and for two-way conversion between name and GEOID. - `scope=\"morpc\"` Default. Loads only the counties in the MORPC 15-county region (see `CONST_REGIONS[\u002715-County Region\u0027]` above) - `scope=\"corpo\"` Loads only the counties in the CORPO region (see `CONST_REGIONS[\u0027CORPO Region\u0027]` above) - `scope=\"ohio\"` Loads all counties in Ohio - `scope=\"us\"` Loads all counties in the United States *NOTE: As of Jan 2024, some methods are not supported for scope=\"us\". See details below.* You can create an object containing the MORPC 15 counties as follows: ```python countyLookup = morpc.countyLookup() ``` Or if you prefer to be explicit: ```python countyLookup = morpc.countyLookup(scope=\"morpc\") ``` Either way, the object is populated with the following dataframe. ```python countyLookup.df ``` You can create a list of the names of the counties: ```python countyLookup.list_names() ``` Or list their IDs: ```python countyLookup.list_ids() ``` You can also look up the ID for a county given its name. ```python countyLookup.get_id(\"Hocking\") ``` Or look up its name given its ID. ```python countyLookup.get_name(\"39091\") ``` ## varLookup() class Standard variable lookup class Reads the list of \"standard\" variables from a lookup table. Provides dataframe access to the list of variables, as well as an alias cross-reference table. ```python ### PLACEHOLDER FOR EXAMPLES ``` ## Write data and charts to Excel Excel-based charts are exceptionally useful to our customers because they are easy for our customers to manipulate, style, and include in downstream products such as PowerPoint slides. They are, however, inconvenient to product programmatically. The following functions are intended to simplify the production of Excel-based charts that are consistent with MORPC branding and, eventually, with Data \u0026 Mapping visualization standards. #### data_chart_to_excel( ) This function will create an Excel worksheet consisting of the contents of a pandas dataframe (as a formatted table) and, optionally, a chart to visualize the series included in the dataframe. The simplest invocation will produce a table and a basic column (vertical bar) chart with default formatting that is consistent with MORPC branding guidelines, however the user can specify many of options supported by the xlsxwriter library (https://xlsxwriter.readthedocs.io/). The following blocks demonstrates some simple use cases. First, create a dataframe with demonstration data. ```python import pandas as pd import os ``` ```python d = {\u0027col1\u0027: [1, 2, 3, 4], \u0027col2\u0027:[3, 4, 5, 6]} df = pd.DataFrame(data=d) df ``` Next create an Excel object using the xlsxwriter package. The object is linked to an Excel workbook, as indicated by the path in the first argument. ```python ## Create a directory to store the output (for demonstration purposes only) if not os.path.exists(\"./temp_data\"): os.makedirs(\"./temp_data\") writer = pd.ExcelWriter(\"./temp_data/dataChartToExcelOutput.xlsx\", engine=\u0027xlsxwriter\u0027) ``` The following block will create a new worksheet in the Excel object which contains a table representing the dataframe and column chart displaying the series in the table. The new worksheet will be called \"Sheet1\" since no sheet name was specified. Default presentation settings will be used since we did not specify any settings. This will result in a column (vertical bar) chart. **Note: You will not be able to view the spreadsheet itself until the writer object is closed in a later block.** ```python morpc.data_chart_to_excel(df, writer) ``` The following block will add another worksheet to the xlsxwriter object. This time we specified a sheet name (\"LineChart\") and a chart type (\"line\"), so the code will create the same table as the previous command but will produce a line chart instead of a column chart. As before, the default presentation settings will be used. ```python morpc.data_chart_to_excel(df, writer, sheet_name=\"LineChart\", chartType=\"line\") ``` The following block goes a step further and specifies a subtype for the chart. Specifically it creates a stacked column chart. As before, the default presentation settings will be used. For more information about what chart types and subtypes are available, see https://xlsxwriter.readthedocs.io/workbook.html#workbook-add-chart. The supported chart types as of this writing include column, bar, and line. The stacked subtype has been minimally tested for column and bar charts. Other chart types and subtypes may or may not work without further improvements to the function. ```python morpc.data_chart_to_excel(df, writer, sheet_name=\"Stacked\", chartType=\"column\", chartOptions={\"subtype\":\"stacked\"}) ``` The next block demonstrates the \"bar\" (horiztontal bar) chart type and applies some custom presentation settings, specifically a set of user-specified colors and titles, and omission of the legend, which is displayed by default. ```python morpc.data_chart_to_excel(df, writer, sheet_name=\"Custom\", chartType=\"bar\", chartOptions={ \"colors\": [\"cyan\",\"magenta\"], # Specify a custom color \"hideLegend\": True, # Hide the legend \"titles\": { # Specify the chart title and axis titles \"chartTitle\": \"My Chart\", \"xTitle\": \"My independent variable\", \"yTitle\": \"My dependent variable\", } }) ``` Finally, we have to close the xlsxwriter object to finalize the Excel workbook and make it readable. ```python writer.close() ``` Now you should be able to open the Excel document at `./temp_data/dataChartToExcelOutput.xlsx` Note that many more customizations are possible. To learn more, uncomment and run the following block, or enter the command in your own notebook or a Python interpreter. ```python # help(morpc.data_chart_to_excel) ``` # Load spatial data Often we want to make a copy of some input data and work with the copy, for example to protect the original data or to create an archival copy of it so that we can replicate the process later. With tabular data this is simple, but with spatial data it can be tricky. Shapefiles actually consist of up to six files, so it is necessary to copy them all. Geodatabases may contain many layers in addition to the one we care about. The `load_spatial_data()` function simplifies the process of reading the data and (optionally) making an archival copy. It has three parameters: - `sourcePath` - The path to the geospatial data. It may be a file path or URL. In the case of a Shapefile, this should point to the .shp file or a zipped file that contains all of the Shapefile components. You can point to other zipped contents as well, but see caveats below. - `layerName` (required for GPKG and GDB, optional for SHP) - The name of the layer that you wish to extract from a GeoPackage or File Geodatabase. Not required for Shapefiles, but may be specified for use in the archival copy (see below) - `driverName` (required for zipped data or data with non-standard file extension) - which [GDAL driver](https://gdal.org/drivers/vector/index.html) to use to read the file. Script will attempt to infer this from the file extension, but you must specify it if the data is zipped, if the file extension is non-standard, or if the extension cannot be determined from the path (e.g. if the path is an API query) - `archiveDir` (optional) - The path to the directory where a copy of a data should be archived. If this is specified, the data will be archived in this location as a GeoPackage. The function will determine the file name and layer name from the specified parameters, using generic values if necessary. - `archiveFileName` (optional) - If `archiveDir` is specified, you may use this to specify the name of the archival GeoPackage. Omit the extension. If this is unspecified, the function will assign the file name automatically using a generic value if necessary. The following example loads data from the MORPC Mid-Ohio Open Data website, however you can also load data from a local path or network drive. ```python import geopandas as gpd ``` ```python # Create a directory to store the archival data (for demonstration purposes only) if not os.path.exists(\"./temp_data\"): os.makedirs(\"./temp_data\") # Load the data and create an archival copy gdf = morpc.load_spatial_data( sourcePath=\"https://opendata.arcgis.com/api/v3/datasets/e42b50fbd17a47739c2a7695778c498e_17/downloads/data?format=shp\u0026spatialRefId=3735\u0026where=1%3D1\", layerName=\"MORPC MPO Boundary\", driverName=\"ESRI Shapefile\", archiveDir=\"./temp_data\" ) ``` Let\u0027s take a look at the data and make sure it loaded correctly. ```python gdf.drop(columns=\"Updated\").explore() ## avoid datetime column JSON error ``` Now let\u0027s read the archival copy and make sure it looks the same. We\u0027ll use the `load_spatial_data()` function again, but this time we won\u0027t make an archival copy. ```python gdfArchive = morpc.load_spatial_data(\"./temp_data/MORPC MPO Boundary.gpkg\", layerName=\"MORPC MPO Boundary\") ``` ```python gdfArchive.drop(columns=\"Updated\").explore() ``` # Assign geographic identifiers Sometimes we have a set of locations and we would like to know what geography (county, zipcode, etc.) they fall in. The `assign_geo_identifiers()` function takes a set of georeference points and a list of geography levels and determines for each level which area each point falls in. The function takes two parameters: - `points` - a GeoPandas GeoDataFrame consisting of the points of interest - `geographies` - A Python list of one or more strings in which each element corresponds to a geography level. You can specify as many levels as you want from the following list, however note that the function must download the polygons and perform the analysis for each level so if you specify many levels it may take a long time. - \"county\" - County (Census TIGER) - \"tract\" - *Not currently implemented* - \"blockgroup\" - *Not currently implemented* - \"block\" - *Not currently implemented* - \"zcta\" - *Not currently implemented* - \"place\" - Census place (Census TIGER) - \"placecombo\" - *Not currently implemented* - \"juris\" - *Not currently implemented* - \"region15County\" - *Not currently implemented* - \"region10County\" - *Not currently implemented* - \"regionCORPO\" - *Not currently implemented* - \"regionMPO\" - *Not currently implemented* **NOTE:** Many of the geography levels are not currently implemented. They are being implemented as they are needed. If you need one that has not yet been implemented, please contact Adam Porr (or implement it yourself). In the following example, we will assign labels for the \"county\" and \"place\" geography levels to libraries in MORPC\u0027s Points of Interest layer. First we\u0027ll download just the library locations from Mid-Ohio Open Data using the ArcGIS REST API. ```python url = \"https://services1.arcgis.com/EjjnBtwS9ivTGI8x/arcgis/rest/services/Points_of_Interest/FeatureServer/0/query?outFields=*\u0026where=%22type%22=%27Library%27\u0026f=geojson\" librariesRaw = gpd.read_file(url) ``` The data incudes a bunch of fields that we don\u0027t need. For clarity, extract only the relevant fields. ```python libraries = librariesRaw.copy().filter(items=[\u0027NAME\u0027, \u0027ADDRESS\u0027,\u0027geometry\u0027], axis=\"columns\") ``` ```python libraries.head() ``` Let\u0027s take a look at the library locations. ```python libraries.explore(style_kwds={\"radius\":4}) ``` Use the `assign_geo_identifiers()` function to iterate through the requested geography levels (in this case \"county\" and \"place\"), labeling each point with the identifier of the geography in each level where the point is located. ```python librariesEnriched = morpc.assign_geo_identifiers(libraries, [\"county\",\"place\"]) ``` Note that two columns have been added to the dataframe, one that contains the identifier for the county the library is located in and one that contains the identifier for the place. ```python librariesEnriched.head() ``` Let\u0027s take a look at libraries, symbolizing each according to the county where it is located. ```python librariesEnriched.explore(column=\"id_county\", style_kwds={\"radius\":4}) ``` Let\u0027s take another look, this time symbolizing each library according to the place where it is located. The legend has been suppressed because there are too many unique values, but you can hover over each point to see the place identifier that has been assigned to it. ```python librariesEnriched.explore(column=\"id_place\", style_kwds={\"radius\":4}, legend=False) ``` ## morpc.frictionless - Schema tools (TableSchema) As of January 2024 the Data Team is considering a new standard for machine-readable metadata, namely [TableSchema](https://specs.frictionlessdata.io/table-schema/). TableSchema is a schema for tabular formats that includes many of the features for Avro (see above) plus rich types and constraints. TableSchema is supported in [Python](https://pypi.org/project/tableschema/) and [R](https://www.rdocumentation.org/packages/tableschema.r/), and the libraries include many utilty functions. The foundation of the morpc.frictionless is [frictionless-py](https://github.com/frictionlessdata/frictionless-py). The functions are written to create and load resources. The foundation of the frictionless framework are [resouces](https://framework.frictionlessdata.io/docs/resources/file.html). Resources are structured json or yaml files that include metadata for the a file or number of files. ```python df = pd.read_excel(\u0027./temp_data/dataChartToExcelOutput.xlsx\u0027) ## import sample data from temp_data ``` ```python df.columns = [\"column1\", \"column2\", \"column3\"] ## give some reasonable names to columns ``` ```python df.to_csv(\u0027./temp_data/temp_df.csv\u0027, index=False) ## save a csv ``` Typically we will create some constant variable name for the file, resource, and schema. The resource and schema are stored in yaml files. ```python RESOURCE_DIR = \u0027./temp_data/\u0027 TABLE_FILE_NAME = \u0027temp_df.csv\u0027 TABLE_RESOURCE_NAME = TABLE_FILE_NAME.replace(\u0027.csv\u0027, \u0027.resource.yaml\u0027) TABLE_SCHEMA_NAME = TABLE_FILE_NAME.replace(\u0027.csv\u0027, \u0027.schema.yaml\u0027) ``` Schema can be defined manually, or can be created via standard frictionless functions. ```python import frictionless ``` ```python frictionless.Schema.describe(os.path.join(RESOURCE_DIR, TABLE_FILE_NAME)).to_yaml(os.path.join(RESOURCE_DIR, TABLE_SCHEMA_NAME)) ## Create a default schema and save as a yaml ``` ### Create a resource ```python morpc.frictionless.create_resource(TABLE_FILE_NAME, # the filename relative to resource dir, often just filename resourcePath=os.path.join(RESOURCE_DIR, TABLE_RESOURCE_NAME), # file path to resource location schemaPath=TABLE_SCHEMA_PATH, # path of schema relative to resource dir name = \"temp_df\", # simple name title = \"A title for the resource\", # A human readable title description = \"A description of the resource to explain what it contains.\", # A full description writeResource = True, # Boolean - Whether to archive the resouce file resFormat = \"csv\", resMediaType= \"text/csv\", computeBytes= True, # Compute the size if the file in bytes computeHash = True, # Create a md5 hash of the file, a unique string to check if file has been changed. validate=True # Validate the resource after creating ) ``` Load data from a resource file. Returns the data, a resource, and the schema ### Load data from a resource file ```python data, resource, schema = morpc.frictionless.load_data(os.path.join(RESOURCE_DIR, TABLE_RESOURCE_NAME)) ``` ```python data ``` ```python resource ``` ```python schema ``` ## Branding The library includes the hex codes the MORPC brand colors and provides assigns of human-readable names to make the colors easier to work with. ```python morpc.CONST_MORPC_COLORS ``` Here\u0027s what the colors look like when rendered on-screen. ```python outputString = \"colornamemorpc.CONST_MORPC_COLORS[colorname]\" for colorname in morpc.CONST_MORPC_COLORS: outputString += \"{0}{1}\".format(colorname, morpc.CONST_MORPC_COLORS[colorname]) outputString += \"\" display(IPython.display.HTML(outputString)) ``` ## Round preserving sum (aka \"bucket rounding\") Imagine we have a series of values that need to be rounded, but we want the rounded values to sum to the same value as the original series. Create a random series for demonstration purposes. ```python rawValues = pd.Series([random.randrange(0, 100000)/100 for x in range(1,10)]) list(rawValues) ``` Specify the number of decimal digits to preserve. For this demo we\u0027ll round to integers (i.e. zero decimal places), which is typically what we want, but the function supports rounding to other decimal places as well. ```python digits = 0 ``` Perform bucket-rounding ```python bucketRoundedValues = morpc.round_preserve_sum(rawValues, digits, verbose=True) ``` Raw values: ```python rawValues.tolist() ``` Bucket-rounded values: ```python bucketRoundedValues.tolist() ``` Sum of raw values: ```python round(sum(rawValues)) ``` Sum of bucket-rounded values: ```python sum(bucketRoundedValues) ``` ## Control variable to group Often we have a set of values representing the members of some group and we need the sum of those values to match a total for the group that was computed independently. Perhaps the best known example of this is the annual [population estimates for sub-county jurisdictions](https://github.com/morpc/morpc-popest). The estimates for all of the jurisdictions in the county must total to the [county-level population estimates](https://github.com/morpc/morpc-popest-county), which are derived independently. In this case the county (group) totals are known as the \"control values\" or \"control totals\" and the process of adjusting the sub-county (group member) values so that their total is equal to the control total is known as \"controlling\" the variable. The process includes the following steps, which will be described in more detail below. - Establish control values for the groups (e.g. the county-level estimnates in the example above) - Create a series of grouped values to be controlled (e.g. the sub-county estimates) - Control the values in each group to the control total. This consists of three sub-parts: - Compute group sums - Compute group shares - Compute controlled values In the sections that follow, we\u0027ll look at a more contrived example, namely controlling the 2021 ACS 5-year estimates for county subdivisions to the 2020 decennial county populations. This is not a recommended application and is used only for the sake of convenience. ### Establish control values for groups Download county populations from 2020 decennial census ```python r = requests.get( url=\"https://api.census.gov/data/2020/dec/dhc\", params={ \"get\":\",\".join([\"P1_001N\"]), \"for\":\"county:{}\".format(\",\".join([x[2:] for x in countyLookup.list_ids()])), \"in\": \"state:39\" } ) records = r.json() countyPop = pd.DataFrame.from_records(records[1:], columns=records[0]) countyPop[\"C_GEOID\"] = countyPop[\"state\"] + countyPop[\"county\"] countyPop = countyPop.loc[countyPop[\"county\"].isin([x[2:] for x in countyLookup.list_ids()])].copy() \\ .rename(columns={\"P1_001N\":\"C_POP\"}) \\ .drop(columns={\"state\",\"county\"}) \\ .astype({\"C_POP\":\"int\"}) \\ .set_index(\"C_GEOID\") ``` Now we have the population for each county (indexed by their GEOIDs) which will serve as the control totals. ```python countyPop.head() ``` ### Create series of grouped values to be controlled Download sub-county populations from the 2021 ACS 5-year estimates ```python r = requests.get( url=\"https://api.census.gov/data/2021/acs/acs5\", params={ \"get\":\",\".join([\"NAME\",\"GEO_ID\",\"B01001_001E\",\"B01001_001M\"]), \"for\":\"county subdivision:*\", \"in\": [ \"state:39\", \"county:{}\".format(\",\".join([x[2:] for x in countyLookup.list_ids()])), ] } ) records = r.json() subdivPop = pd.DataFrame.from_records(records[1:], columns=records[0]) subdivPop = subdivPop \\ .rename(columns={\"GEO_ID\":\"GEOID\",\"B01001_001E\":\"POP\",\"B01001_001M\":\"POP_MOE\"}) \\ .astype({\"POP\":\"int\"}) \\ .set_index(\"GEOID\") subdivPop[\"C_GEOID\"] = subdivPop[\"state\"] + subdivPop[\"county\"] ``` Now we have population estimates for the members of each group (county). Note that the county GEOID (C_GEOID) has been assigned to each member record. We\u0027ll use this to iterate through groups. ```python subdivPop.head() ``` Note that the sums of the subdivision populations doesn\u0027t match the sum of the county populations. This is expected and it is the reason we need to control the subdivision values. ```python subdivPop[\"POP\"].sum() ``` ```python countyPop[\"C_POP\"].sum() ``` ### Control the values in each group to the control total Recall that this step has three sub-parts: 1. Compute group sums (see `morpc.compute_group_sum()`) 2. Compute group shares (see `morpc.compute_group_share()`) 3. Compute controlled values (see `morpc.compute_controlled_values()`) The morpc-common library has a function for each of these steps as noted above, but it also has a high-level function that performs all three steps in sequence, namely `morpc.control_variable_to_group()`. It requires the following inputs: - `inputDf` is a pandas DataFrame with a column containing the group shares and (optionally) a column containg the group labels. - `controlValues` is one of the following: - If `groupbyField == None`: `controlValues` is a scalar number (integer or float) - If `groupbyField != None`: `controlValues` is a pandas Series of numbers indexed by group labels - `groupbyField` (optional) is the name of the column of `inputDf` that contains the group labels. - `shareField` (optional) is the name of the column of `inputDf` containing the shares that the values comprise. If this is not specified, \"GROUP_SHARE\" will be used. - `roundPreserveSumDigits` (optional) is the number of decimal places that the scaled values (i.e. the values in the \"CONTROLLED_VALUE\" column) should be rounded to. A \"bucket rounding\" technique (see `morpc.round_preserve_sum()` will be used to ensure that the sum of the values in the group is preserved. If this is not specified, the scaled values will be left unrounded. This is what the function call looks like for our example case: ```python subdivPopControlled = morpc.control_variable_to_group(inputDf=subdivPop, controlValues=countyPop[\"C_POP\"], valueField=\"POP\", groupbyField=\"C_GEOID\", roundPreserveSumDigits=0) subdivPopControlled.head() ``` ### Check the results Now the sum of our controlled values should match the county control totals. We can see that this is true by comparing the \"POP_SUM_CONTROLLED\" columns (which the sum of \"CONTROLLED_VALUE\" by county) and the \"C_POP\" column (which is the county control total) and verifying that the two are equal for all records. ```python subdivPopControlled[[\"C_GEOID\",\"POP\",\"CONTROLLED_VALUE\"]] \\ .groupby(\"C_GEOID\").sum() \\ .rename(columns={\"POP\":\"POP_SUM\",\"CONTROLLED_VALUE\":\"POP_SUM_CONTROLLED\"}) \\ .join(countyPop) ``` We may want to get a sense of how much adjustment of the sub-county values was required. To do this we can compute the difference between the controlled value and the original value and do some desriptive analysis. ```python subdivPopControlled[\"RESIDUAL\"] = subdivPopControlled[\"CONTROLLED_VALUE\"] - subdivPopControlled[\"POP\"] subdivPopControlled[\"RESIDUAL_PCT\"] = subdivPopControlled[\"RESIDUAL\"]/subdivPopControlled[\"POP\"] subdivPopControlled[\"RESIDUAL_PCT\"] = subdivPopControlled[\"RESIDUAL_PCT\"].replace(np.inf, 0) subdivPopControlled[\"RESIDUAL_PCT\"] = subdivPopControlled[\"RESIDUAL_PCT\"].replace(-np.inf, 0) subdivPopControlled[\"RESIDUAL_PCT\"] = subdivPopControlled[\"RESIDUAL_PCT\"].fillna(0) ``` First we\u0027ll look at the stats for the raw residual. ```python subdivPopControlled[\"RESIDUAL\"].describe() ``` ```python subdivPopControlled[\"RESIDUAL\"].hist(bins=25, log=True) ``` The residual is close to zero in the vast majority of cases. Let\u0027s look at the ten cases with the greatest residual. ```python subdivPopControlled[[\"NAME\",\"POP\",\"CONTROLLED_VALUE\",\"RESIDUAL\",\"RESIDUAL_PCT\"]].sort_values(\"RESIDUAL\", ascending=False).head(10) ``` And the ten cases with the smallest residual (which could be large but negative) ```python subdivPopControlled[[\"NAME\",\"POP\",\"CONTROLLED_VALUE\",\"RESIDUAL\",\"RESIDUAL_PCT\"]].sort_values(\"RESIDUAL\", ascending=False).tail(10) ``` The raw residual for Columbus was very large, but as a percentage it is not that bad. Let\u0027s look at the stats for the percentages. ```python subdivPopControlled[\"RESIDUAL_PCT\"].describe() ``` ```python subdivPopControlled[\"RESIDUAL_PCT\"].hist(bins=25) ``` ```python subdivPopControlled[[\"NAME\",\"POP\",\"CONTROLLED_VALUE\",\"RESIDUAL\",\"RESIDUAL_PCT\"]].sort_values(\"RESIDUAL_PCT\", ascending=False).head(10) ``` ```python subdivPopControlled[[\"NAME\",\"POP\",\"CONTROLLED_VALUE\",\"RESIDUAL\",\"RESIDUAL_PCT\"]].sort_values(\"RESIDUAL_PCT\", ascending=False).tail(10) ``` ## morpc.census MORPC works regularly with census data, including but not limited to ACS 5 and 1-year, Decennial Census, PEP, and geographies. The following module is useful for gathering and organizing census data for processes in various workflow. Those workflows are linked when appropriate. ### ACS functions and variables acs_get() is a low-level wrapper for Census API requests that returns the results as a pandas dataframe. If necessary, it splits the request into several smaller requests to bypass the 50-variable limit imposed by the API. The resulting dataframe is indexed by GEOID (regardless of whether it was requested) and omits other fields that are not requested but which are returned automatically with each API request (e.g. \"state\", \"county\") ```python url = \u0027https://api.census.gov/data/2022/acs/acs1\u0027 params = { \"get\": \"GEO_ID,NAME,B01001_001E\", \"for\": \"county:049,041\", \"in\": \"state:39\" } ``` ```python acs = morpc.census.acs_get(url, params) ``` Total variables requested: 3 Starting request #1. 3 variables remain. ```python acs ``` .dataframe tbody tr th:only-of-type { vertical-align: middle; } .dataframe tbody tr th { vertical-align: top; } .dataframe thead th { text-align: right; } NAME B01001_001E GEO_ID 0500000US39041 Delaware County, Ohio 226296 0500000US39049 Franklin County, Ohio 1321820 ### Using morpc-censusacs-fetch as an input When using ACS data, generally we will be digesting data produded using the [morpc-censusacs-fetch](https://github.com/morpc/morpc-censusacs-fetch) workflow. The data that is produced from that script is by default saved in its output_data folders ./morpc-censusacs-fetch/output_data/ Run that script according to the documentation and then use acs_generate_dimension_table() downstream. #### Load the data using frictionless.load_data() ```python data, resource, schema = morpc.frictionless.load_data(\u0027../../morpc-censusacs-fetch/output_data/morpc-acs5-2023-us-B01001.resource.yaml\u0027, verbose=False) ``` morpc.load_data | INFO | Loading Frictionless Resource file at location ..\\..\\morpc-censusacs-fetch\\output_data\\morpc-acs5-2023-us-B01001.resource.yaml morpc.load_data | INFO | Loading data, resource file, and schema from their source locations morpc.load_data | INFO | --\u003e Data file: ..\\..\\morpc-censusacs-fetch\\output_data\\morpc-acs5-2023-us-B01001.csv morpc.load_data | INFO | --\u003e Resource file: ..\\..\\morpc-censusacs-fetch\\output_data\\morpc-acs5-2023-us-B01001.resource.yaml morpc.load_data | INFO | --\u003e Schema file: ..\\..\\morpc-censusacs-fetch\\output_data\\morpc-acs5-2023-us-B01001.schema.yaml morpc.load_data | INFO | Loading data. ```python data ``` .dataframe tbody tr th:only-of-type { vertical-align: middle; } .dataframe tbody tr th { vertical-align: top; } .dataframe thead th { text-align: right; } GEO_ID SUMLEVEL NAME B01001_001E B01001_001M B01001_002E B01001_002M B01001_003E B01001_003M B01001_004E ... B01001_045E B01001_045M B01001_046E B01001_046M B01001_047E B01001_047M B01001_048E B01001_048M B01001_049E B01001_049M 0 0100000US 010 United States 332387540 -555555555 164545087 6966 9688436 4185 10296243 ... 5576237 15826 7978348 17513 5461052 16334 3631914 12460 4050652 15097 1 rows \u00c3\u2014 101 columns #### Using ACS_ID_FIELDS to get the fields ids ```python idFields = [field[\"name\"] for field in morpc.census.ACS_ID_FIELDS[\u0027us\u0027]] ``` ```python morpc.acs_generate_universe_table(data.set_index(\"GEO_ID\"), \"B01001_001\") ``` .dataframe tbody tr th:only-of-type { vertical-align: middle; } .dataframe tbody tr th { vertical-align: top; } .dataframe thead th { text-align: right; } Universe Universe MOE GEOID 332387540 -555555555 #### Create a dimension table with the data and the dimension names ```python dim_table = morpc.census.acs_generate_dimension_table(data.set_index(\"GEO_ID\"), schema, idFields=idFields, dimensionNames=[\"Sex\", \"Age group\"]) ``` ```python dim_table.loc[dim_table[\u0027Variable type\u0027] == \u0027Estimate\u0027].head() ``` .dataframe tbody tr th:only-of-type { vertical-align: middle; } .dataframe tbody tr th { vertical-align: top; } .dataframe thead th { text-align: right; } GEOID Variable Value Sex Age group Variable type 0 B01001_001E 332387540 NaN NaN Estimate 2 B01001_002E 164545087 Male NaN Estimate 4 B01001_003E 9688436 Male Under 5 years Estimate 6 B01001_004E 10296243 Male 5 to 9 years Estimate 8 B01001_005E 11032019 Male 10 to 14 years Estimate ## Schema tools (Apache Avro format) - DEPRECIATED **DEPRECATION WARNING**: As of January 2024 the Data Team is considering a new standard for machine-readable metadata, namely TableSchema (see below). Code that makes use of the features described in this section will likely need to be updated to make use of the new standard when it is adopted. Use discretion when making use of these features. [Apache Avro](https://en.wikipedia.org/wiki/Apache_Avro) is an open source data serialization technology that includes a JSON-based [schema specification format](https://avro.apache.org/docs/1.11.1/specification/). MORPC does not typically use the Avro format itself, however code written through 2023 may have relied on schemas specified in Avro format. This section demonstrates utility functions for loading Avro-formatted schemas and using the schemas to manipulate data. The demonstration relies on a local copy of data from the [morpc-lookup](https://github.com/morpc/morpc-lookup) repository in GitHub. Prior to running the code you must download the required data and schema and update the following paths (as needed) to point to the correct files. ```python dataPath = \"..\\morpc-lookup\\MORPC_Counties.csv\" schemaPath = dataPath.replace(\".csv\", \"_schema.json\") print(\"Data path: {}\".format(dataPath)) print(\"Schema path: {}\".format(schemaPath)) ``` Load the data. ```python dataRaw = pd.read_csv(dataPath) dataRaw.head() ``` The data is stored in a CSV file. In a CSV, all data is stored as strings. There is no built-in mechanism for specifying the data type for each field. Note that pandas (like many other software applications) tried to infer the data type. ```python dataRaw.dtypes ``` Sometimes the inference works well, other times not so well. It is safer to specify the field types explictly. One way to do this is to create a schema definition for the data. Here is an example of a schema definition specified in Apache Avro format: ```python with open(schemaPath, \"r\") as f: schemaRaw = f.read() print(schemaRaw) ``` Note that that this format allows for specification of the field names and types, as well as dataset-level and variable-level metadata. Because Avro-style schemas are formatted as JSON, Python can easily convert the schema to a dictionary structure so that we can access it programmatically. The morpc-common library contains a convenience function to load the schema and convert it to a dictionary. ```python schema = morpc.load_avro_schema(schemaPath) print(\"The fields in this dataset are: \" + \", \".join([field[\"name\"] for field in schema[\"fields\"]])) ``` The morpc-common library contains several convenience functions for interacting with Avro schemas. One such function casts each of the fields in a dataset as the correct data type as specified in the schema. ```python data = morpc.cast_field_types(dataRaw, schema) ``` Now the data types should match the schema, regardless of what pandas inferred originally. ```python data.dtypes ``` **A note about integers** The pandas \"int\" dtype does not support null values. If a field contains null values and you try to cast it as \"int\", this function will automatically attempt to convert them to \"Int64\" (which does support null values) instead. If this fails, it might be because the fractional part of one of your values (i.e. the part to the right of the decimal point) is non-zero. You can either round the values before attempting the conversion or set `forceInteger=True` when calling the function. In the latter case, the function will round the values to the ones place prior to recasting the values. Here\u0027s another function that creates a list object containing the names of the fields included in the schema. ```python morpc.avro_get_field_names(schema) ``` This one returns a dictionary mapping each field name to its type. ```python morpc.avro_to_pandas_dtype_map(schema) ``` Sometimes a variable may be referred to by different names. It is possible to list the alternate names in the schema using the \"aliases\" property. The following function creates a dictionary that maps the original field name to the first (and presumably most common) alias. This can be used to easily rename the fields in the dataset for use in a different application. ```python morpc.avro_map_to_first_alias(schema) ``` The following function does the reverse of the previous one, namely it creates a dictionary mapping the first alias to the original field name. This can be useful to reverse the previous remapping. It is also useful for Shapefiles, which have a ten-character field name limit. In that case, you can store the human-readable field name as the original field name and store the Shapefile-compliant field name as an alias. ```python morpc.avro_map_from_first_alias(schema) ``` Using the schema dictionary and the helper functions, you can easily do transformations of the data. Here are some examples. First, take a look at the original data. ```python data.head() ``` Rename the columns in the data to the first alias for each column. ```python data.rename(columns=morpc.avro_map_to_first_alias(schema)).head() ``` Filter and reorder fields. ```python reverseOrder = morpc.avro_get_field_names(schema) reverseOrder.reverse() data[reverseOrder].head() ``` ```python oneLessField = morpc.avro_get_field_names(schema) oneLessField.remove(\"STATE_ID\") data[oneLessField].head() ```",
+      },
+          '404': {
+          'name': 'Not Found',
+          'path': '404',
+          'relpath': '404',
+          'text': "# Not Found ```markdown remark type=danger This page is not found ``` Return to the home page.",
+      },
+          'index': {
+          'name': 'MORPC Python package',
+          'path': 'index',
+          'relpath': 'index',
+          'text': "# MORPC Python package ## Introduction The MORPC data team maintains a package with contains commonly-used constants, mappings, and functions to allow for code-reuse in multiple scripts. The package documentation and code is available at the [morpc-py](https://github.com/morpc/morpc-py) repository in GitHub. This package is still in development but currently contains the following modules: - morpc - Main library. Includes contents which are broadly applicable for MORPC\u0027s work, including MORPC branding, region definitions and utilities, and general purpose data manipulation functions. - morpc.frictionless - Functions and classes for working with metadata, including schemas, resources, and data packages. These are for internal processes that use the [frictionless-py](https://github.com/frictionlessdata/frictionless-py/tree/main) package. Frictionless was implemented by MORPRC roughly around 2025 to manage all metadata and to develop workflow documentation. - morpc.census - Constants and functions that are relevant when working with Census data, including decennial census, ACS, and PEP. ## Installation Install via pip. ```python # !pip install morpc --upgrade ``` ## Import morpc package ```python import morpc ``` ## Demos See [demo] notebook for more information on features and functionality.",
+      },
+          'demo/demo': {
+          'name': 'Demos of features of the morpc python package',
+          'path': 'demo/demo',
+          'relpath': 'demo/demo',
+          'text': "# Demos of features of the morpc python package ## Introduction The MORPC data team maintains a package with contains commonly-used constants, mappings, and functions to allow for code-reuse in multiple scripts. The package documentation and code is available at the [morpc-py](https://github.com/morpc/morpc-py) repository in GitHub. This package is still in development but will contain the following modules: - morpc - Main library. Includes contents which are broadly applicable for MORPC\u0027s work, including MORPC branding, region definitions and utilities, and general purpose data manipulation functions. - morpc.frictionless - Functions and classes for working with metadata, including schemas, resources, and data packages. These are for internal processes that us the [frictionless-py](https://github.com/frictionlessdata/frictionless-py/tree/main) package. Frictionless was implemented roughly 2025 to manage all metadata and to develop workflow documentation. - morpc.census - Constants and functions that are relevant when working with Census data, including decennial census, ACS, and PEP. ## Installation Install via pip. ```python # !pip install morpc --upgrade ``` ### Import morpc package ```python import morpc ``` ## Conversion factors As of Jan 2024, the following commonly used conversion factors are available in the library. Review the https://github.com/morpc/morpc-py/blob/main/morpc/morpc.py to see if others are available. ### Area Square feet per acre ```python morpc.CONST_SQFT_PER_ACRE ``` ### Region definitions The following lists represent various definitions for \"Central Ohio\" based on collections of counties. ```python for name in morpc.CONST_REGIONS.keys(): print(\"Region name: {}\".format(name)) print(\"Counties in region: {}\\n\".format(morpc.CONST_REGIONS[name])) ``` ### County three-letter abbreviations Map each MORPC county name to its three-letter abbreviation. ```python morpc.CONST_COUNTY_ABBREV ``` Map each three-letter abbreviation back to its county name. ```python morpc.CONST_COUNTY_EXPAND ``` Note that \u0027MRW\u0027 is the three-letter abbreviation for Morrow county that is used by ODOT. Sometimes it may be desired to use \u0027MOR\u0027 instead. In that case, you can use the following code to update both mappings. ```python morpc.CONST_COUNTY_ABBREV[\"Morrow\"] = \u0027MOR\u0027 morpc.CONST_COUNTY_EXPAND = {value: key for key, value in morpc.CONST_COUNTY_ABBREV.items()} ``` Now you can see the new mappings: ```python print(morpc.CONST_COUNTY_ABBREV[\"Morrow\"]) print(morpc.CONST_COUNTY_EXPAND[\"MOR\"]) ``` To revert to the old mapping you can either use a code block similar to the one above, or simply reload the library: ```python import importlib importlib.reload(morpc) ``` Now the original mappings are restored. ```python print(morpc.CONST_COUNTY_ABBREV[\"Morrow\"]) print(morpc.CONST_COUNTY_EXPAND[\"MRW\"]) ``` ## County identifiers (GEOID) Map each MORPC county name to its five-character Census GEOID. Note that the IDs are strings. They are not integers and should not be handled as such. ```python morpc.CONST_COUNTY_NAME_TO_ID ``` Map each GEOID back to its county name. ```python morpc.CONST_COUNTY_ID_TO_NAME ``` ## Summary level identifiers. Summary level lookups for geographic jurisdictions. The summary levels include the Census sumlevel numbers, as well as some morpc summary levels, beginning with \"M\" ```python morpc.SUMLEVEL_LOOKUP ``` ```python morpc.HIERARCHY_STRING_LOOKUP ``` ## countyLookup() Class ### List counties and convert between county names and codes (Central Ohio, Ohio, or U.S.) The library includes a Python class called `countyLookup`. Upon instantiation, this object is pre-loaded with a dataframe describing a set of counties whose scope is specified by the user. The object includes methods for listing the counties by their names or GEOIDs and for two-way conversion between name and GEOID. - `scope=\"morpc\"` Default. Loads only the counties in the MORPC 15-county region (see `CONST_REGIONS[\u002715-County Region\u0027]` above) - `scope=\"corpo\"` Loads only the counties in the CORPO region (see `CONST_REGIONS[\u0027CORPO Region\u0027]` above) - `scope=\"ohio\"` Loads all counties in Ohio - `scope=\"us\"` Loads all counties in the United States *NOTE: As of Jan 2024, some methods are not supported for scope=\"us\". See details below.* You can create an object containing the MORPC 15 counties as follows: ```python countyLookup = morpc.countyLookup() ``` Or if you prefer to be explicit: ```python countyLookup = morpc.countyLookup(scope=\"morpc\") ``` Either way, the object is populated with the following dataframe. ```python countyLookup.df ``` You can create a list of the names of the counties: ```python countyLookup.list_names() ``` Or list their IDs: ```python countyLookup.list_ids() ``` You can also look up the ID for a county given its name. ```python countyLookup.get_id(\"Hocking\") ``` Or look up its name given its ID. ```python countyLookup.get_name(\"39091\") ``` ## varLookup() class Standard variable lookup class Reads the list of \"standard\" variables from a lookup table. Provides dataframe access to the list of variables, as well as an alias cross-reference table. ```python ### PLACEHOLDER FOR EXAMPLES ``` ## Write data and charts to Excel Excel-based charts are exceptionally useful to our customers because they are easy for our customers to manipulate, style, and include in downstream products such as PowerPoint slides. They are, however, inconvenient to product programmatically. The following functions are intended to simplify the production of Excel-based charts that are consistent with MORPC branding and, eventually, with Data \u0026 Mapping visualization standards. #### data_chart_to_excel( ) This function will create an Excel worksheet consisting of the contents of a pandas dataframe (as a formatted table) and, optionally, a chart to visualize the series included in the dataframe. The simplest invocation will produce a table and a basic column (vertical bar) chart with default formatting that is consistent with MORPC branding guidelines, however the user can specify many of options supported by the xlsxwriter library (https://xlsxwriter.readthedocs.io/). The following blocks demonstrates some simple use cases. First, create a dataframe with demonstration data. ```python import pandas as pd import os ``` ```python d = {\u0027col1\u0027: [1, 2, 3, 4], \u0027col2\u0027:[3, 4, 5, 6]} df = pd.DataFrame(data=d) df ``` Next create an Excel object using the xlsxwriter package. The object is linked to an Excel workbook, as indicated by the path in the first argument. ```python ## Create a directory to store the output (for demonstration purposes only) if not os.path.exists(\"./temp_data\"): os.makedirs(\"./temp_data\") writer = pd.ExcelWriter(\"./temp_data/dataChartToExcelOutput.xlsx\", engine=\u0027xlsxwriter\u0027) ``` The following block will create a new worksheet in the Excel object which contains a table representing the dataframe and column chart displaying the series in the table. The new worksheet will be called \"Sheet1\" since no sheet name was specified. Default presentation settings will be used since we did not specify any settings. This will result in a column (vertical bar) chart. **Note: You will not be able to view the spreadsheet itself until the writer object is closed in a later block.** ```python morpc.data_chart_to_excel(df, writer) ``` The following block will add another worksheet to the xlsxwriter object. This time we specified a sheet name (\"LineChart\") and a chart type (\"line\"), so the code will create the same table as the previous command but will produce a line chart instead of a column chart. As before, the default presentation settings will be used. ```python morpc.data_chart_to_excel(df, writer, sheet_name=\"LineChart\", chartType=\"line\") ``` The following block goes a step further and specifies a subtype for the chart. Specifically it creates a stacked column chart. As before, the default presentation settings will be used. For more information about what chart types and subtypes are available, see https://xlsxwriter.readthedocs.io/workbook.html#workbook-add-chart. The supported chart types as of this writing include column, bar, and line. The stacked subtype has been minimally tested for column and bar charts. Other chart types and subtypes may or may not work without further improvements to the function. ```python morpc.data_chart_to_excel(df, writer, sheet_name=\"Stacked\", chartType=\"column\", chartOptions={\"subtype\":\"stacked\"}) ``` The next block demonstrates the \"bar\" (horiztontal bar) chart type and applies some custom presentation settings, specifically a set of user-specified colors and titles, and omission of the legend, which is displayed by default. ```python morpc.data_chart_to_excel(df, writer, sheet_name=\"Custom\", chartType=\"bar\", chartOptions={ \"colors\": [\"cyan\",\"magenta\"], # Specify a custom color \"hideLegend\": True, # Hide the legend \"titles\": { # Specify the chart title and axis titles \"chartTitle\": \"My Chart\", \"xTitle\": \"My independent variable\", \"yTitle\": \"My dependent variable\", } }) ``` Finally, we have to close the xlsxwriter object to finalize the Excel workbook and make it readable. ```python writer.close() ``` Now you should be able to open the Excel document at `./temp_data/dataChartToExcelOutput.xlsx` Note that many more customizations are possible. To learn more, uncomment and run the following block, or enter the command in your own notebook or a Python interpreter. ```python # help(morpc.data_chart_to_excel) ``` # Load spatial data Often we want to make a copy of some input data and work with the copy, for example to protect the original data or to create an archival copy of it so that we can replicate the process later. With tabular data this is simple, but with spatial data it can be tricky. Shapefiles actually consist of up to six files, so it is necessary to copy them all. Geodatabases may contain many layers in addition to the one we care about. The `load_spatial_data()` function simplifies the process of reading the data and (optionally) making an archival copy. It has three parameters: - `sourcePath` - The path to the geospatial data. It may be a file path or URL. In the case of a Shapefile, this should point to the .shp file or a zipped file that contains all of the Shapefile components. You can point to other zipped contents as well, but see caveats below. - `layerName` (required for GPKG and GDB, optional for SHP) - The name of the layer that you wish to extract from a GeoPackage or File Geodatabase. Not required for Shapefiles, but may be specified for use in the archival copy (see below) - `driverName` (required for zipped data or data with non-standard file extension) - which [GDAL driver](https://gdal.org/drivers/vector/index.html) to use to read the file. Script will attempt to infer this from the file extension, but you must specify it if the data is zipped, if the file extension is non-standard, or if the extension cannot be determined from the path (e.g. if the path is an API query) - `archiveDir` (optional) - The path to the directory where a copy of a data should be archived. If this is specified, the data will be archived in this location as a GeoPackage. The function will determine the file name and layer name from the specified parameters, using generic values if necessary. - `archiveFileName` (optional) - If `archiveDir` is specified, you may use this to specify the name of the archival GeoPackage. Omit the extension. If this is unspecified, the function will assign the file name automatically using a generic value if necessary. The following example loads data from the MORPC Mid-Ohio Open Data website, however you can also load data from a local path or network drive. ```python import geopandas as gpd ``` ```python # Create a directory to store the archival data (for demonstration purposes only) if not os.path.exists(\"./temp_data\"): os.makedirs(\"./temp_data\") # Load the data and create an archival copy gdf = morpc.load_spatial_data( sourcePath=\"https://opendata.arcgis.com/api/v3/datasets/e42b50fbd17a47739c2a7695778c498e_17/downloads/data?format=shp\u0026spatialRefId=3735\u0026where=1%3D1\", layerName=\"MORPC MPO Boundary\", driverName=\"ESRI Shapefile\", archiveDir=\"./temp_data\" ) ``` Let\u0027s take a look at the data and make sure it loaded correctly. ```python gdf.drop(columns=\"Updated\").explore() ## avoid datetime column JSON error ``` Now let\u0027s read the archival copy and make sure it looks the same. We\u0027ll use the `load_spatial_data()` function again, but this time we won\u0027t make an archival copy. ```python gdfArchive = morpc.load_spatial_data(\"./temp_data/MORPC MPO Boundary.gpkg\", layerName=\"MORPC MPO Boundary\") ``` ```python gdfArchive.drop(columns=\"Updated\").explore() ``` # Assign geographic identifiers Sometimes we have a set of locations and we would like to know what geography (county, zipcode, etc.) they fall in. The `assign_geo_identifiers()` function takes a set of georeference points and a list of geography levels and determines for each level which area each point falls in. The function takes two parameters: - `points` - a GeoPandas GeoDataFrame consisting of the points of interest - `geographies` - A Python list of one or more strings in which each element corresponds to a geography level. You can specify as many levels as you want from the following list, however note that the function must download the polygons and perform the analysis for each level so if you specify many levels it may take a long time. - \"county\" - County (Census TIGER) - \"tract\" - *Not currently implemented* - \"blockgroup\" - *Not currently implemented* - \"block\" - *Not currently implemented* - \"zcta\" - *Not currently implemented* - \"place\" - Census place (Census TIGER) - \"placecombo\" - *Not currently implemented* - \"juris\" - *Not currently implemented* - \"region15County\" - *Not currently implemented* - \"region10County\" - *Not currently implemented* - \"regionCORPO\" - *Not currently implemented* - \"regionMPO\" - *Not currently implemented* **NOTE:** Many of the geography levels are not currently implemented. They are being implemented as they are needed. If you need one that has not yet been implemented, please contact Adam Porr (or implement it yourself). In the following example, we will assign labels for the \"county\" and \"place\" geography levels to libraries in MORPC\u0027s Points of Interest layer. First we\u0027ll download just the library locations from Mid-Ohio Open Data using the ArcGIS REST API. ```python url = \"https://services1.arcgis.com/EjjnBtwS9ivTGI8x/arcgis/rest/services/Points_of_Interest/FeatureServer/0/query?outFields=*\u0026where=%22type%22=%27Library%27\u0026f=geojson\" librariesRaw = gpd.read_file(url) ``` The data incudes a bunch of fields that we don\u0027t need. For clarity, extract only the relevant fields. ```python libraries = librariesRaw.copy().filter(items=[\u0027NAME\u0027, \u0027ADDRESS\u0027,\u0027geometry\u0027], axis=\"columns\") ``` ```python libraries.head() ``` Let\u0027s take a look at the library locations. ```python libraries.explore(style_kwds={\"radius\":4}) ``` Use the `assign_geo_identifiers()` function to iterate through the requested geography levels (in this case \"county\" and \"place\"), labeling each point with the identifier of the geography in each level where the point is located. ```python librariesEnriched = morpc.assign_geo_identifiers(libraries, [\"county\",\"place\"]) ``` Note that two columns have been added to the dataframe, one that contains the identifier for the county the library is located in and one that contains the identifier for the place. ```python librariesEnriched.head() ``` Let\u0027s take a look at libraries, symbolizing each according to the county where it is located. ```python librariesEnriched.explore(column=\"id_county\", style_kwds={\"radius\":4}) ``` Let\u0027s take another look, this time symbolizing each library according to the place where it is located. The legend has been suppressed because there are too many unique values, but you can hover over each point to see the place identifier that has been assigned to it. ```python librariesEnriched.explore(column=\"id_place\", style_kwds={\"radius\":4}, legend=False) ``` ## morpc.frictionless - Schema tools (TableSchema) As of January 2024 the Data Team is considering a new standard for machine-readable metadata, namely [TableSchema](https://specs.frictionlessdata.io/table-schema/). TableSchema is a schema for tabular formats that includes many of the features for Avro (see above) plus rich types and constraints. TableSchema is supported in [Python](https://pypi.org/project/tableschema/) and [R](https://www.rdocumentation.org/packages/tableschema.r/), and the libraries include many utilty functions. The foundation of the morpc.frictionless is [frictionless-py](https://github.com/frictionlessdata/frictionless-py). The functions are written to create and load resources. The foundation of the frictionless framework are [resouces](https://framework.frictionlessdata.io/docs/resources/file.html). Resources are structured json or yaml files that include metadata for the a file or number of files. ```python df = pd.read_excel(\u0027./temp_data/dataChartToExcelOutput.xlsx\u0027) ## import sample data from temp_data ``` ```python df.columns = [\"column1\", \"column2\", \"column3\"] ## give some reasonable names to columns ``` ```python df.to_csv(\u0027./temp_data/temp_df.csv\u0027, index=False) ## save a csv ``` Typically we will create some constant variable name for the file, resource, and schema. The resource and schema are stored in yaml files. ```python RESOURCE_DIR = \u0027./temp_data/\u0027 TABLE_FILE_NAME = \u0027temp_df.csv\u0027 TABLE_RESOURCE_NAME = TABLE_FILE_NAME.replace(\u0027.csv\u0027, \u0027.resource.yaml\u0027) TABLE_SCHEMA_NAME = TABLE_FILE_NAME.replace(\u0027.csv\u0027, \u0027.schema.yaml\u0027) ``` Schema can be defined manually, or can be created via standard frictionless functions. ```python import frictionless ``` ```python frictionless.Schema.describe(os.path.join(RESOURCE_DIR, TABLE_FILE_NAME)).to_yaml(os.path.join(RESOURCE_DIR, TABLE_SCHEMA_NAME)) ## Create a default schema and save as a yaml ``` ### Create a resource ```python morpc.frictionless.create_resource(TABLE_FILE_NAME, # the filename relative to resource dir, often just filename resourcePath=os.path.join(RESOURCE_DIR, TABLE_RESOURCE_NAME), # file path to resource location schemaPath=TABLE_SCHEMA_PATH, # path of schema relative to resource dir name = \"temp_df\", # simple name title = \"A title for the resource\", # A human readable title description = \"A description of the resource to explain what it contains.\", # A full description writeResource = True, # Boolean - Whether to archive the resouce file resFormat = \"csv\", resMediaType= \"text/csv\", computeBytes= True, # Compute the size if the file in bytes computeHash = True, # Create a md5 hash of the file, a unique string to check if file has been changed. validate=True # Validate the resource after creating ) ``` Load data from a resource file. Returns the data, a resource, and the schema ### Load data from a resource file ```python data, resource, schema = morpc.frictionless.load_data(os.path.join(RESOURCE_DIR, TABLE_RESOURCE_NAME)) ``` ```python data ``` ```python resource ``` ```python schema ``` ## Branding The library includes the hex codes the MORPC brand colors and provides assigns of human-readable names to make the colors easier to work with. ```python morpc.CONST_MORPC_COLORS ``` Here\u0027s what the colors look like when rendered on-screen. ```python outputString = \"colornamemorpc.CONST_MORPC_COLORS[colorname]\" for colorname in morpc.CONST_MORPC_COLORS: outputString += \"{0}{1}\".format(colorname, morpc.CONST_MORPC_COLORS[colorname]) outputString += \"\" display(IPython.display.HTML(outputString)) ``` ## Round preserving sum (aka \"bucket rounding\") Imagine we have a series of values that need to be rounded, but we want the rounded values to sum to the same value as the original series. Create a random series for demonstration purposes. ```python rawValues = pd.Series([random.randrange(0, 100000)/100 for x in range(1,10)]) list(rawValues) ``` Specify the number of decimal digits to preserve. For this demo we\u0027ll round to integers (i.e. zero decimal places), which is typically what we want, but the function supports rounding to other decimal places as well. ```python digits = 0 ``` Perform bucket-rounding ```python bucketRoundedValues = morpc.round_preserve_sum(rawValues, digits, verbose=True) ``` Raw values: ```python rawValues.tolist() ``` Bucket-rounded values: ```python bucketRoundedValues.tolist() ``` Sum of raw values: ```python round(sum(rawValues)) ``` Sum of bucket-rounded values: ```python sum(bucketRoundedValues) ``` ## Control variable to group Often we have a set of values representing the members of some group and we need the sum of those values to match a total for the group that was computed independently. Perhaps the best known example of this is the annual [population estimates for sub-county jurisdictions](https://github.com/morpc/morpc-popest). The estimates for all of the jurisdictions in the county must total to the [county-level population estimates](https://github.com/morpc/morpc-popest-county), which are derived independently. In this case the county (group) totals are known as the \"control values\" or \"control totals\" and the process of adjusting the sub-county (group member) values so that their total is equal to the control total is known as \"controlling\" the variable. The process includes the following steps, which will be described in more detail below. - Establish control values for the groups (e.g. the county-level estimnates in the example above) - Create a series of grouped values to be controlled (e.g. the sub-county estimates) - Control the values in each group to the control total. This consists of three sub-parts: - Compute group sums - Compute group shares - Compute controlled values In the sections that follow, we\u0027ll look at a more contrived example, namely controlling the 2021 ACS 5-year estimates for county subdivisions to the 2020 decennial county populations. This is not a recommended application and is used only for the sake of convenience. ### Establish control values for groups Download county populations from 2020 decennial census ```python r = requests.get( url=\"https://api.census.gov/data/2020/dec/dhc\", params={ \"get\":\",\".join([\"P1_001N\"]), \"for\":\"county:{}\".format(\",\".join([x[2:] for x in countyLookup.list_ids()])), \"in\": \"state:39\" } ) records = r.json() countyPop = pd.DataFrame.from_records(records[1:], columns=records[0]) countyPop[\"C_GEOID\"] = countyPop[\"state\"] + countyPop[\"county\"] countyPop = countyPop.loc[countyPop[\"county\"].isin([x[2:] for x in countyLookup.list_ids()])].copy() \\ .rename(columns={\"P1_001N\":\"C_POP\"}) \\ .drop(columns={\"state\",\"county\"}) \\ .astype({\"C_POP\":\"int\"}) \\ .set_index(\"C_GEOID\") ``` Now we have the population for each county (indexed by their GEOIDs) which will serve as the control totals. ```python countyPop.head() ``` ### Create series of grouped values to be controlled Download sub-county populations from the 2021 ACS 5-year estimates ```python r = requests.get( url=\"https://api.census.gov/data/2021/acs/acs5\", params={ \"get\":\",\".join([\"NAME\",\"GEO_ID\",\"B01001_001E\",\"B01001_001M\"]), \"for\":\"county subdivision:*\", \"in\": [ \"state:39\", \"county:{}\".format(\",\".join([x[2:] for x in countyLookup.list_ids()])), ] } ) records = r.json() subdivPop = pd.DataFrame.from_records(records[1:], columns=records[0]) subdivPop = subdivPop \\ .rename(columns={\"GEO_ID\":\"GEOID\",\"B01001_001E\":\"POP\",\"B01001_001M\":\"POP_MOE\"}) \\ .astype({\"POP\":\"int\"}) \\ .set_index(\"GEOID\") subdivPop[\"C_GEOID\"] = subdivPop[\"state\"] + subdivPop[\"county\"] ``` Now we have population estimates for the members of each group (county). Note that the county GEOID (C_GEOID) has been assigned to each member record. We\u0027ll use this to iterate through groups. ```python subdivPop.head() ``` Note that the sums of the subdivision populations doesn\u0027t match the sum of the county populations. This is expected and it is the reason we need to control the subdivision values. ```python subdivPop[\"POP\"].sum() ``` ```python countyPop[\"C_POP\"].sum() ``` ### Control the values in each group to the control total Recall that this step has three sub-parts: 1. Compute group sums (see `morpc.compute_group_sum()`) 2. Compute group shares (see `morpc.compute_group_share()`) 3. Compute controlled values (see `morpc.compute_controlled_values()`) The morpc-common library has a function for each of these steps as noted above, but it also has a high-level function that performs all three steps in sequence, namely `morpc.control_variable_to_group()`. It requires the following inputs: - `inputDf` is a pandas DataFrame with a column containing the group shares and (optionally) a column containg the group labels. - `controlValues` is one of the following: - If `groupbyField == None`: `controlValues` is a scalar number (integer or float) - If `groupbyField != None`: `controlValues` is a pandas Series of numbers indexed by group labels - `groupbyField` (optional) is the name of the column of `inputDf` that contains the group labels. - `shareField` (optional) is the name of the column of `inputDf` containing the shares that the values comprise. If this is not specified, \"GROUP_SHARE\" will be used. - `roundPreserveSumDigits` (optional) is the number of decimal places that the scaled values (i.e. the values in the \"CONTROLLED_VALUE\" column) should be rounded to. A \"bucket rounding\" technique (see `morpc.round_preserve_sum()` will be used to ensure that the sum of the values in the group is preserved. If this is not specified, the scaled values will be left unrounded. This is what the function call looks like for our example case: ```python subdivPopControlled = morpc.control_variable_to_group(inputDf=subdivPop, controlValues=countyPop[\"C_POP\"], valueField=\"POP\", groupbyField=\"C_GEOID\", roundPreserveSumDigits=0) subdivPopControlled.head() ``` ### Check the results Now the sum of our controlled values should match the county control totals. We can see that this is true by comparing the \"POP_SUM_CONTROLLED\" columns (which the sum of \"CONTROLLED_VALUE\" by county) and the \"C_POP\" column (which is the county control total) and verifying that the two are equal for all records. ```python subdivPopControlled[[\"C_GEOID\",\"POP\",\"CONTROLLED_VALUE\"]] \\ .groupby(\"C_GEOID\").sum() \\ .rename(columns={\"POP\":\"POP_SUM\",\"CONTROLLED_VALUE\":\"POP_SUM_CONTROLLED\"}) \\ .join(countyPop) ``` We may want to get a sense of how much adjustment of the sub-county values was required. To do this we can compute the difference between the controlled value and the original value and do some desriptive analysis. ```python subdivPopControlled[\"RESIDUAL\"] = subdivPopControlled[\"CONTROLLED_VALUE\"] - subdivPopControlled[\"POP\"] subdivPopControlled[\"RESIDUAL_PCT\"] = subdivPopControlled[\"RESIDUAL\"]/subdivPopControlled[\"POP\"] subdivPopControlled[\"RESIDUAL_PCT\"] = subdivPopControlled[\"RESIDUAL_PCT\"].replace(np.inf, 0) subdivPopControlled[\"RESIDUAL_PCT\"] = subdivPopControlled[\"RESIDUAL_PCT\"].replace(-np.inf, 0) subdivPopControlled[\"RESIDUAL_PCT\"] = subdivPopControlled[\"RESIDUAL_PCT\"].fillna(0) ``` First we\u0027ll look at the stats for the raw residual. ```python subdivPopControlled[\"RESIDUAL\"].describe() ``` ```python subdivPopControlled[\"RESIDUAL\"].hist(bins=25, log=True) ``` The residual is close to zero in the vast majority of cases. Let\u0027s look at the ten cases with the greatest residual. ```python subdivPopControlled[[\"NAME\",\"POP\",\"CONTROLLED_VALUE\",\"RESIDUAL\",\"RESIDUAL_PCT\"]].sort_values(\"RESIDUAL\", ascending=False).head(10) ``` And the ten cases with the smallest residual (which could be large but negative) ```python subdivPopControlled[[\"NAME\",\"POP\",\"CONTROLLED_VALUE\",\"RESIDUAL\",\"RESIDUAL_PCT\"]].sort_values(\"RESIDUAL\", ascending=False).tail(10) ``` The raw residual for Columbus was very large, but as a percentage it is not that bad. Let\u0027s look at the stats for the percentages. ```python subdivPopControlled[\"RESIDUAL_PCT\"].describe() ``` ```python subdivPopControlled[\"RESIDUAL_PCT\"].hist(bins=25) ``` ```python subdivPopControlled[[\"NAME\",\"POP\",\"CONTROLLED_VALUE\",\"RESIDUAL\",\"RESIDUAL_PCT\"]].sort_values(\"RESIDUAL_PCT\", ascending=False).head(10) ``` ```python subdivPopControlled[[\"NAME\",\"POP\",\"CONTROLLED_VALUE\",\"RESIDUAL\",\"RESIDUAL_PCT\"]].sort_values(\"RESIDUAL_PCT\", ascending=False).tail(10) ``` ## morpc.census MORPC works regularly with census data, including but not limited to ACS 5 and 1-year, Decennial Census, PEP, and geographies. The following module is useful for gathering and organizing census data for processes in various workflow. Those workflows are linked when appropriate. ### ACS functions and variables acs_get() is a low-level wrapper for Census API requests that returns the results as a pandas dataframe. If necessary, it splits the request into several smaller requests to bypass the 50-variable limit imposed by the API. The resulting dataframe is indexed by GEOID (regardless of whether it was requested) and omits other fields that are not requested but which are returned automatically with each API request (e.g. \"state\", \"county\") ```python url = \u0027https://api.census.gov/data/2022/acs/acs1\u0027 params = { \"get\": \"GEO_ID,NAME,B01001_001E\", \"for\": \"county:049,041\", \"in\": \"state:39\" } ``` ```python acs = morpc.census.acs_get(url, params) ``` Total variables requested: 3 Starting request #1. 3 variables remain. ```python acs ``` .dataframe tbody tr th:only-of-type { vertical-align: middle; } .dataframe tbody tr th { vertical-align: top; } .dataframe thead th { text-align: right; } NAME B01001_001E GEO_ID 0500000US39041 Delaware County, Ohio 226296 0500000US39049 Franklin County, Ohio 1321820 ### Using morpc-censusacs-fetch as an input When using ACS data, generally we will be digesting data produded using the [morpc-censusacs-fetch](https://github.com/morpc/morpc-censusacs-fetch) workflow. The data that is produced from that script is by default saved in its output_data folders ./morpc-censusacs-fetch/output_data/ Run that script according to the documentation and then use acs_generate_dimension_table() downstream. #### Load the data using frictionless.load_data() ```python data, resource, schema = morpc.frictionless.load_data(\u0027../../morpc-censusacs-fetch/output_data/morpc-acs5-2023-us-B01001.resource.yaml\u0027, verbose=False) ``` morpc.load_data | INFO | Loading Frictionless Resource file at location ..\\..\\morpc-censusacs-fetch\\output_data\\morpc-acs5-2023-us-B01001.resource.yaml morpc.load_data | INFO | Loading data, resource file, and schema from their source locations morpc.load_data | INFO | --\u003e Data file: ..\\..\\morpc-censusacs-fetch\\output_data\\morpc-acs5-2023-us-B01001.csv morpc.load_data | INFO | --\u003e Resource file: ..\\..\\morpc-censusacs-fetch\\output_data\\morpc-acs5-2023-us-B01001.resource.yaml morpc.load_data | INFO | --\u003e Schema file: ..\\..\\morpc-censusacs-fetch\\output_data\\morpc-acs5-2023-us-B01001.schema.yaml morpc.load_data | INFO | Loading data. ```python data ``` .dataframe tbody tr th:only-of-type { vertical-align: middle; } .dataframe tbody tr th { vertical-align: top; } .dataframe thead th { text-align: right; } GEO_ID SUMLEVEL NAME B01001_001E B01001_001M B01001_002E B01001_002M B01001_003E B01001_003M B01001_004E ... B01001_045E B01001_045M B01001_046E B01001_046M B01001_047E B01001_047M B01001_048E B01001_048M B01001_049E B01001_049M 0 0100000US 010 United States 332387540 -555555555 164545087 6966 9688436 4185 10296243 ... 5576237 15826 7978348 17513 5461052 16334 3631914 12460 4050652 15097 1 rows \u00c3\u2014 101 columns #### Using ACS_ID_FIELDS to get the fields ids ```python idFields = [field[\"name\"] for field in morpc.census.ACS_ID_FIELDS[\u0027us\u0027]] ``` ```python morpc.acs_generate_universe_table(data.set_index(\"GEO_ID\"), \"B01001_001\") ``` .dataframe tbody tr th:only-of-type { vertical-align: middle; } .dataframe tbody tr th { vertical-align: top; } .dataframe thead th { text-align: right; } Universe Universe MOE GEOID 332387540 -555555555 #### Create a dimension table with the data and the dimension names ```python dim_table = morpc.census.acs_generate_dimension_table(data.set_index(\"GEO_ID\"), schema, idFields=idFields, dimensionNames=[\"Sex\", \"Age group\"]) ``` ```python dim_table.loc[dim_table[\u0027Variable type\u0027] == \u0027Estimate\u0027].head() ``` .dataframe tbody tr th:only-of-type { vertical-align: middle; } .dataframe tbody tr th { vertical-align: top; } .dataframe thead th { text-align: right; } GEOID Variable Value Sex Age group Variable type 0 B01001_001E 332387540 NaN NaN Estimate 2 B01001_002E 164545087 Male NaN Estimate 4 B01001_003E 9688436 Male Under 5 years Estimate 6 B01001_004E 10296243 Male 5 to 9 years Estimate 8 B01001_005E 11032019 Male 10 to 14 years Estimate ## Schema tools (Apache Avro format) - DEPRECIATED **DEPRECATION WARNING**: As of January 2024 the Data Team is considering a new standard for machine-readable metadata, namely TableSchema (see below). Code that makes use of the features described in this section will likely need to be updated to make use of the new standard when it is adopted. Use discretion when making use of these features. [Apache Avro](https://en.wikipedia.org/wiki/Apache_Avro) is an open source data serialization technology that includes a JSON-based [schema specification format](https://avro.apache.org/docs/1.11.1/specification/). MORPC does not typically use the Avro format itself, however code written through 2023 may have relied on schemas specified in Avro format. This section demonstrates utility functions for loading Avro-formatted schemas and using the schemas to manipulate data. The demonstration relies on a local copy of data from the [morpc-lookup](https://github.com/morpc/morpc-lookup) repository in GitHub. Prior to running the code you must download the required data and schema and update the following paths (as needed) to point to the correct files. ```python dataPath = \"..\\morpc-lookup\\MORPC_Counties.csv\" schemaPath = dataPath.replace(\".csv\", \"_schema.json\") print(\"Data path: {}\".format(dataPath)) print(\"Schema path: {}\".format(schemaPath)) ``` Load the data. ```python dataRaw = pd.read_csv(dataPath) dataRaw.head() ``` The data is stored in a CSV file. In a CSV, all data is stored as strings. There is no built-in mechanism for specifying the data type for each field. Note that pandas (like many other software applications) tried to infer the data type. ```python dataRaw.dtypes ``` Sometimes the inference works well, other times not so well. It is safer to specify the field types explictly. One way to do this is to create a schema definition for the data. Here is an example of a schema definition specified in Apache Avro format: ```python with open(schemaPath, \"r\") as f: schemaRaw = f.read() print(schemaRaw) ``` Note that that this format allows for specification of the field names and types, as well as dataset-level and variable-level metadata. Because Avro-style schemas are formatted as JSON, Python can easily convert the schema to a dictionary structure so that we can access it programmatically. The morpc-common library contains a convenience function to load the schema and convert it to a dictionary. ```python schema = morpc.load_avro_schema(schemaPath) print(\"The fields in this dataset are: \" + \", \".join([field[\"name\"] for field in schema[\"fields\"]])) ``` The morpc-common library contains several convenience functions for interacting with Avro schemas. One such function casts each of the fields in a dataset as the correct data type as specified in the schema. ```python data = morpc.cast_field_types(dataRaw, schema) ``` Now the data types should match the schema, regardless of what pandas inferred originally. ```python data.dtypes ``` **A note about integers** The pandas \"int\" dtype does not support null values. If a field contains null values and you try to cast it as \"int\", this function will automatically attempt to convert them to \"Int64\" (which does support null values) instead. If this fails, it might be because the fractional part of one of your values (i.e. the part to the right of the decimal point) is non-zero. You can either round the values before attempting the conversion or set `forceInteger=True` when calling the function. In the latter case, the function will round the values to the ones place prior to recasting the values. Here\u0027s another function that creates a list object containing the names of the fields included in the schema. ```python morpc.avro_get_field_names(schema) ``` This one returns a dictionary mapping each field name to its type. ```python morpc.avro_to_pandas_dtype_map(schema) ``` Sometimes a variable may be referred to by different names. It is possible to list the alternate names in the schema using the \"aliases\" property. The following function creates a dictionary that maps the original field name to the first (and presumably most common) alias. This can be used to easily rename the fields in the dataset for use in a different application. ```python morpc.avro_map_to_first_alias(schema) ``` The following function does the reverse of the previous one, namely it creates a dictionary mapping the first alias to the original field name. This can be useful to reverse the previous remapping. It is also useful for Shapefiles, which have a ten-character field name limit. In that case, you can store the human-readable field name as the original field name and store the Shapefile-compliant field name as an alias. ```python morpc.avro_map_from_first_alias(schema) ``` Using the schema dictionary and the helper functions, you can easily do transformations of the data. Here are some examples. First, take a look at the original data. ```python data.head() ``` Rename the columns in the data to the first alias for each column. ```python data.rename(columns=morpc.avro_map_to_first_alias(schema)).head() ``` Filter and reorder fields. ```python reverseOrder = morpc.avro_get_field_names(schema) reverseOrder.reverse() data[reverseOrder].head() ``` ```python oneLessField = morpc.avro_get_field_names(schema) oneLessField.remove(\"STATE_ID\") data[oneLessField].head() ```",
+      },
+      };
+  const searchIndex = lunr(function () {
+    this.ref("path")
+    this.field("name", { boost: 10 })
+    this.field("text")
+    for (const item of Object.values(searchItems)) {
+      this.add(item)
+    }
+  });
+  const searchOutput = document.getElementById('livemark-search-output')
+  const searchInput = document.getElementById('livemark-search-input')
+  searchInput.addEventListener('input', search)
+  prepare()
+  search()
+});
+
+</script>
+
+<div id="livemark-search">
+  <div id="livemark-search-output"></div>
+  <input id="livemark-search-input" type="search" placeholder="Search...">
+</div>
+<script>
+
+document.addEventListener("DOMContentLoaded", function () {
+  // Add buttons
+  $("h2").append('<a href="" class="livemark-source-button">Source</a>');
+
+  // Enable buttons
+  $(".livemark-source-button").click(async (ev) => {
+    ev.preventDefault();
+
+    // Close open
+    if ($(".livemark-source-section").length) {
+      $(".livemark-source-section").remove();
+      return;
+    }
+
+    // Load content
+    let source = location.href.replace(".html", ".md");
+    if (!source.endsWith(".md")) source = `${source}index.md`;
+    const heading = $(ev.target).parent().contents().get(0).nodeValue;
+    response = await fetch(source);
+    content = await response.text();
+
+    // Extract section
+    let isCapture;
+    const lines = [];
+    for (const line of content.split(/\r?\n/)) {
+      if (line.startsWith("##")) {
+        isCapture = line.startsWith(`## ${heading}`) ? true : false;
+        continue;
+      }
+      if (isCapture) {
+        lines.push(line);
+      }
+    }
+    const section = _.escape(lines.join("\n").trim());
+
+    // Show section
+    $(ev.target)
+      .parent()
+      .after(
+        `<pre class="livemark-source-section" style="white-space: pre-wrap;">${section}</pre>`
+      );
+  });
+});
+
+</script>
+</body>
+</html>
