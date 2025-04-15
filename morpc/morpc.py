@@ -109,6 +109,21 @@ CONST_MORPC_COLORS = {
     "midblue": "#2c6179"
 }
 
+CONST_MORPC_COLORS_EXP = {
+    'darkblue': '#2e5072',
+    'blue': '#0077bf',
+    'darkgreen': '#2c7f68',
+    'lightgreen': '#66b561',
+    'bluegreen': '#00b2bf',
+    'midblue': '#2c6179',
+    'tan': '#c4a499',
+    'rust': '#8c3724',
+    'peach':'#ef7e58',
+    'red': '#d6061a',
+    'gold': '#ba881a',
+    'brown': '#694e0b'
+ }
+
 # TODO: add more colors to the morpc specific color and define colors for plots
 
 CONST_COLOR_CYCLES = {

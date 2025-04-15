@@ -1,0 +1,12 @@
+name: temp_df
+type: table
+title: A title for the resource
+description: A description of the resource to explain what it contains.
+profile: data-resource
+path: temp_df.csv
+scheme: file
+format: csv
+mediatype: text/csv
+hash: 3f0fe472ad7bf42606eba5184f838dab
+bytes: 53
+schema: temp_df.schema.yaml

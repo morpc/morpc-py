@@ -120,38 +120,38 @@ ACS_AGEGROUP_SORT_ORDER = {
 #   - pandas dataframe indexed by GEO_ID and having a column for each requested variable
 # 
 def acs_get(url, params, varBatchSize=20, verbose=True):
-"""
-acs_get(url, params, varBatchSize=20, verbose=True)
+    """
+    acs_get(url, params, varBatchSize=20, verbose=True)
 
-acsGet() is a low-level wrapper for Census API requests that returns the results as a pandas dataframe. 
-     
+    acsGet() is a low-level wrapper for Census API requests that returns the results as a pandas dataframe. 
+        
 
-Parameters
-----------
-url : string
-    url is the base URL of the desired Census API endpoint.  For example: https://api.census.gov/data/2022/acs/acs1
+    Parameters
+    ----------
+    url : string
+        url is the base URL of the desired Census API endpoint.  For example: https://api.census.gov/data/2022/acs/acs1
 
-params : dict 
-    (in requests format) the parameters for the query string to be sent to the Census API. For example:
+    params : dict 
+        (in requests format) the parameters for the query string to be sent to the Census API. For example:
 
-    {
-        "get": "GEO_ID,NAME,B01001_001E",
-        "for": "county:049,041",
-        "in": "state:39"
-    }
+        {
+            "get": "GEO_ID,NAME,B01001_001E",
+            "for": "county:049,041",
+            "in": "state:39"
+        }
 
-varBatchSize : integer, default = 20
-    representing the number of variables to request in each batch. 
-    Defaults to 20, Limited to 49.
+    varBatchSize : integer, default = 20
+        representing the number of variables to request in each batch. 
+        Defaults to 20, Limited to 49.
 
-verbose : boolean
-    If True, the function will display text updates of its status, otherwise it will be silent.
+    verbose : boolean
+        If True, the function will display text updates of its status, otherwise it will be silent.
 
-Returns
--------
-pandas.Dataframe
-    dataframe indexed by GEO_ID and having a column for each requested variable
-"""
+    Returns
+    -------
+    pandas.Dataframe
+        dataframe indexed by GEO_ID and having a column for each requested variable
+    """
     
     import json         # We need json to make a deep copy of the params dict
     import requests
@@ -251,24 +251,24 @@ pandas.Dataframe
 #         | B25127_004E  | Owner occupied | Built 2020 or later | 1, detached or attached |
 #
 def acs_label_to_dimensions(labelSeries, dimensionNames=None):
-"""
-acs_label_to_dimensions(labelSeries, dimensionNames=None)
+    """
+    acs_label_to_dimensions(labelSeries, dimensionNames=None)
 
-obtains the data dimensions associated with a particular variable by decomposing the "Label" column as described in the Census API variable list.
+    obtains the data dimensions associated with a particular variable by decomposing the "Label" column as described in the Census API variable list.
 
-Parameters
-----------
-labelSeries : pandas.Series object 
-    Contains a set of labels, one for each ACS variable of interest.  The indices of this series typically should match the dataframe that you want to join the dimension values to.
+    Parameters
+    ----------
+    labelSeries : pandas.Series object 
+        Contains a set of labels, one for each ACS variable of interest.  The indices of this series typically should match the dataframe that you want to join the dimension values to.
 
-dimensionNames : list
-    Contains descriptions of the dimensions represented by each element in the label.  These will be used as column headers in the output dataframe.  If dimensionNames is not provided, no column headers will be assigned.
-    
-Returns
--------
-Pandas.Dataframe
-    Where each record represents the set of dimensions for an ACS variable and each column represents the value of one dimension for that variable.
-"""
+    dimensionNames : list
+        Contains descriptions of the dimensions represented by each element in the label.  These will be used as column headers in the output dataframe.  If dimensionNames is not provided, no column headers will be assigned.
+        
+    Returns
+    -------
+    Pandas.Dataframe
+        Where each record represents the set of dimensions for an ACS variable and each column represents the value of one dimension for that variable.
+    """
     import numpy as np
     import pandas as pd
     #TODO: add support for single variable as string.
