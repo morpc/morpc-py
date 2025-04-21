@@ -1,0 +1,17 @@
+brand:
+  text: MORPC
+about: 
+  text: morpc-py is a set of tools for data management used by the MORPC Data Team
+github:
+  user: morpc
+  repo: morpc-py
+topics:
+  selector: h2
+pages:
+  items:
+    - name: Introduction
+      path: index
+    - name: Colors
+      path: morpc-color-demo
+    - name: Plot
+      path: morpc-plot-demo

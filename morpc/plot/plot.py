@@ -1,5 +1,10 @@
 
-class scatter_plot:
+
+
+from tarfile import NUL
+
+
+class altair_scatter_plot:
 
     def __init__(self, data, x, y, color = None):
         """
@@ -108,6 +113,147 @@ class scatter_plot:
         """Plot in jupyter"""
         import altair
         return altair.JupyterChart(self.chart)
+
+class from_resource:
+
+    def __init__(self, resourcePath, x, y=None, group=None):
+        """
+        Plot data stored in a frictionless resource with reasonable values. 
+
+        Parameters:
+        -----------
+        resourcePath : str
+            Path to the resource file
+        x : str
+            Column to plot on x axis
+        y : str
+            Column to plot on y axis
+        
+        Returns:
+        --------
+        plotnine.ggplot.ggplot
+            Plot of data
+        """
+        from morpc.frictionless import load_data
+
+
+        self.data, self.resource, self.schema = load_data(resourcePath, verbose=False)
+
+        self.x = self.schema.get_field(x)
+        if y:
+            self.y = self.schema.get_field(y)
+        if group:
+            self.group = self.schema.get_field(group)
+        else:
+            self.group = False
+        
+    def bar(self):
+        import plotnine
+        if self.group:
+            self.plot = (plotnine.ggplot()
+            + plotnine.geom_bar(
+                data=self.data, 
+                mapping=plotnine.aes(
+                    x=self.x.name, 
+                    fill=self.group.name
+                    )
+                )
+            + plotnine.labs(x=self.x.title, title=self.resource.title, fill = self.group.title)
+            )
+        else: 
+            self.plot = (plotnine.ggplot()
+            + plotnine.geom_bar(
+                data=self.data, 
+                mapping=plotnine.aes(
+                    x=self.x.name, 
+                    )
+                )
+            + plotnine.labs(x=self.x.title, title=self.resource.title)
+            )
+
+        return self
+    
+    def point(self):
+        import plotnine
+        if self.group:
+            self.plot = (plotnine.ggplot()
+            + plotnine.geom_point(
+                data = self.data,
+                mapping = plotnine.aes(
+                    x = self.x.name,
+                    y = self.y.name,
+                    color = self.group.name
+                    )
+                )
+            + plotnine.labs(x=self.x.title, y=self.y.title, title=self.resource.title, color = self.group.title)
+            )
+        else:
+            self.plot = (plotnine.ggplot()
+            + plotnine.geom_point(
+                data = self.data,
+                mapping = plotnine.aes(
+                    x = self.x.name,
+                    y = self.y.name,
+                    )
+                )
+            + plotnine.labs(x=self.x.title, y=self.y.title, title=self.resource.title)
+            )
+
+        return self
+    
+    def line(self):
+        import plotnine
+        if self.group:
+            self.plot = (plotnine.ggplot()
+            + plotnine.geom_line(
+                data = self.data,
+                mapping = plotnine.aes(
+                    x = self.x.name,
+                    y = self.y.name,
+                    color = self.group.name
+                    )
+                )
+            + plotnine.labs(x=self.x.title, y=self.y.title, title=self.resource.title, color = self.group.title)
+            )
+        else:
+            self.plot = (plotnine.ggplot()
+            + plotnine.geom_line(
+                data = self.data,
+                mapping = plotnine.aes(
+                    x = self.x.name,
+                    y = self.y.name,
+                    )
+                )
+            + plotnine.labs(x=self.x.title, y=self.y.title, title=self.resource.title)
+            )
+
+        return self
+
+    def show(self):
+        return self.plot
+    
+    def save(self, path, dpi = 100, adjust_size=False):
+        from plotnine import ggsave
+        if adjust_size:
+            ggsave(self.plot, path = path, dpi = dpi, width=adjust_size[0], height=adjust_size[1])
+        else:
+            ggsave(self.plot, path = path, dpi = dpi)
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

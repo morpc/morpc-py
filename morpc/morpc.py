@@ -29,7 +29,7 @@ CONST_REGIONS["15-County Region"] = CONST_REGIONS["REGION15"]
 CONST_REGIONS["REGIONCORPO"] = ["Fairfield", "Knox", "Madison", "Marion", "Morrow", "Pickaway", "Union"]
 CONST_REGIONS["CORPO Region"] = CONST_REGIONS["REGIONCORPO"]
 CONST_REGIONS["REGIONONECBUS"] = CONST_REGIONS["REGION10"] + ["Logan"]
-CONST_REGIONS["One Columbus Region"] = CONST_REGIONS["REGIONONECBUS"]
+CONST_REGIONS["OneColumbus Region"] = CONST_REGIONS["REGIONONECBUS"]
 CONST_REGIONS["REGIONCEDS"] = CONST_REGIONS["REGION10"] + ["Logan"]
 CONST_REGIONS["CEDS Region"] = CONST_REGIONS["REGIONCEDS"]
 CONST_REGIONS["REGIONMSA"] = CONST_REGIONS["REGION7"] + ["Hocking","Morrow","Perry"]
@@ -488,7 +488,7 @@ class countyLookup():
         import pandas as pd
 
         # Get name, state identifier, and county identifier for all U.S. counties from the census API and convert it to a data frame
-        r = requests.get("https://api.census.gov/data/2020/dec/pl?get=NAME&for=county:*")
+        r = requests.get("https://api.census.gov/data/2020/dec/pl?get=NAME&for=county:*", headers={"User-Agent": "Firefox"})
         records = r.json()
         columns = records.pop(0)
         df = pd.DataFrame(data=records, columns=columns)
@@ -572,6 +572,7 @@ class varLookup():
     def __init__(self, variableList=None, aliasList=None, context=None, dictionaryPath="../morpc-lookup/variable_dictionary.xlsx"):
         import pandas as pd
         import os
+        import morpc
 
         dictionaryPath = os.path.normpath(dictionaryPath)
         
@@ -584,13 +585,13 @@ class varLookup():
             print(e)
             raise RuntimeError
 
-        variablesSchema = frictionless_load_schema(dictionaryPath.replace(".xlsx","-Variables.schema.yaml"))
-        aliasesSchema = frictionless_load_schema(dictionaryPath.replace(".xlsx","-Aliases.schema.yaml"))
-        contextsSchema = frictionless_load_schema(dictionaryPath.replace(".xlsx","-Contexts.schema.yaml"))
+        variablesSchema = morpc.frictionless.load_schema(dictionaryPath.replace(".xlsx","-Variables.schema.yaml"))
+        aliasesSchema = morpc.frictionless.load_schema(dictionaryPath.replace(".xlsx","-Aliases.schema.yaml"))
+        contextsSchema = morpc.frictionless.load_schema(dictionaryPath.replace(".xlsx","-Contexts.schema.yaml"))
 
-        variables = frictionless_cast_field_types(variables, variablesSchema, verbose=False)
-        aliases = frictionless_cast_field_types(aliases, aliasesSchema, verbose=False)
-        contexts = frictionless_cast_field_types(contexts, contextsSchema, verbose=False)      
+        variables = morpc.frictionless.cast_field_types(variables, variablesSchema, verbose=False)
+        aliases = morpc.frictionless.cast_field_types(aliases, aliasesSchema, verbose=False)
+        contexts = morpc.frictionless.cast_field_types(contexts, contextsSchema, verbose=False)      
 
         self.dictionaryPath = dictionaryPath
         self.variables = variables.copy()
@@ -794,12 +795,17 @@ def avro_map_from_first_alias(schema):
 
 # Wrapper for backward compatibility
 def cast_field_types(df, schema, forceInteger=False, handleMissingFields='error', verbose=True):
+    """
+    Wrapper for backward compatibility with AVRO Schema
+
+    """
+    import morpc
     # If schema is a dict object, assume it is in Avro format
     if(type(schema) == dict):
         outDF = avro_cast_field_types(df, schema, forceInteger=forceInteger, verbose=verbose)
     # Otherwise, assume it is in Frictionless format
     else:
-        outDF = frictionless_cast_field_types(df, schema, forceInteger=forceInteger, handleMissingFields=handleMissingFields, verbose=verbose)
+        outDF = morpc.frictionless.cast_field_types(df, schema, forceInteger=forceInteger, handleMissingFields=handleMissingFields, verbose=verbose)
     return outDF
 
 # Given a dataframe and the Avro dictionary object that describes its schema (see load_avro_schema), recast each of the fields in the dataframe

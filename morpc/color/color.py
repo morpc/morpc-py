@@ -1,3 +1,25 @@
+import json
+import itertools
+
+with open('../morpc/color/morpc_colors.json') as file:
+    morpc_colors = json.load(file)
+
+KEYS = {}
+for __COLOR in morpc_colors:
+    KEYS[__COLOR] = morpc_colors[__COLOR]['key']['hex']
+
+SEQ={}
+for __COLOR in morpc_colors:
+    SEQ[__COLOR] = morpc_colors[__COLOR]['gradient']['hex']
+
+SEQ['darkgreen_darkblue'] = [x for x in itertools.chain.from_iterable([morpc_colors['darkgreen']['gradient']['hex'][0:6:1], 
+                                                                       morpc_colors['darkblue']['gradient']['hex'][6:12:1]])]
+SEQ['gold_rose'] = [x for x in itertools.chain.from_iterable([morpc_colors['gold']['gradient']['hex'][0:6:1], 
+                                                              morpc_colors['rose']['gradient']['hex'][6:12:1]])]
+
+
+
+# Everything below is used for constructing the pallate 
 def hex_to_hls(hex_color):
     """
     Convert a HEX color to HLS (Hue, Lightness, Saturation).
@@ -132,7 +154,7 @@ def plot_from_hex_list(hex_colors, position=None):
     ax.axis('off')
 
     for i, hex in enumerate(hex_colors):
-        rgb = hex_to_rgb(hex)
+        rgb = rgb_to_dec(hex_to_rgb(hex))
         r,g,b = [x for x in rgb]
         hls_color = rgb_to_hls(r,g,b)
         h,l,s = [x for x in hls_color]
@@ -142,7 +164,7 @@ def plot_from_hex_list(hex_colors, position=None):
         text_color = 'white' if is_dark(rgb) else 'black'
 
         # Draw color square
-        square = plt.Rectangle((i, 0), 1, 1, color=rgb)
+        square = plt.Rectangle((i, 0), 1, 1, color=hex)
         ax.add_patch(square)
 
         # Add hex text overlay
