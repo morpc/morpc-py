@@ -1,22 +1,76 @@
 import json
 import itertools
 
-with open('../morpc/color/morpc_colors.json') as file:
-    morpc_colors = json.load(file)
+class get_colors():
 
-KEYS = {}
-for __COLOR in morpc_colors:
-    KEYS[__COLOR] = morpc_colors[__COLOR]['key']['hex']
+    def __init__(self, colorDictPath='../morpc/color/morpc_colors.json'):
+        import os
 
-SEQ={}
-for __COLOR in morpc_colors:
-    SEQ[__COLOR] = morpc_colors[__COLOR]['gradient']['hex']
+        try: 
+            with open(os.path.normpath(colorDictPath)) as file:
+                self.morpc_colors = json.load(file)
+        except ValueError as e:
+            print(e)
 
-SEQ['darkgreen_darkblue'] = [x for x in itertools.chain.from_iterable([morpc_colors['darkgreen']['gradient']['hex'][0:6:1], 
-                                                                       morpc_colors['darkblue']['gradient']['hex'][6:12:1]])]
-SEQ['gold_rose'] = [x for x in itertools.chain.from_iterable([morpc_colors['gold']['gradient']['hex'][0:6:1], 
-                                                              morpc_colors['rose']['gradient']['hex'][6:12:1]])]
+        self.KEYS = {}
+        for __COLOR in self.morpc_colors:
+            self.KEYS[__COLOR] = self.morpc_colors[__COLOR]['key']['hex']
 
+    def SEQ(self, color='darkblue'):
+        
+        self.hex_list = self.morpc_colors[color]['gradient']['hex']
+        self.rgb_list = self.morpc_colors[color]['gradient']['rgb']
+        self.hex_list_r = self.hex_list[::-1]
+        self.rgb_list_r = self.rgb_list[::-1]
+
+        return self
+    
+    def SEQ2(self, colors=['gold','darkblue']):
+        import itertools
+
+        self.hex_list = [x for x in itertools.chain.from_iterable([self.morpc_colors[colors[1]]['gradient']['hex'][0:6:1], 
+                                                                            self.morpc_colors[colors[2]]['gradient']['hex'][6:12:1]])]
+        self.rgb_list = [x for x in itertools.chain.from_iterable([self.morpc_colors[colors[1]]['gradient']['rgb'][0:6:1], 
+                                                                            self.morpc_colors[colors[2]]['gradient']['rgb'][6:12:1]])]
+        self.hex_list_r = self.hex_list[::-1]
+        self.rgb_list_r = self.rgb_list[::-1]
+
+        return self
+
+    def DIV(self, colors=['rose', 'darkgreen']):
+        import itertools
+
+        self.hex_list = [x for x in itertools.chain.from_iterable([self.morpc_colors[colors[1]]['gradient']['hex'][12:0:-2], 
+                                                                    self.morpc_colors[colors[2]]['gradient']['hex'][0:12:2]])]
+        self.rgb_list = [x for x in itertools.chain.from_iterable([self.morpc_colors[colors[1]]['gradient']['rgb'][12:0:-2], 
+                                                                    self.morpc_colors[colors[2]]['gradient']['rgb'][0:12:2]])]
+        self.hex_list_r = self.hex_list[::-1]
+        self.rgb_list_r = self.rgb_list[::-1]
+
+        return self
+    
+    def QUAL(self, n):
+        self.hex_list = []
+        if n <= 8:
+            for color in self.morpc_colors:
+                self.hex_list.append(self.morpc_colors[color]['key']['hex'])
+        if 8 < n <= 16:
+            for color in self.morpc_colors:
+                key_pos = self.morpc_colors[color]['key']['position']
+                positions = [key_pos - 2, key_pos]
+                for pos in positions:
+                    self.hex_list.append(self.morpc_colors['gradient']['hex'][pos])
+        if 16 < n <= 24:
+            for color in self.morpc_colors:
+                key_pos = self.morpc_colors[color]['key']['position']
+                positions = [key_pos - 2, key_pos, key_pos + 2]
+                for pos in positions:
+                    self.hex_list.append(self.morpc_colors['gradient']['hex'][pos])
+
+        self.hex_list = self.hex_list[0:n]
+        self.hex_list_r = self.hex_list[::-1]
+
+        return self
 
 
 # Everything below is used for constructing the pallate 
