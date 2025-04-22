@@ -999,6 +999,9 @@ def assign_geo_identifiers(points, geographies):
     TODO: add docstring
     """
     import geopandas as gpd
+    import pyogrio
+    import requests
+    from io import BytesIO
 
  
     # Create a copy of the input data so Python doesn't manipulate the original object.
@@ -1057,7 +1060,9 @@ def assign_geo_identifiers(points, geographies):
             raise RuntimeError
         
         # Read the polygon data
-        polys = gpd.read_file(filePath, layer=layerName, driver=driverName)
+        r = requests.get(filePath, headers = {"User-Agent": "Firefox"})
+        polys = pyogrio.read_dataframe(BytesIO(r.content))
+        # polys = gpd.read_file(filePath, layer=layerName, driver=driverName) # Return 403 due to changes in Census website
 
         # Extract only the fields containing the polygon geometries and the unique IDs. Rename the unique ID field
         # using the following format "id_{}".format(geography), for example "id_county" for the "county" geography level
