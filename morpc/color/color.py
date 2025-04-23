@@ -1,5 +1,7 @@
 import json
 
+import morpc.color
+
 class get_colors():
 
     def __init__(self, colorDictPath='../morpc/color/morpc_colors.json'):
@@ -15,10 +17,14 @@ class get_colors():
         for __COLOR in self.morpc_colors:
             self.KEYS[__COLOR] = self.morpc_colors[__COLOR]['key']['hex']
 
-    def SEQ(self, color):
-        
+    def SEQ(self, color, n=None):
         self.hex_list = self.morpc_colors[color]['gradient']['hex']
         self.rgb_list = self.morpc_colors[color]['gradient']['rgb']
+        __key = self.morpc_colors[color]['key']['position']
+        if n:
+            self.hex_list = select_color_array(self.hex_list, __key, n)
+            self.rgb_list = select_color_array(self.rgb_list, __key, n)
+
         self.hex_list_r = self.hex_list[::-1]
         self.rgb_list_r = self.rgb_list[::-1]
 
@@ -27,13 +33,45 @@ class get_colors():
 
         return self
     
-    def SEQ2(self, colors):
+    def SEQ2(self, colors, n=None):
         import itertools
+        if len(colors) != 2:
+            raise ValueError('Pass two color names')
 
         self.hex_list = [x for x in itertools.chain.from_iterable([self.morpc_colors[colors[0]]['gradient']['hex'][0:5:1], 
                                                                             self.morpc_colors[colors[1]]['gradient']['hex'][6:12:1]])]
         self.rgb_list = [x for x in itertools.chain.from_iterable([self.morpc_colors[colors[0]]['gradient']['rgb'][0:5:1], 
                                                                             self.morpc_colors[colors[1]]['gradient']['rgb'][6:12:1]])]
+        __key = self.morpc_colors[colors[1]]['key']['position']
+        if n:
+            self.hex_list = select_color_array(self.hex_list, __key, n)
+            self.rgb_list = select_color_array(self.rgb_list, __key, n)
+        self.hex_list_r = self.hex_list[::-1]
+        self.rgb_list_r = self.rgb_list[::-1]
+
+        self.cmap = get_continuous_cmap(self.hex_list)
+        self.cmap_r = get_continuous_cmap(self.hex_list_r)
+
+        return self
+    
+    def SEQ3(self, colors, n=None):
+        import itertools
+        if len(colors) != 3:
+            raise ValueError('Pass three color names')
+
+        self.hex_list = [x for x in itertools.chain.from_iterable([self.morpc_colors[colors[0]]['gradient']['hex'][0:4:1], 
+                                                                   self.morpc_colors[colors[1]]['gradient']['hex'][4:7:1],
+                                                                   self.morpc_colors[colors[2]]['gradient']['hex'][8:12:1]]
+                                                                   )]
+        
+        self.rgb_list = [x for x in itertools.chain.from_iterable([self.morpc_colors[colors[0]]['gradient']['rgb'][0:4:1], 
+                                                                   self.morpc_colors[colors[1]]['gradient']['rgb'][4:7:1],
+                                                                   self.morpc_colors[colors[2]]['gradient']['rgb'][8:12:1]]
+                                                                   )]
+        __key = self.morpc_colors[colors[1]]['key']['position']
+        if n:
+            self.hex_list = select_color_array(self.hex_list, __key, n)
+            self.rgb_list = select_color_array(self.rgb_list, __key, n)
         self.hex_list_r = self.hex_list[::-1]
         self.rgb_list_r = self.rgb_list[::-1]
 
@@ -82,6 +120,30 @@ class get_colors():
         self.cmap_r = get_continuous_cmap(self.hex_list_r)        
 
         return self
+    
+def select_color_array(_list, key, n):
+    if key not in list(range(0, len(_list))):
+        raise ValueError("key not in list.")
+    if n > len(_list):
+        raise ValueError("Too many values requested.")
+    
+    result = [_list[key]]
+    left = key - 1
+    right = key + 1
+
+    while len(result) < n:
+        if left >= 0:
+            result.append(_list[left])
+            left -= 1
+            if len(result) == n:
+                break
+        if right < len(_list):
+            result.append(_list[right])
+            right += 1
+    result.sort(reverse=True)
+
+    return result
+
 
 
 # Everything below is used for constructing the pallate 

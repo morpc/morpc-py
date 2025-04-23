@@ -1,5 +1,8 @@
+from matplotlib.pyplot import plot
+
+
 class from_resource:
-    def __init__(self, data, schema, x, y=None, group=None):
+    def __init__(self, data, schema, resource, x, y=None, group=None, pal="SEQ", color='darkblue'):
         """
         Plot data stored in a frictionless resource with reasonable values. 
 
@@ -20,19 +23,41 @@ class from_resource:
 
         self.data = data
         self.schema = schema
+        self.resource = resource
 
         self.x = self.schema.get_field(x)
         if y:
             self.y = self.schema.get_field(y)
         if group:
             self.group = self.schema.get_field(group)
-        else:
-            self.group = None
-
+        
+        self.pal = self.get_pallete(pal, color)
+        #self.xscale = self.get_xscale()
+        #self.yscale = self.get_yscale()
         self.labs = self.get_labs()
-        self.xscale = self.get_xscale()
-        self.yscale = self.get_yscale()
+
     
+    def get_pallete(self, pal, color):
+        import morpc
+        if self.group: 
+            n = len(self.data[self.group.name].unique())
+        else: 
+            n = 1
+
+        if pal == "SEQ":
+            __pal = morpc.color.get_colors().SEQ(color, n).hex_list
+        if pal == "SEQ2":
+            __pal = morpc.color.get_colors().SEQ2(color, n).hex_list
+        if pal == "SEQ3":
+            __pal = morpc.color.get_colors().SEQ3(color, n).hex_list
+        if pal == "DIV":
+            __pal = morpc.color.get_colors().DIV(color, n).hex_list
+        if pal == "QUAL":
+            __pal = morpc.color.get_colors().QUAL(color, n).hex_list
+
+        return __pal
+        
+        
     def get_labs(self):
         from plotnine import labs
 
@@ -49,8 +74,8 @@ class from_resource:
 
         if self.x.type == 'numeric':
             __xscale = scale_x_continuous()
-        if self.x.type == 'year':
-            __xscale == scale_x_datetime()
+        if self.x.type == 'date':
+            __xscale = scale_x_datetime()
         if self.x.type == 'string':
             __xscale = scale_x_discrete()
         if self.x.type == 'integer':
@@ -63,7 +88,7 @@ class from_resource:
 
         if self.y.type == 'numeric':
             __yscale = scale_y_continuous()
-        if self.y.type == 'year':
+        if self.y.type == 'date':
             __yscale = scale_y_datetime()
         if self.y.type == 'string':
             __yscale = scale_y_discrete()
@@ -83,6 +108,25 @@ class from_resource:
                 fill=[self.group.name if self.group else None]
                 )
             )
+        + plotnine.scale_fill_manual(self.pal)
+        + plotnine.theme_bw()
+        )
+        return self
+
+    def hbar(self):
+        import plotnine
+
+        self.plot = (plotnine.ggplot()
+        + plotnine.geom_bar(
+            data=self.data, 
+            mapping=plotnine.aes(
+                x=self.x.name, 
+                fill=[self.group.name if self.group else None]
+                )
+            )
+        + plotnine.scale_fill_manual(self.pal)
+        + plotnine.theme_bw()
+        + plotnine.coord_flip()
         )
         return self
     
@@ -97,6 +141,25 @@ class from_resource:
                 fill=[self.group.name if self.group else None]
                 )
             )
+        + plotnine.scale_fill_manual(self.pal)
+        + plotnine.theme_bw()
+        )
+
+        return self
+
+    def col(self):
+        import plotnine
+        self.plot = (plotnine.ggplot()
+        + plotnine.geom_col(
+            data=self.data, 
+            mapping=plotnine.aes(
+                x=self.x.name, 
+                y=self.y.name,
+                fill=[self.group.name if self.group else None]
+                )
+            )
+        + plotnine.scale_fill_manual(self.pal)
+        + plotnine.theme_bw()
         )
 
         return self
@@ -112,12 +175,18 @@ class from_resource:
                 fill=[self.group.name if self.group else None]
                 )
             )
+        + plotnine.scale_fill_manual(self.pal)
+        + plotnine.theme_bw()
         )
 
         return self
 
     def show(self):
-        return self.plot + self.labs + self.xscale + self.yscale
+        return (self.plot 
+                + self.labs 
+                #+ self.xscale 
+                #+ self.yscale
+                )
     
     def save(self, path, dpi = 100, adjust_size=False):
         from plotnine import ggsave

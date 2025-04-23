@@ -10,6 +10,9 @@
 
 
 
+import datetime
+
+
 def md5(fname):
     """
     md5() computes the MD5 checksum for a file.  When the original checksum is known, the current checksum can be compared to it to determine whether the file has changed.
@@ -120,7 +123,7 @@ def cast_field_types(df, schema, forceInteger=False, handleMissingFields="error"
             except RuntimeError as r:
                 print(f"cast_field_types | ERROR | Unable to convert to geometry.")
             finally:
-                print(f"cast_field_types | INFO | Fieldname {fieldName} cast as geometry.")
+                print(f"cast_field_types | INFO | Fieldname {fieldName} cast as geometry. {r}")
         elif(fieldType == "boolean"): 
             if(outDF[fieldName].dtype == "bool"):
                 print("cast_field_types | WARNING | Fieldname {} already cast as boolean type. Skipping casting for this field.".format(fieldName))
