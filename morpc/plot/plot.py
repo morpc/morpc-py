@@ -1,42 +1,188 @@
-from matplotlib.pyplot import plot
+import plotnine as pn
 
 
 class from_resource:
-    def __init__(self, data, schema, resource, x, y=None, group=None, pal="SEQ", color='darkblue'):
+    def __init__(self, data, resource, schema, x, y):
         """
         Plot data stored in a frictionless resource with reasonable values. 
 
         Parameters:
         -----------
-        resourcePath : str
-            Path to the resource file
-        x : str
-            Column to plot on x axis
-        y : str
-            Column to plot on y axis
+        data : pandas.DataFrame
+            long form dataframe
+        resource : json
+            frictionless.resource
+        schema : json
+            frictionless.schema
         
         Returns:
         --------
-        plotnine.ggplot.ggplot
+        pn.ggplot.ggplot
             Plot of data
         """
 
         self.data = data
         self.schema = schema
         self.resource = resource
-
         self.x = self.schema.get_field(x)
-        if y:
-            self.y = self.schema.get_field(y)
-        if group:
-            self.group = self.schema.get_field(group)
-        
-        self.pal = self.get_pallete(pal, color)
-        #self.xscale = self.get_xscale()
-        #self.yscale = self.get_yscale()
-        self.labs = self.get_labs()
+        self.y = self.schema.get_field(y)
+
+        self.plot = (pn.ggplot()
+                     + pn.theme_bw())
+        self.title = resource.title
+        self.xscale = self.get_xaxis()
+        self.yscale = self.get_yaxis()
+
+    def get_xaxis(self):
+        import numpy as np
+
+        if self.x.type == 'string':
+            _xscale = pn.scale_x_discrete(name=self.x.title)
+
+        if self.x.type.isin(['number', 'integer']):
+            lower = self.data[self.x.name].min()
+            upper = self.data[self.x.name].max()
+            base = (10**(len(str(upper))-2))*5
+            breaks = np.linspace(lower//base*base, upper//base*base, 12, dtype=int)
+            breaks = list(set([x // base * base for x in breaks]))
+            breaks.sort()
+
+            _xscale = pn.scale_x_continuous(name = self.x.title, breaks=breaks)
+
+        if self.x.type == 'date':
+            import mizani
+            if self.data[self.x.name].abs().sum() < 10:
+                breaks = mizani.breaks.breaks_date(width = "1 year")
+            if self.data[self.x.name].abs().sum() >= 10:
+                breaks = mizani.breaks.breaks_date(width = "5 years")
+            if self.data[self.x.name].abs().sum() >= 100:
+                breaks = mizani.breaks.breaks_date(width = "10 years")
+
+            _xscale = pn.scale_x_date(name=self.x.title, breaks=breaks)
+
+        max_len_label = [len(label) for label in self.data[self.x.name]].sort()
+        if max_len_label[-1] > 3:
+            _xscale = (_xscale + pn.theme(axis_text_x=pn.element_text(rotation=90)))
+
+        return _xscale
+    
+    def get_yaxis(self):
+        import numpy as np
+
+        if self.y.type == 'string':
+            _yscale = pn.scale_x_discrete(name=self.y.title)
+
+        if self.y.type.isin(['number', 'integer']):
+            lower = self.data[self.y.name].min()
+            upper = self.data[self.y.name].max()
+            base = (10**(len(str(upper))-2))*5
+            breaks = np.linspace(lower//base*base, upper//base*base, 12, dtype=int)
+            breaks = list(set([x // base * base for x in breaks]))
+            breaks.sort()
+
+            _yscale = pn.scale_x_continuous(name = self.y.title, breaks=breaks)
+
+        if self.y.type == 'date':
+            import mizani
+            if self.data[self.y.name].abs().sum() < 10:
+                breaks = mizani.breaks.breaks_date(width = "1 year")
+            if self.data[self.y.name].abs().sum() >= 10:
+                breaks = mizani.breaks.breaks_date(width = "5 years")
+            if self.data[self.y.name].abs().sum() >= 100:
+                breaks = mizani.breaks.breaks_date(width = "10 years")
+
+            _yscale = pn.scale_x_date(name=self.y.title, breaks=breaks)
+
+        return _yscale
+
+    def line(self, color=None, linetype=None, group=None):
+
+        self.plot = (self.plot
+        + pn.geom_line(
+            data=self.data, 
+            mapping=pn.aes(
+                x = self.x.name,
+                y = self.y.name,
+                color=color,
+                group=group,
+                linetype=linetype
+                )
+            )
+        + pn.scale_color_manual(self.pal)
+        + pn.theme_bw()
+        )
 
     
+    def bar(self, x, group=None, fill=None):
+        import plotnine
+
+        self.plot = (self.plot
+        + pn.geom_bar(
+            data=self.data, 
+            mapping=pn.aes(
+                x=x, 
+                fill=fill,
+                group=group
+                )
+            )
+        + pn.scale_fill_manual(self.pal)
+        + pn.theme_bw()
+        )
+        return self
+
+    def hbar(self):
+        import plotnine
+
+        self.plot = (self.plot
+        + pn.geom_bar(
+            data=self.data, 
+            mapping=pn.aes(
+                x=self.x.name, 
+                fill=[self.group.name if self.group else None]
+                )
+            )
+        + pn.scale_fill_manual(self.pal)
+        + pn.theme_bw()
+        + pn.coord_flip()
+        )
+        return self
+    
+    def point(self):
+        import plotnine
+        self.plot = (self.plot()
+        + pn.geom_point(
+            data=self.data, 
+            mapping=pn.aes(
+                x=self.x.name, 
+                y=self.y.name,
+                fill=[self.group.name if self.group else None]
+                )
+            )
+        + pn.scale_fill_manual(self.pal)
+        + pn.theme_bw()
+        )
+
+        return self
+
+    def col(self):
+        import plotnine
+        self.plot = (self.plot
+        + pn.geom_col(
+            data=self.data, 
+            mapping=pn.aes(
+                x=self.x.name, 
+                y=self.y.name,
+                fill=[self.group.name if self.group else None]
+                )
+            )
+        + pn.scale_fill_manual(self.pal)
+        + pn.theme_bw()
+        )
+
+        return self
+    
+
+        return self
     def get_pallete(self, pal, color):
         import morpc
         if self.group: 
@@ -56,136 +202,12 @@ class from_resource:
             __pal = morpc.color.get_colors().QUAL(color, n).hex_list
 
         return __pal
-        
-        
-    def get_labs(self):
-        from plotnine import labs
-
-        __labs = labs(
-            x = self.x.title, 
-            y = "Count", 
-            fill = [self.group.title if self.group else None]
-            )
-        
-        return __labs
-    
-    def get_xscale(self):
-        from plotnine import scale_x_continuous, scale_x_datetime, scale_x_discrete
-
-        if self.x.type == 'numeric':
-            __xscale = scale_x_continuous()
-        if self.x.type == 'date':
-            __xscale = scale_x_datetime()
-        if self.x.type == 'string':
-            __xscale = scale_x_discrete()
-        if self.x.type == 'integer':
-            __xscale = scale_x_discrete()
-        
-        return __xscale
-    
-    def get_yscale(self):
-        from plotnine import scale_y_continuous, scale_y_datetime, scale_y_discrete
-
-        if self.y.type == 'numeric':
-            __yscale = scale_y_continuous()
-        if self.y.type == 'date':
-            __yscale = scale_y_datetime()
-        if self.y.type == 'string':
-            __yscale = scale_y_discrete()
-        if self.y.type == 'integer':
-            __yscale = scale_y_discrete()
-        
-        return __yscale
-        
-    def bar(self):
-        import plotnine
-
-        self.plot = (plotnine.ggplot()
-        + plotnine.geom_bar(
-            data=self.data, 
-            mapping=plotnine.aes(
-                x=self.x.name, 
-                fill=[self.group.name if self.group else None]
-                )
-            )
-        + plotnine.scale_fill_manual(self.pal)
-        + plotnine.theme_bw()
-        )
-        return self
-
-    def hbar(self):
-        import plotnine
-
-        self.plot = (plotnine.ggplot()
-        + plotnine.geom_bar(
-            data=self.data, 
-            mapping=plotnine.aes(
-                x=self.x.name, 
-                fill=[self.group.name if self.group else None]
-                )
-            )
-        + plotnine.scale_fill_manual(self.pal)
-        + plotnine.theme_bw()
-        + plotnine.coord_flip()
-        )
-        return self
-    
-    def point(self):
-        import plotnine
-        self.plot = (plotnine.ggplot()
-        + plotnine.geom_point(
-            data=self.data, 
-            mapping=plotnine.aes(
-                x=self.x.name, 
-                y=self.y.name,
-                fill=[self.group.name if self.group else None]
-                )
-            )
-        + plotnine.scale_fill_manual(self.pal)
-        + plotnine.theme_bw()
-        )
-
-        return self
-
-    def col(self):
-        import plotnine
-        self.plot = (plotnine.ggplot()
-        + plotnine.geom_col(
-            data=self.data, 
-            mapping=plotnine.aes(
-                x=self.x.name, 
-                y=self.y.name,
-                fill=[self.group.name if self.group else None]
-                )
-            )
-        + plotnine.scale_fill_manual(self.pal)
-        + plotnine.theme_bw()
-        )
-
-        return self
-    
-    def line(self):
-        import plotnine
-        self.plot = (plotnine.ggplot()
-        + plotnine.geom_line(
-            data=self.data, 
-            mapping=plotnine.aes(
-                x=self.x.name, 
-                y=self.y.name,
-                fill=[self.group.name if self.group else None]
-                )
-            )
-        + plotnine.scale_fill_manual(self.pal)
-        + plotnine.theme_bw()
-        )
-
-        return self
 
     def show(self):
         return (self.plot 
                 + self.labs 
-                #+ self.xscale 
-                #+ self.yscale
+                + self.xscale 
+                + self.yscale
                 )
     
     def save(self, path, dpi = 100, adjust_size=False):
