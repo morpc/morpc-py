@@ -32,3 +32,6 @@ version = {attr = "morpc.__version__"}
 [tool.setuptools.packages.find]
 exclude = ["demo"] 
 namespaces = false
+
+[tool.setuptools.package-data]
+"*" = ["*.json"]
