@@ -302,7 +302,7 @@ morpc.color.plot_from_hex_list(morpc.color.get_colors().KEYS.values())
 
 
     
-![png](/morpc-color-demo/output_11_0.png)
+![png](/docs/morpc-color-demo/output_11_0.png)
     
 
 
@@ -317,7 +317,7 @@ morpc.color.plot_from_hex_list(morpc.color.get_colors().SEQ('midblue').hex_list)
 
 
     
-![png](/morpc-color-demo/output_14_0.png)
+![png](/docs/morpc-color-demo/output_14_0.png)
     
 
 
@@ -329,49 +329,49 @@ for color in morpc.color.get_colors().KEYS.keys():
 
 
     
-![png](/morpc-color-demo/output_15_0.png)
+![png](/docs/morpc-color-demo/output_15_0.png)
     
 
 
 
     
-![png](/morpc-color-demo/output_15_1.png)
+![png](/docs/morpc-color-demo/output_15_1.png)
     
 
 
 
     
-![png](/morpc-color-demo/output_15_2.png)
+![png](/docs/morpc-color-demo/output_15_2.png)
     
 
 
 
     
-![png](/morpc-color-demo/output_15_3.png)
+![png](/docs/morpc-color-demo/output_15_3.png)
     
 
 
 
     
-![png](/morpc-color-demo/output_15_4.png)
+![png](/docs/morpc-color-demo/output_15_4.png)
     
 
 
 
     
-![png](/morpc-color-demo/output_15_5.png)
+![png](/docs/morpc-color-demo/output_15_5.png)
     
 
 
 
     
-![png](/morpc-color-demo/output_15_6.png)
+![png](/docs/morpc-color-demo/output_15_6.png)
     
 
 
 
     
-![png](/morpc-color-demo/output_15_7.png)
+![png](/docs/morpc-color-demo/output_15_7.png)
     
 
 
@@ -384,7 +384,7 @@ morpc.color.plot_from_hex_list(morpc.color.get_colors().SEQ('gold', 4).hex_list)
 
 
     
-![png](/morpc-color-demo/output_17_0.png)
+![png](/docs/morpc-color-demo/output_17_0.png)
     
 
 
@@ -399,7 +399,7 @@ morpc.color.plot_from_hex_list(morpc.color.get_colors().SEQ2(['gold', 'darkblue'
 
 
     
-![png](/morpc-color-demo/output_20_0.png)
+![png](/docs/morpc-color-demo/output_20_0.png)
     
 
 
@@ -410,7 +410,7 @@ morpc.color.plot_from_hex_list(morpc.color.get_colors().SEQ2(['rose', 'blue']).h
 
 
     
-![png](/morpc-color-demo/output_21_0.png)
+![png](/docs/morpc-color-demo/output_21_0.png)
     
 
 
@@ -425,7 +425,7 @@ morpc.color.plot_from_hex_list(morpc.get_colors().SEQ3(['gold', 'darkgreen', 'da
 
 
     
-![png](/morpc-color-demo/output_24_0.png)
+![png](/docs/morpc-color-demo/output_24_0.png)
     
 
 
@@ -456,7 +456,7 @@ morpc.color.plot_from_hex_list(morpc.get_colors().DIV(['gold','darkblue']).hex_l
 
 
     
-![png](/morpc-color-demo/output_30_0.png)
+![png](/docs/morpc-color-demo/output_30_0.png)
     
 
 
@@ -467,7 +467,7 @@ morpc.color.plot_from_hex_list(morpc.color.get_colors().DIV(['rose','darkgreen']
 
 
     
-![png](/morpc-color-demo/output_31_0.png)
+![png](/docs/morpc-color-demo/output_31_0.png)
     
 
 
@@ -482,7 +482,7 @@ morpc.color.plot_from_hex_list(morpc.color.get_colors().QUAL(20).hex_list)
 
 
     
-![png](/morpc-color-demo/output_34_0.png)
+![png](/docs/morpc-color-demo/output_34_0.png)
     
 
 
@@ -509,7 +509,7 @@ fig.colorbar(psm, ax=ax)
 
 
     
-![png](/morpc-color-demo/output_36_1.png)
+![png](/docs/morpc-color-demo/output_36_1.png)
     
 
 
@@ -523,7 +523,7 @@ daltonize.simulate_mpl(fig, color_deficit='p')
 
 
     
-![png](/morpc-color-demo/output_37_0.png)
+![png](/docs/morpc-color-demo/output_37_0.png)
     
 
 
