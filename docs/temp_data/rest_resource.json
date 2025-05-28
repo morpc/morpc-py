@@ -1,0 +1,97 @@
+{
+  "name": "metropolitan-statistical-areas",
+  "type": "json",
+  "path": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/CBSA/MapServer/3",
+  "scheme": "https",
+  "format": "json",
+  "mediatype": "application/geo+json",
+  "schema": {
+    "fields": [
+      {
+        "name": "MTFCC",
+        "type": "string",
+        "title": "MTFCC"
+      },
+      {
+        "name": "OID",
+        "type": "string",
+        "title": "OID"
+      },
+      {
+        "name": "GEOID",
+        "type": "string",
+        "title": "GEOID"
+      },
+      {
+        "name": "CBSA",
+        "type": "string",
+        "title": "CBSA"
+      },
+      {
+        "name": "BASENAME",
+        "type": "string",
+        "title": "BASENAME"
+      },
+      {
+        "name": "NAME",
+        "type": "string",
+        "title": "NAME"
+      },
+      {
+        "name": "LSADC",
+        "type": "string",
+        "title": "LSADC"
+      },
+      {
+        "name": "FUNCSTAT",
+        "type": "string",
+        "title": "FUNCSTAT"
+      },
+      {
+        "name": "AREALAND",
+        "type": "string",
+        "title": "AREALAND"
+      },
+      {
+        "name": "AREAWATER",
+        "type": "string",
+        "title": "AREAWATER"
+      },
+      {
+        "name": "CSA",
+        "type": "string",
+        "title": "CSA"
+      },
+      {
+        "name": "CENTLAT",
+        "type": "string",
+        "title": "CENTLAT"
+      },
+      {
+        "name": "CENTLON",
+        "type": "string",
+        "title": "CENTLON"
+      },
+      {
+        "name": "INTPTLAT",
+        "type": "string",
+        "title": "INTPTLAT"
+      },
+      {
+        "name": "INTPTLON",
+        "type": "string",
+        "title": "INTPTLON"
+      },
+      {
+        "name": "OBJECTID",
+        "type": "string",
+        "title": "OBJECTID"
+      }
+    ]
+  },
+  "_metadata": {
+    "type": "arcgis_service",
+    "total_records": 393,
+    "max_record_count": 100000
+  }
+}
