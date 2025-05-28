@@ -1,18 +1,3 @@
-def metadata_from_services_url(url):
-    import requests
-
-    # Find the max number of records allowed per request
-    r = requests.get(f"{url}/?f=pjson")
-    pjson = r.json()
-    metadata = {}
-    metadata['url'] = url
-    metadata["total_count"] = get_totalRecordCount(url)
-    metadata["max_record_count"] = pjson['maxRecordCount']
-    metadata["name"] = pjson['name']
-    metadata['schema'] = schema_from_services_fields(pjson)
-    r.close()
-    return metadata
-
 def schema_from_services_fields(pjson):
     schema = {}
     schema['fields'] = []
@@ -54,18 +39,22 @@ def get_totalRecordCount(url):
 def resource_from_services_url(url):
     import frictionless
     import re
-    metadata = metadata_from_services_url(url)
+    import requests
+
+    r = requests.get(f"{url}/?f=pjson")
+    pjson = r.json()
+    r.close()
 
     resource = {
-        "name": re.sub('[:/_ ]', '-', metadata['name']).lower(),
+        "name": re.sub('[:/_ ]', '-', pjson['name']).lower(),
         "format": "json",
-        "path": metadata['url'],
-        "schema": metadata['schema'],
+        "path": url,
+        "schema": schema_from_services_fields(pjson),
         "mediatype": "application/geo+json",
         "_metadata": {
             "type": "arcgis_service",
-            "total_records": metadata['total_count'],
-            "max_record_count": metadata['max_record_count']
+            "total_records": get_totalRecordCount(url),
+            "max_record_count": pjson['maxRecordCount']
         }
     }
 
@@ -81,27 +70,12 @@ def print_bar(i, total):
     print(bar)
     clear_output(wait=True)
 
-def construct_sources_urls_from_metadata(metadata):
-    max_records = metadata['max_record_count']
-    total_records = metadata['total_count']
-    sources = []
-    offsets = [x for x in range(0, total_records, max_records)]
-    for i in range(len(offsets)):
-        start = offsets[i]
-        if offsets[i]+max_records-1 > total_records:
-            finish = total_records
-            max_records = total_records - offsets[i]+1
-        else:
-            finish = offsets[i]+max_records-1
-        source = {
-            "title" : f"{start}-{finish}",
-            "path": f"{metadata['url']}/query/?where=1%3D1&outFields=%2A&resultOffset={offsets[i]}&resultRecordCount={max_records}&outSR=4326&f=geojson"
-                 }
-        sources.append(source)
+def get_api_key(path):
+    with open(path, 'r') as file:
+        key = file.readlines()
+    return key[0]
 
-    return sources
-
-def gdf_from_rest_resource(resource_path, field_ids=None):
+def gdf_from_rest_resource(resource_path, field_ids=None, api_key=None):
     """Creates a GeoDataFrame from resource file for an ArcGIS Services. Automatically queries for maxRecordCount and
     iterates over the whole feature layer to return all features. Optional: Filter the results by including a list of field
     IDs.
@@ -128,13 +102,18 @@ def gdf_from_rest_resource(resource_path, field_ids=None):
     import frictionless
     import geopandas as gpd
 
-    #Construct urls to query for getting total count, json, and geojson
+    ## Extract important metadata
+    resource = frictionless.Resource(resource_path)
     url = resource.path
-    metadata = resource._metadata
-    sources = construct_sources_urls_from_metadata(metadata)
+    totalRecordCount = resource.to_dict()['_metadata']['total_records']
+    maxRecordCount = resource.to_dict()['_metadata']['max_record_count']
 
+    ## Get field names for filtering fields
     schema = resource.schema
+    avail_fields = schema.field_names
 
+    geojson_url = f"{url}/query?outFields=*&where=1%3D1&f=geojson"
+    ## Verify fields_ids
     if field_ids != None:
         if not set(field_ids).issubset(avail_fields):
             print(f"{field_ids} not in available fields.")
@@ -143,16 +122,32 @@ def gdf_from_rest_resource(resource_path, field_ids=None):
             outFields = ",".join(field_ids)
             geojson_url = f"{url}/query?outFields={outFields}&where=1%3D1&f=geojson"
 
+    ## Construct list of source urls to account for max record counts
+    sources = []
+    offsets = [x for x in range(0, totalRecordCount, maxRecordCount)]
+    for i in range(len(offsets)):
+        start = offsets[i]
+        if offsets[i]+maxRecordCount-1 > totalRecordCount:
+            finish = totalRecordCount
+            maxRecordCount = totalRecordCount - offsets[i]+1
+        else:
+            finish = offsets[i]+maxRecordCount-1
+        source = {
+            "title" : f"{start}-{finish}",
+            "path": f"{geojson_url}&resultOffset={offsets[i]}&resultRecordCount={maxRecordCount}"
+                 }
+        sources.append(source)
+
     firstTime = True
     offset = 0
     exceededLimit = True
-    print(geojson_url)
-    while offset < totalRecordCount:
-        # print("Downloading records from {}&resultOffset={}&resultRecordCount={}".format(url, offset, recordCount))
-        # Request 2000 records from the API starting with the record indicated by offset.
-        # Configure the request to include only the required fields, to project the geometries to
-        # Ohio State Plane South coordinate reference system (EPSG:3735), and to format the data as GeoJSON
-        r = requests.get(f"{geojson_url}&resultOffset={offset}&resultRecordCount={maxRecordCount}")
+    for i in range(len(sources)):
+        print(f"{i}/{len(sources)}")
+        # Request geojson for each source url
+        if api_key != None:
+            r = requests.get(sources[i]['path'])
+        else:
+            r = requests.get(f"{sources[i]['path']}&key={api_key}")
         # Extract the GeoJSON from the API response
         result = r.json()
 
@@ -168,12 +163,5 @@ def gdf_from_rest_resource(resource_path, field_ids=None):
 
         # Increase the offset so that the next request fetches the next chunk of data
         offset += maxRecordCount
-        print(f"{offset} of {totalRecordCount}")
-        clear_output(wait = True)
-
-    if crs != None:
-        gdf = gpd.GeoDataFrame(gdf, geometry='geometry').set_crs(crs)
-    else:
-        gdf = gpd.GeoDataFrame(gdf, geometry='geometry')
 
     return(gdf)

@@ -575,7 +575,7 @@ class varLookup():
         import morpc
 
         dictionaryPath = os.path.normpath(dictionaryPath)
-        
+
         try:
             variables = pd.read_excel(dictionaryPath, sheet_name="Variables")
             aliases = pd.read_excel(dictionaryPath, sheet_name="Aliases")
@@ -591,7 +591,7 @@ class varLookup():
 
         variables = morpc.frictionless.cast_field_types(variables, variablesSchema, verbose=False)
         aliases = morpc.frictionless.cast_field_types(aliases, aliasesSchema, verbose=False)
-        contexts = morpc.frictionless.cast_field_types(contexts, contextsSchema, verbose=False)      
+        contexts = morpc.frictionless.cast_field_types(contexts, contextsSchema, verbose=False)
 
         self.dictionaryPath = dictionaryPath
         self.variables = variables.copy()
@@ -600,21 +600,28 @@ class varLookup():
         self.variableList = variableList
         self.aliasList = aliasList
         self.context = context
-       
+
         if(variableList != None):
             self.filter_variables()
         if(aliasList != None):
             self.filter_aliases()
-   
+
     def add_var_from_dict(self, variableDict, prepend=False):
         import pandas as pd
         if(prepend == True):
             self.variables = pd.concat([pd.DataFrame.from_dict([variableDict]), self.variables], axis="index")
         else:
             self.variables = pd.concat([self.variables, pd.DataFrame.from_dict([variableDict])], axis="index")
-    
+
     def filter_variables(self):
-        self.variables = self.variables.loc[self.variables["NAME"].isin(self.variableList)]
+        import pandas as pd
+        # self.variables = self.variables.loc[self.variables["NAME"].isin(self.variableList)]
+        # Iterater returns rows in order of variableList
+        rows = []
+        for variable in self.variableList:
+            row = self.variables.loc[self.variables['NAME']==variable]
+            rows.append(row)
+        self.variables = pd.concat(rows)
 
     def filter_aliases(self):
         self.aliases = self.aliases.loc[self.aliases["ALIAS"].isin(self.aliasList)]
@@ -631,7 +638,7 @@ class varLookup():
 
             df = df \
                 .loc[df["CONTEXT"] == context].copy() \
-                .filter(items=["ALIAS","NAME"], axis="columns")        
+                .filter(items=["ALIAS","NAME"], axis="columns")
         else:
             print("morpc.varLookup.alias_to_name | ERROR | Must specify a valid context to map alias to name.")
             raise RuntimeError
@@ -644,7 +651,7 @@ class varLookup():
             raise RuntimeError
 
         aliasToNameMap = {alias:name for (alias, name) in zip(aliases, names)}
-   
+
         return aliasToNameMap
 
     def name_to_alias(self, context=None):
@@ -656,7 +663,7 @@ class varLookup():
 
             df = df \
                 .loc[df["CONTEXT"] == context].copy() \
-                .filter(items=["ALIAS","NAME"], axis="columns")        
+                .filter(items=["ALIAS","NAME"], axis="columns")
         else:
             print("morpc.varLookup.name_to_alias | ERROR | Must specify a valid context to map name to alias.")
             raise RuntimeError
@@ -669,9 +676,9 @@ class varLookup():
             raise RuntimeError
 
         nameToAliasMap = {name:alias for (name, alias) in zip(names, aliases)}
-   
+
         return nameToAliasMap
-        
+
 
     def to_dict(self):
         df = self.variables.copy().set_index("NAME")
@@ -682,7 +689,7 @@ class varLookup():
             "rdftype":"rdfType"
         })
         return df.to_dict(orient="index")
-        
+
     def to_list(self):
         df = self.variables.copy()
         df.columns = [x.lower() for x in df.columns]
@@ -717,7 +724,7 @@ class varLookup():
                         continue
                 if(fields[i][fieldAttr] == None):
                     # Othewise if the value is None, skip it.
-                    continue                    
+                    continue
 
                 if(fieldAttr in ["minimum","maximum","minLength","maxLength","pattern","enum"]):
                     # If the field attribute is a constraint, put it in the constraints object
@@ -733,7 +740,7 @@ class varLookup():
                             except KeyError:
                                 print("morpc.varLookup.to_frictionless_schema | INFO | No alias defined for variable {}. Using name as-is.".format(schemaFields[i]["name"]))
 
-        
+
         schemaDescriptor = {'fields': schemaFields}
         if(missingValues != None):
             schemaDescriptor["missingValues"] = missingValues
@@ -741,8 +748,9 @@ class varLookup():
             schemaDescriptor["primaryKey"] = primaryKey
         if(foreignKeys != None):
             schemaDescriptor["foreignKeys"] = foreignKeys
-        schema = frictionless.Schema.from_descriptor(schemaDescriptor) 
+        schema = frictionless.Schema.from_descriptor(schemaDescriptor)
         return schema
+
 
 
 # Functions for manipulating schemas in Apache Avro format
