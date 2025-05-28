@@ -7,7 +7,7 @@ class get_colors():
     def __init__(self, colorDictPath='../morpc/color/morpc_colors.json'):
         import os
 
-        try: 
+        try:
             with open(os.path.normpath(colorDictPath)) as file:
                 self.morpc_colors = json.load(file)
         except ValueError as e:
@@ -32,7 +32,7 @@ class get_colors():
         self.cmap_r = get_continuous_cmap(self.hex_list_r)
 
         return self
-    
+
     def SEQ2(self, colors, n=None):
         import itertools
         if len(colors) != 2:

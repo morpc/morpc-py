@@ -11,3 +11,5 @@ pages:
   items:
     - name: Introduction
       path: index
+    - name: Color
+      path: morpc-color-demo
