@@ -40,6 +40,6 @@ To contribute to the development branch make changes in the local repo and push 
 
 ## Documentation
 
-See [docs](www.github.com/morpc/morpc-py/docs) for documentation.
+See [docs](/docs) for documentation.
 
 (in development) there will be a livemark site for documenatation.
