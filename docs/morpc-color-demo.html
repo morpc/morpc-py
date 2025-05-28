@@ -1,0 +1,2576 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="The get_colors() class provides access to a json file that contains various useful definitions of colors. It takes one argument  colorDictPath='../morpc/color/morpc_colors.json'  which is the relative path to the json file.">
+<meta name="keywords" content="morpc.color,demo">
+<link rel="icon" href="None">
+<title>morpc.color Demo | MORPC</title>
+<link rel="stylesheet" href="https://unpkg.com/@fortawesome/fontawesome-free@5.15.4/css/all.min.css">
+<link rel="stylesheet" href="https://unpkg.com/bootstrap@4.6.0/dist/css/bootstrap.min.css">
+<link rel="stylesheet" href="https://unpkg.com/prismjs@1.23.0/themes/prism.css">
+<style>
+
+@import url('https://fonts.googleapis.com/css2?family=Roboto&display=swap');
+
+/* Base */
+
+html {
+  font-family: sans-serif;
+  line-height: 1.15;
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
+}
+
+body {
+  margin: 0;
+  font-family: Roboto, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, "Noto Sans", "Liberation Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.5;
+  color: #222;
+  text-align: left;
+  background-color: #fff;
+}
+
+*,
+::after,
+::before {
+	box-sizing: border-box;
+}
+
+ul,
+ol {
+	margin-top: 0;
+	margin-bottom: 1rem;
+}
+
+a {
+	color: #007bff;
+	text-decoration: none;
+	background-color: transparent;
+}
+
+a:hover {
+	color: #0056b3;
+	text-decoration: underline;
+}
+
+hr {
+  box-sizing: content-box;
+  height: 0;
+  overflow: visible;
+}
+
+p {
+  margin-top: 0;
+  margin-bottom: 1rem;
+}
+
+/* Main */
+
+#livemark-main {
+  padding: 24px 20px;
+  min-height: 100vh;
+}
+
+#livemark-main h1 {
+  margin-top: 4px !important;
+  padding-bottom: 12px !important;
+}
+
+#livemark-main h1 a.heading,
+#livemark-main h2 a.heading,
+#livemark-main h3 a.heading,
+#livemark-main h4 a.heading,
+#livemark-main h5 a.heading,
+#livemark-main h6 a.heading {
+  display: none;
+}
+
+#livemark-main h2:hover a.heading,
+#livemark-main h3:hover a.heading,
+#livemark-main h4:hover a.heading,
+#livemark-main h5:hover a.heading,
+#livemark-main h6:hover a.heading {
+  display: inline;
+  margin-left: 8px;
+  color: #aaa;
+  font-weight: normal;
+  text-decoration: none;
+}
+
+#livemark-main h2 a.heading:hover,
+#livemark-main h3 a.heading:hover,
+#livemark-main h4 a.heading:hover,
+#livemark-main h5 a.heading:hover,
+#livemark-main h6 a.heading:hover {
+  text-decoration: underline;
+}
+
+@media only screen and (min-width: 768px) {
+  #livemark-main {
+    margin-left: 300px;
+    border-left: dashed 1px #ccc;
+  }
+}
+
+@media only screen and (min-width: 992px) {
+  #livemark-main {
+    margin-right: 300px;
+    border-right: dashed 1px #ccc;
+  }
+}
+
+#livemark-main .octicon {
+  display: inline-block;
+  fill: currentColor;
+  vertical-align: text-bottom;
+}
+
+#livemark-main .anchor {
+  float: left;
+  line-height: 1;
+  margin-left: -20px;
+  padding-right: 4px;
+}
+
+#livemark-main .anchor:focus {
+  outline: none;
+}
+
+#livemark-main h1 .octicon-link,
+#livemark-main h2 .octicon-link,
+#livemark-main h3 .octicon-link,
+#livemark-main h4 .octicon-link,
+#livemark-main h5 .octicon-link,
+#livemark-main h6 .octicon-link {
+  color: #1b1f23;
+  vertical-align: middle;
+  visibility: hidden;
+}
+
+#livemark-main h1:hover .anchor,
+#livemark-main h2:hover .anchor,
+#livemark-main h3:hover .anchor,
+#livemark-main h4:hover .anchor,
+#livemark-main h5:hover .anchor,
+#livemark-main h6:hover .anchor {
+  text-decoration: none;
+}
+
+#livemark-main h1:hover .anchor .octicon-link,
+#livemark-main h2:hover .anchor .octicon-link,
+#livemark-main h3:hover .anchor .octicon-link,
+#livemark-main h4:hover .anchor .octicon-link,
+#livemark-main h5:hover .anchor .octicon-link,
+#livemark-main h6:hover .anchor .octicon-link {
+  visibility: visible;
+}
+
+#livemark-main h1:hover .anchor .octicon-link:before,
+#livemark-main h2:hover .anchor .octicon-link:before,
+#livemark-main h3:hover .anchor .octicon-link:before,
+#livemark-main h4:hover .anchor .octicon-link:before,
+#livemark-main h5:hover .anchor .octicon-link:before,
+#livemark-main h6:hover .anchor .octicon-link:before {
+  width: 16px;
+  height: 16px;
+  content: ' ';
+  display: inline-block;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' version='1.1' width='16' height='16' aria-hidden='true'%3E%3Cpath fill-rule='evenodd' d='M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69 3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10 5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0 2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5 0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55 13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z'%3E%3C/path%3E%3C/svg%3E");
+}
+
+#livemark-main {
+  -ms-text-size-adjust: 100%;
+  -webkit-text-size-adjust: 100%;
+  line-height: 1.5;
+  color: #222;
+  font-family: Roboto, system-ui, -apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif,Apple Color Emoji,Segoe UI Emoji;
+  line-height: 1.5;
+  word-wrap: break-word;
+}
+
+#livemark-main details {
+  display: block;
+}
+
+#livemark-main summary {
+  display: list-item;
+}
+
+#livemark-main a {
+  background-color: initial;
+}
+
+#livemark-main a:active,
+#livemark-main a:hover {
+  outline-width: 0;
+}
+
+#livemark-main strong {
+  font-weight: inherit;
+  font-weight: bolder;
+}
+
+#livemark-main h1 {
+  font-size: 2em;
+  margin: .67em 0;
+}
+
+#livemark-main img {
+  border-style: none;
+}
+
+#livemark-main code,
+#livemark-main kbd,
+#livemark-main pre {
+  font-family: monospace,monospace;
+  font-size: 1em;
+}
+
+#livemark-main hr {
+  box-sizing: initial;
+  height: 0;
+  overflow: visible;
+}
+
+#livemark-main input {
+  font: inherit;
+  margin: 0;
+}
+
+#livemark-main input {
+  overflow: visible;
+}
+
+#livemark-main [type=checkbox] {
+  box-sizing: border-box;
+  padding: 0;
+}
+
+#livemark-main * {
+  box-sizing: border-box;
+}
+
+#livemark-main input {
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+}
+
+#livemark-main a {
+  color: #0366d6;
+  text-decoration: none;
+}
+
+#livemark-main a:hover {
+  text-decoration: underline;
+}
+
+#livemark-main strong {
+  font-weight: 600;
+}
+
+#livemark-main hr {
+  height: 0;
+  margin: 15px 0;
+  overflow: hidden;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid #dfe2e5;
+}
+
+#livemark-main hr:after,
+#livemark-main hr:before {
+  display: table;
+  content: "";
+}
+
+#livemark-main hr:after {
+  clear: both;
+}
+
+/* NOTE: is it possible to find a better fix for not breaking TablePlugin's styles? */
+#livemark-main table:not(.dataTable) {
+  border-spacing: 0;
+  border-collapse: collapse;
+}
+
+#livemark-main td,
+#livemark-main th {
+  padding: 0;
+}
+
+#livemark-main details summary {
+  cursor: pointer;
+}
+
+#livemark-main kbd {
+  display: inline-block;
+  padding: 3px 5px;
+  font: 11px SFMono-Regular,Consolas,Liberation Mono,Menlo,monospace;
+  line-height: 10px;
+  color: #444d56;
+  vertical-align: middle;
+  background-color: #fafbfc;
+  border: 1px solid #d1d5da;
+  border-radius: 3px;
+  box-shadow: inset 0 -1px 0 #d1d5da;
+}
+
+#livemark-main h1,
+#livemark-main h2,
+#livemark-main h3,
+#livemark-main h4,
+#livemark-main h5,
+#livemark-main h6 {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+#livemark-main h1 {
+  font-size: 32px;
+}
+
+#livemark-main h1,
+#livemark-main h2 {
+  font-weight: 600;
+}
+
+#livemark-main h2 {
+  font-size: 24px;
+}
+
+#livemark-main h3 {
+  font-size: 20px;
+}
+
+#livemark-main h3,
+#livemark-main h4 {
+  font-weight: 600;
+}
+
+#livemark-main h4 {
+  font-size: 16px;
+}
+
+#livemark-main h5 {
+  font-size: 14px;
+}
+
+#livemark-main h5,
+#livemark-main h6 {
+  font-weight: 600;
+}
+
+#livemark-main h6 {
+  font-size: 12px;
+}
+
+#livemark-main p {
+  margin-top: 0;
+  margin-bottom: 10px;
+}
+
+#livemark-main blockquote {
+  margin: 0;
+}
+
+#livemark-main ol,
+#livemark-main ul {
+  padding-left: 0;
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+#livemark-main ol ol,
+#livemark-main ul ol {
+  list-style-type: lower-roman;
+}
+
+#livemark-main ol ol ol,
+#livemark-main ol ul ol,
+#livemark-main ul ol ol,
+#livemark-main ul ul ol {
+  list-style-type: lower-alpha;
+}
+
+#livemark-main dd {
+  margin-left: 0;
+}
+
+#livemark-main code,
+#livemark-main pre {
+  font-family: SFMono-Regular,Consolas,Liberation Mono,Menlo,monospace;
+  font-size: 12px;
+}
+
+#livemark-main pre {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+#livemark-main input::-webkit-inner-spin-button,
+#livemark-main input::-webkit-outer-spin-button {
+  margin: 0;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+#livemark-main :checked+.radio-label {
+  position: relative;
+  z-index: 1;
+  border-color: #0366d6;
+}
+
+#livemark-main .border {
+  border: 1px solid #e1e4e8!important;
+}
+
+#livemark-main .border-0 {
+  border: 0!important;
+}
+
+#livemark-main .border-bottom {
+  border-bottom: 1px solid #e1e4e8!important;
+}
+
+#livemark-main .rounded-1 {
+  border-radius: 3px!important;
+}
+
+#livemark-main .bg-white {
+  background-color: #fff!important;
+}
+
+#livemark-main .bg-gray-light {
+  background-color: #fafbfc!important;
+}
+
+#livemark-main .text-gray-light {
+  color: #666!important;
+}
+
+#livemark-main .mb-0 {
+  margin-bottom: 0!important;
+}
+
+#livemark-main .my-2 {
+  margin-top: 8px!important;
+  margin-bottom: 8px!important;
+}
+
+#livemark-main .pl-0 {
+  padding-left: 0!important;
+}
+
+#livemark-main .py-0 {
+  padding-top: 0!important;
+  padding-bottom: 0!important;
+}
+
+#livemark-main .pl-1 {
+  padding-left: 4px!important;
+}
+
+#livemark-main .pl-2 {
+  padding-left: 8px!important;
+}
+
+#livemark-main .py-2 {
+  padding-top: 8px!important;
+  padding-bottom: 8px!important;
+}
+
+#livemark-main .pl-3,
+#livemark-main .px-3 {
+  padding-left: 16px!important;
+}
+
+#livemark-main .px-3 {
+  padding-right: 16px!important;
+}
+
+#livemark-main .pl-4 {
+  padding-left: 24px!important;
+}
+
+#livemark-main .pl-5 {
+  padding-left: 32px!important;
+}
+
+#livemark-main .pl-6 {
+  padding-left: 40px!important;
+}
+
+#livemark-main .f6 {
+  font-size: 12px!important;
+}
+
+#livemark-main .lh-condensed {
+  line-height: 1.25!important;
+}
+
+#livemark-main .text-bold {
+  font-weight: 600!important;
+}
+
+#livemark-main .pl-c {
+  color: #666;
+}
+
+#livemark-main .pl-c1,
+#livemark-main .pl-s .pl-v {
+  color: #005cc5;
+}
+
+#livemark-main .pl-e,
+#livemark-main .pl-en {
+  color: #6f42c1;
+}
+
+#livemark-main .pl-s .pl-s1,
+#livemark-main .pl-smi {
+  color: #222;
+}
+
+#livemark-main .pl-ent {
+  color: #22863a;
+}
+
+#livemark-main .pl-k {
+  color: #d73a49;
+}
+
+#livemark-main .pl-pds,
+#livemark-main .pl-s,
+#livemark-main .pl-s .pl-pse .pl-s1,
+#livemark-main .pl-sr,
+#livemark-main .pl-sr .pl-cce,
+#livemark-main .pl-sr .pl-sra,
+#livemark-main .pl-sr .pl-sre {
+  color: #032f62;
+}
+
+#livemark-main .pl-smw,
+#livemark-main .pl-v {
+  color: #e36209;
+}
+
+#livemark-main .pl-bu {
+  color: #b31d28;
+}
+
+#livemark-main .pl-ii {
+  color: #fafbfc;
+  background-color: #b31d28;
+}
+
+#livemark-main .pl-c2 {
+  color: #fafbfc;
+  background-color: #d73a49;
+}
+
+#livemark-main .pl-c2:before {
+  content: "^M";
+}
+
+#livemark-main .pl-sr .pl-cce {
+  font-weight: 700;
+  color: #22863a;
+}
+
+#livemark-main .pl-ml {
+  color: #735c0f;
+}
+
+#livemark-main .pl-mh,
+#livemark-main .pl-mh .pl-en,
+#livemark-main .pl-ms {
+  font-weight: 700;
+  color: #005cc5;
+}
+
+#livemark-main .pl-mi {
+  font-style: italic;
+  color: #222;
+}
+
+#livemark-main .pl-mb {
+  font-weight: 700;
+  color: #222;
+}
+
+#livemark-main .pl-md {
+  color: #b31d28;
+  background-color: #ffeef0;
+}
+
+#livemark-main .pl-mi1 {
+  color: #22863a;
+  background-color: #f0fff4;
+}
+
+#livemark-main .pl-mc {
+  color: #e36209;
+  background-color: #ffebda;
+}
+
+#livemark-main .pl-mi2 {
+  color: #f6f8fa;
+  background-color: #005cc5;
+}
+
+#livemark-main .pl-mdr {
+  font-weight: 700;
+  color: #6f42c1;
+}
+
+#livemark-main .pl-ba {
+  color: #586069;
+}
+
+#livemark-main .pl-sg {
+  color: #959da5;
+}
+
+#livemark-main .pl-corl {
+  text-decoration: underline;
+  color: #032f62;
+}
+
+#livemark-main .mb-0 {
+  margin-bottom: 0!important;
+}
+
+#livemark-main .my-2 {
+  margin-bottom: 8px!important;
+}
+
+#livemark-main .my-2 {
+  margin-top: 8px!important;
+}
+
+#livemark-main .pl-0 {
+  padding-left: 0!important;
+}
+
+#livemark-main .py-0 {
+  padding-top: 0!important;
+  padding-bottom: 0!important;
+}
+
+#livemark-main .pl-1 {
+  padding-left: 4px!important;
+}
+
+#livemark-main .pl-2 {
+  padding-left: 8px!important;
+}
+
+#livemark-main .py-2 {
+  padding-top: 8px!important;
+  padding-bottom: 8px!important;
+}
+
+#livemark-main .pl-3 {
+  padding-left: 16px!important;
+}
+
+#livemark-main .pl-4 {
+  padding-left: 24px!important;
+}
+
+#livemark-main .pl-5 {
+  padding-left: 32px!important;
+}
+
+#livemark-main .pl-6 {
+  padding-left: 40px!important;
+}
+
+#livemark-main .pl-7 {
+  padding-left: 48px!important;
+}
+
+#livemark-main .pl-8 {
+  padding-left: 64px!important;
+}
+
+#livemark-main .pl-9 {
+  padding-left: 80px!important;
+}
+
+#livemark-main .pl-10 {
+  padding-left: 96px!important;
+}
+
+#livemark-main .pl-11 {
+  padding-left: 112px!important;
+}
+
+#livemark-main .pl-12 {
+  padding-left: 128px!important;
+}
+
+#livemark-main hr {
+  border-bottom-color: #eee;
+}
+
+#livemark-main kbd {
+  display: inline-block;
+  padding: 3px 5px;
+  font: 11px SFMono-Regular,Consolas,Liberation Mono,Menlo,monospace;
+  line-height: 10px;
+  color: #444d56;
+  vertical-align: middle;
+  background-color: #fafbfc;
+  border: 1px solid #d1d5da;
+  border-radius: 3px;
+  box-shadow: inset 0 -1px 0 #d1d5da;
+}
+
+#livemark-main:after,
+#livemark-main:before {
+  display: table;
+  content: "";
+}
+
+#livemark-main:after {
+  clear: both;
+}
+
+#livemark-main a:not([href]) {
+  color: inherit;
+  text-decoration: none;
+}
+
+#livemark-main blockquote,
+#livemark-main details,
+#livemark-main dl,
+#livemark-main ol,
+#livemark-main p,
+#livemark-main pre,
+#livemark-main table:not(.dataTable),
+#livemark-main ul {
+  margin-top: 0;
+  margin-bottom: 16px;
+}
+
+#livemark-main hr {
+  /* height: .25em; */
+  height: 1px;
+  padding: 0;
+  margin: 24px 0;
+  background-color: #e1e4e8;
+  border: 0;
+}
+
+#livemark-main blockquote {
+  padding: 0 1em;
+  color: #666;
+  border-left: .25em solid #dfe2e5;
+}
+
+#livemark-main blockquote>:first-child {
+  margin-top: 0;
+}
+
+#livemark-main blockquote>:last-child {
+  margin-bottom: 0;
+}
+
+#livemark-main h1,
+#livemark-main h2,
+#livemark-main h3,
+#livemark-main h4,
+#livemark-main h5,
+#livemark-main h6 {
+  margin-top: 24px;
+  margin-bottom: 16px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+#livemark-main h1 {
+  font-size: 2em;
+}
+
+#livemark-main h1,
+#livemark-main h2 {
+  padding-bottom: .3em;
+  border-bottom: 1px solid #eaecef;
+}
+
+#livemark-main h2 {
+  font-size: 1.5em;
+}
+
+#livemark-main h3 {
+  font-size: 1.25em;
+}
+
+#livemark-main h4 {
+  font-size: 1em;
+}
+
+#livemark-main h5 {
+  font-size: .875em;
+}
+
+#livemark-main h6 {
+  font-size: .85em;
+  color: #666;
+}
+
+#livemark-main ol,
+#livemark-main ul {
+  padding-left: 2em;
+}
+
+#livemark-main ol ol,
+#livemark-main ol ul,
+#livemark-main ul ol,
+#livemark-main ul ul {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+#livemark-main li {
+  word-wrap: break-all;
+}
+
+#livemark-main li>p {
+  margin-top: 16px;
+}
+
+#livemark-main li+li {
+  margin-top: .25em;
+}
+
+#livemark-main dl {
+  padding: 0;
+}
+
+#livemark-main dl dt {
+  padding: 0;
+  margin-top: 16px;
+  font-size: 1em;
+  font-style: italic;
+  font-weight: 600;
+}
+
+#livemark-main dl dd {
+  padding: 0 16px;
+  margin-bottom: 16px;
+}
+
+#livemark-main table:not(.dataTable) {
+  display: block;
+  width: 100%;
+  overflow: auto;
+}
+
+#livemark-main table:not(.dataTable) th {
+  font-weight: 600;
+}
+
+#livemark-main table:not(.dataTable) td,
+#livemark-main table:not(.dataTable) th {
+  padding: 6px 13px;
+  border: 1px solid #dfe2e5;
+}
+
+#livemark-main table:not(.dataTable) tr {
+  background-color: #fff;
+  border-top: 1px solid #c6cbd1;
+}
+
+#livemark-main table:not(.dataTable) tr:nth-child(2n) {
+  background-color: #f6f8fa;
+}
+
+#livemark-main img {
+  max-width: 100%;
+  box-sizing: initial;
+  background-color: #fff;
+}
+
+#livemark-main img[align=right] {
+  padding-left: 20px;
+}
+
+#livemark-main img[align=left] {
+  padding-right: 20px;
+}
+
+#livemark-main code {
+  padding: .2em .4em;
+  margin: 0;
+  font-size: 85%;
+  background-color: rgba(27,31,35,.05);
+  border-radius: 3px;
+}
+
+#livemark-main pre {
+  word-wrap: normal;
+}
+
+#livemark-main pre>code {
+  padding: 0;
+  margin: 0;
+  font-size: 100%;
+  word-break: normal;
+  white-space: pre;
+  background: transparent;
+  border: 0;
+}
+
+#livemark-main .highlight {
+  margin-bottom: 16px;
+}
+
+#livemark-main .highlight pre {
+  margin-bottom: 0;
+  word-break: normal;
+}
+
+#livemark-main .highlight pre,
+#livemark-main pre {
+  padding: 16px;
+  overflow: auto;
+  font-size: 85%;
+  line-height: 1.45;
+  background-color: #f6f8fa;
+  border-radius: 3px;
+}
+
+#livemark-main pre code {
+  display: inline;
+  max-width: auto;
+  padding: 0;
+  margin: 0;
+  overflow: visible;
+  line-height: inherit;
+  word-wrap: normal;
+  background-color: initial;
+  border: 0;
+}
+
+#livemark-main .commit-tease-sha {
+  display: inline-block;
+  font-family: SFMono-Regular,Consolas,Liberation Mono,Menlo,monospace;
+  font-size: 90%;
+  color: #444d56;
+}
+
+#livemark-main .full-commit .btn-outline:not(:disabled):hover {
+  color: #005cc5;
+  border-color: #005cc5;
+}
+
+#livemark-main .blob-wrapper {
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+#livemark-main .blob-wrapper-embedded {
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+#livemark-main .blob-num {
+  width: 1%;
+  min-width: 50px;
+  padding-right: 10px;
+  padding-left: 10px;
+  font-family: SFMono-Regular,Consolas,Liberation Mono,Menlo,monospace;
+  font-size: 12px;
+  line-height: 20px;
+  color: rgba(27,31,35,.3);
+  text-align: right;
+  white-space: nowrap;
+  vertical-align: top;
+  cursor: pointer;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+#livemark-main .blob-num:hover {
+  color: rgba(27,31,35,.6);
+}
+
+#livemark-main .blob-num:before {
+  content: attr(data-line-number);
+}
+
+#livemark-main .blob-code {
+  position: relative;
+  padding-right: 10px;
+  padding-left: 10px;
+  line-height: 20px;
+  vertical-align: top;
+}
+
+#livemark-main .blob-code-inner {
+  overflow: visible;
+  font-family: SFMono-Regular,Consolas,Liberation Mono,Menlo,monospace;
+  font-size: 12px;
+  color: #222;
+  word-wrap: normal;
+  white-space: pre;
+}
+
+#livemark-main .pl-token.active,
+#livemark-main .pl-token:hover {
+  cursor: pointer;
+  background: #ffea7f;
+}
+
+#livemark-main .tab-size[data-tab-size="1"] {
+  -moz-tab-size: 1;
+  tab-size: 1;
+}
+
+#livemark-main .tab-size[data-tab-size="2"] {
+  -moz-tab-size: 2;
+  tab-size: 2;
+}
+
+#livemark-main .tab-size[data-tab-size="3"] {
+  -moz-tab-size: 3;
+  tab-size: 3;
+}
+
+#livemark-main .tab-size[data-tab-size="4"] {
+  -moz-tab-size: 4;
+  tab-size: 4;
+}
+
+#livemark-main .tab-size[data-tab-size="5"] {
+  -moz-tab-size: 5;
+  tab-size: 5;
+}
+
+#livemark-main .tab-size[data-tab-size="6"] {
+  -moz-tab-size: 6;
+  tab-size: 6;
+}
+
+#livemark-main .tab-size[data-tab-size="7"] {
+  -moz-tab-size: 7;
+  tab-size: 7;
+}
+
+#livemark-main .tab-size[data-tab-size="8"] {
+  -moz-tab-size: 8;
+  tab-size: 8;
+}
+
+#livemark-main .tab-size[data-tab-size="9"] {
+  -moz-tab-size: 9;
+  tab-size: 9;
+}
+
+#livemark-main .tab-size[data-tab-size="10"] {
+  -moz-tab-size: 10;
+  tab-size: 10;
+}
+
+#livemark-main .tab-size[data-tab-size="11"] {
+  -moz-tab-size: 11;
+  tab-size: 11;
+}
+
+#livemark-main .tab-size[data-tab-size="12"] {
+  -moz-tab-size: 12;
+  tab-size: 12;
+}
+
+#livemark-main .task-list-item {
+  list-style-type: none;
+}
+
+#livemark-main .task-list-item+.task-list-item {
+  margin-top: 3px;
+}
+
+#livemark-main .task-list-item input {
+  margin: 0 .2em .25em -1.6em;
+  vertical-align: middle;
+}
+
+/* Left */
+
+#livemark-left {
+  visibility: hidden;
+  position: fixed;
+  width: 300px;
+  padding: 10px 40px;
+  padding-bottom: 100px;
+  left: 0px;
+  top: 25px;
+  font-size: 125%;
+  height: 100vh;
+  overflow-y: auto;
+  scrollbar-width: none;  /* Firefox */
+  -ms-overflow-style: none;  /* Internet Explorer 10+ */
+}
+
+/* NOTE: we need to move it to DisplayPlugin (currently unsetting doesn't work) */
+body:not(.with-readability) #livemark-left::-webkit-scrollbar {
+  display: none; /* Chrome; Safari */
+}
+
+#livemark-left > div:not(:last-child) {
+  border-bottom: 1px solid #eaecef;
+  padding-bottom: 15px;
+  margin-bottom: 15px;
+}
+
+@media only screen and (min-width: 768px) {
+  #livemark-left {
+    visibility: visible;
+  }
+}
+
+/* Right */
+
+#livemark-right {
+  visibility: hidden;
+  position: fixed;
+  width: 300px;
+  padding: 10px 40px;
+  padding-bottom: 100px;
+  right: 0px;
+  top: 25px;
+  font-size: 125%;
+  height: 100vh;
+  overflow-y: auto;
+  scrollbar-width: none;  /* Firefox */
+  -ms-overflow-style: none;  /* Internet Explorer 10+ */
+}
+
+/* NOTE: we need to move it to DisplayPlugin (currently unsetting doesn't work) */
+body:not(.with-readability) #livemark-right::-webkit-scrollbar {
+  display: none; /* Chrome; Safari */
+}
+
+#livemark-right > div:not(:last-child) {
+  border-bottom: 1px solid #eaecef;
+  padding-bottom: 15px;
+  margin-bottom: 15px;
+}
+
+@media only screen and (min-width: 992px) {
+  #livemark-right {
+    visibility: visible;
+  }
+}
+
+</style>
+<style>
+
+#livemark-brand {
+  color: #888;
+}
+
+#livemark-brand ul {
+  overflow: hidden;
+  position: relative;
+  padding-left: 0;
+  margin: 0;
+}
+
+#livemark-brand li {
+  list-style: none;
+}
+
+#livemark-brand a {
+  display: inline-block;
+  color: currentColor;
+  position: relative;
+  width: 100%;
+  line-height: 100%;
+  padding-top: 5px;
+  padding-bottom: 5px;
+}
+
+#livemark-brand a.active {
+  font-weight: 700;
+}
+
+#livemark-brand a:hover {
+  color: #80b2e6;
+}
+
+</style>
+<style>
+
+#livemark-pages {
+  color: #888;
+}
+
+#livemark-pages ul {
+  overflow: hidden;
+  position: relative;
+  padding-left: 0;
+  margin: 0;
+}
+
+#livemark-pages ul.secondary {
+  margin-left: 20px;
+  display: none;
+}
+
+#livemark-pages li.active ul.secondary {
+  display: block;
+}
+
+#livemark-pages li {
+  list-style: none;
+}
+
+#livemark-pages a {
+  display: inline-block;
+  color: currentColor;
+  position: relative;
+  width: 100%;
+  line-height: 100%;
+  padding-top: 5px;
+  padding-bottom: 5px;
+}
+
+#livemark-pages li.active > a {
+  font-weight: 700;
+}
+
+#livemark-pages li.group.active > a {
+  font-weight: normal;
+}
+
+#livemark-pages li.group a.primary::after {
+  content: "\f054";
+  font-size: 16px;
+  font-family: "Font Awesome 5 Free";
+  font-weight: 900;
+  position: absolute;
+  top: 2px;
+  right: 0px;
+}
+
+#livemark-pages li.group.active a.primary::after {
+  content: "\f078";
+}
+
+#livemark-pages a:hover {
+  color: #80b2e6;
+}
+
+</style>
+<style>
+
+.livemark-reference {
+  display: block;
+  /* font-family: ui-monospace, Menlo, Monaco, "Cascadia Mono", "Segoe UI Mono", "Roboto Mono", "Oxygen Mono", "Ubuntu Monospace", "Source Code Pro", "Fira Mono", "Droid Sans Mono", "Courier New", monospace;; */
+}
+
+.livemark-reference-heading {
+    background-color: #f6f8fa;
+    font-family: "Roboto Mono", ui-monospace, monospace;
+    padding: 1em 0;
+}
+
+</style>
+<style>
+
+#livemark-notes {
+  color: #aaa;
+  text-align: right;
+  font-size: 14px;
+  float: right;
+  visibility: hidden;
+}
+
+@media (min-width: 768px) {
+  #livemark-notes {
+    visibility: visible;
+  }
+}
+
+#livemark-notes a {
+  color: inherit;
+}
+
+#livemark-notes a:hover {
+  color: #80b2e6;
+}
+
+#livemark-notes a[target="_blank"]:after {
+  content: "\f35d";
+  font-family: "Font Awesome 5 Free";
+  font-weight: 900;
+  vertical-align: text-top;
+  text-decoration: none;
+  display: inline-block;
+  color: #ccc;
+  font-size: 10px;
+  margin-left: -1px;
+}
+
+#livemark-notes a[target="_blank"]:hover:after {
+  color: #80b2e6;
+}
+
+</style>
+<style>
+
+#livemark-signs {
+  color: #888;
+  border-top: 1px solid #eaecef;
+  margin-top: 24px;
+  padding-top: 20px;
+  height: 50px;
+}
+
+#livemark-signs .next {
+  float: right;
+}
+
+#livemark-signs a {
+  font-size: 20px;
+  color: currentColor;
+}
+
+#livemark-signs a:hover {
+  color: #80b2e6;
+}
+
+</style>
+<style>
+
+#livemark-rating {
+  height: 46px;
+}
+
+#livemark-rating iframe {
+  margin-top: -5px;
+  border: none;
+  opacity: 0.5;
+}
+
+</style>
+<style>
+
+#livemark-topics {
+  color: #888;
+}
+
+#livemark-topics .toc>.toc-list {
+  overflow: hidden;
+  position: relative;
+}
+
+#livemark-topics .toc>.toc-list li {
+  list-style: none;
+}
+
+#livemark-topics .toc-list {
+  padding-left: 0;
+  margin: 0;
+}
+
+#livemark-topics a.toc-link {
+  color: currentColor;
+}
+
+#livemark-topics a.toc-link:hover {
+  color: #80b2e6;
+}
+
+#livemark-topics .is-active-link {
+  font-weight: 700;
+}
+
+#livemark-topics ul.secondary {
+  margin-left: 20px;
+  display: none;
+}
+
+#livemark-topics li.is-active-li ul.secondary {
+  display: block;
+}
+
+#livemark-topics li.group a.primary::after {
+  content: "\f054";
+  font-size: 16px;
+  font-family: "Font Awesome 5 Free";
+  font-weight: 900;
+  position: absolute;
+  top: 2px;
+  right: 0px;
+}
+
+#livemark-topics li.group.is-active-li a.primary::after {
+  content: "\f078";
+}
+
+#livemark-topics a {
+  display: inline-block;
+  color: currentColor;
+  position: relative;
+  width: 100%;
+  line-height: 100%;
+  padding-top: 5px;
+  padding-bottom: 5px;
+}
+
+#livemark-topics a:hover {
+  color: #80b2e6;
+}
+
+</style>
+<style>
+
+.livemark-audio {
+  padding-bottom: 10px;
+}
+
+</style>
+<style>
+
+.livemark-blog-item {
+  margin-bottom: 16px;
+  text-align: justify;
+}
+
+.livemark-blog-item h2 a:not(.heading) {
+  color: #222 !important;
+}
+
+</style>
+<style>
+
+#livemark-cards .modal-lg {
+    max-width: 1000px;
+}
+
+</style>
+<style>
+
+#livemark-display {
+  display: flex;
+  position: fixed;
+  visibility: hidden;
+  justify-content: space-between;
+  font-size: 16px;
+  color: #888;
+  width: 240px;
+  bottom: 20px;
+  right: 30px;
+}
+
+@media only screen and (min-width: 992px) {
+  #livemark-display {
+    visibility: visible;
+  }
+}
+
+#livemark-display .control {
+  cursor: pointer;
+  background-color:#fff;
+  box-shadow: 0px 7px 10px #eee;
+  border-radius: 50%;
+  border: solid 1px #ddd;
+  z-index: 100;
+}
+
+#livemark-display .control .fa {
+  display: inline-block !important;
+  opacity: 1 !important;
+  padding: 15px;
+}
+
+.with-readability {
+  font-size: 20px;
+}
+
+.with-readability #livemark-main {
+  color: #000;
+}
+
+.with-readability #livemark-left > *,
+.with-readability #livemark-right > * {
+  color: #444;
+}
+
+.with-readability #livemark-left,
+.with-readability #livemark-right {
+  scrollbar-width: unset;  /* Firefox */
+  -ms-overflow-style: unset;  /* Internet Explorer 10+ */
+}
+
+/* NOTE: */
+/* temporarily implemented in HtmlPlugin */
+/* .with-readability #livemark-left::-webkit-scrollbar, */
+/* .with-readability #livemark-right::-webkit-scrollbar { */
+  /* display: unset !important; [> Chrome; Safari <] */
+/* } */
+
+</style>
+<style>
+
+.livemark-image {
+  padding-bottom: 10px;
+}
+
+</style>
+<style>
+
+.livemark-infinity {
+  display: none;
+}
+
+</style>
+<style>
+
+#livemark-mobile {
+  position: absolute;
+  visibility: hidden;
+  z-index: 10000;
+  /* NOTE: We can't use "right" because of Mobile Chrome and #34 */
+  left: calc(100vw - 60px);
+  top: 24px;
+}
+
+#livemark-mobile .stack {
+  margin-top: 15px;
+  display: block;
+  cursor: pointer;
+}
+
+#livemark-mobile .bar {
+  display: block;
+  width: 25px;
+  height: 3px;
+  margin: 5px auto;
+  -webkit-transition: all 0.3s ease-in-out;
+  transition: all 0.3s ease-in-out;
+  background-color: #aaa;
+}
+
+@media only screen and (max-width: 768px) {
+  #livemark-mobile {
+    visibility: visible;
+  }
+
+  #livemark-mobile.active {
+    position: fixed;
+  }
+
+  #livemark-mobile.active .bar:nth-child(2) {
+    opacity: 0;
+  }
+
+  #livemark-mobile.active .bar:nth-child(1) {
+    transform: translateY(8px) rotate(45deg);
+  }
+
+  #livemark-mobile.active .bar:nth-child(3) {
+    transform: translateY(-8px) rotate(-45deg);
+  }
+
+  #livemark-left {
+      position: fixed;
+      top: 0;
+      left: -100vw;
+      padding-top: 35px;
+      background-color: #fff;
+      width: 100vw;
+      border-radius: 10px;
+      text-align: center;
+      transition: 0.3s;
+      box-shadow: 0 10px 27px rgba(0, 0, 0, 0.05);
+      visibility: visible;
+      z-index: 1000;
+  }
+
+  #livemark-left.active {
+    left: 0;
+  }
+}
+
+</style>
+<link rel="stylesheet" href="https://unpkg.com/paginationjs@2.1.5/dist/pagination.css">
+<style>
+
+.livemark-pagination {
+  display: none;
+}
+
+</style>
+<style>
+
+.livemark-remark {
+  display: block;
+}
+
+</style>
+<style>
+
+#livemark-search {
+  position: fixed;
+  left: 30px;
+  width: 240px;
+  bottom: 20px;
+  z-index:100;
+  visibility: hidden;
+}
+
+@media only screen and (min-width: 992px) {
+  #livemark-search {
+    visibility: visible;
+  }
+}
+
+#livemark-search-input {
+  width: 100%;
+  outline: none;
+  font-size: 20px;
+  padding: 7px 10px;
+  border-radius: 20px;
+  border: solid 1px #ddd;
+  box-shadow: 0px 7px 10px #eee;
+  color: #888;
+}
+
+#livemark-search-input::placeholder {
+  color: #888;
+}
+
+#livemark-search-input::-webkit-search-decoration,
+#livemark-search-input::-webkit-search-cancel-button,
+#livemark-search-input::-webkit-search-results-button,
+#livemark-search-input::-webkit-search-results-decoration {
+  -webkit-appearance:none;
+}
+
+#livemark-search-output {
+  visibility: hidden;
+  width: 100%;
+  font-size: 16px;
+  padding: 10px 10px;
+  border-radius: 20px;
+  border: solid 1px #ddd;
+  box-shadow: 0px 7px 10px #eee;
+  background: white;
+  margin-bottom: 10px;
+}
+
+#livemark-search-output ul {
+  margin: 0;
+  padding: 0;
+  list-style-type: none;
+}
+
+#livemark-search-output li.active {
+  font-size: 20px;
+  font-weight: bold;
+}
+
+#livemark-search-output a {
+  color: #5CC820;
+  text-decoration: underline;
+}
+
+.livemark-search-found {
+  background-color: #5CC820;
+  color: white;
+  font-weight: bold;
+  padding: 5px;
+  border-radius: 5px;
+}
+
+</style>
+<style>
+
+#livemark-main h2 .livemark-source-button {
+  float: right;
+  display: none;
+}
+
+#livemark-main h2:hover .livemark-source-button {
+  display: inline;
+  margin-left: 8px;
+  color: #aaa;
+  font-weight: normal;
+  text-decoration: none;
+}
+
+#livemark-main h2 .livemark-source-button:hover {
+  text-decoration: underline;
+}
+
+.livemark-source-section {
+  border: dashed 1px #ccc;
+}
+
+</style>
+<style>
+
+.nav-tabs {
+    padding-left: 0 !important;
+}
+
+.nav-item {
+    margin-top: 0 !important;
+}
+
+</style>
+<style>
+
+.livemark-task pre:first-child {
+  margin-bottom: 0 !important;
+  border-bottom: dashed 1px #ccc;
+}
+
+</style>
+<style>
+
+.livemark-video {
+  padding-bottom: 10px;
+}
+
+</style>
+</head>
+<body>
+<div id="livemark-left">
+
+<div id="livemark-brand">
+  <ul>
+    <li>
+      <a class="active" href=".">
+        MORPC
+      </a>
+    </li>
+  </ul>
+</div>
+
+<div id="livemark-pages">
+  <ul class="primary">
+        <li class="primary  ">
+      <a href="index.html" class="primary">
+        Introduction
+      </a>
+          </li>
+        <li class="primary  active">
+      <a href="morpc-color-demo.html" class="primary">
+        Color
+      </a>
+          </li>
+      </ul>
+</div>
+</div>
+<div id="livemark-main">
+<div id="livemark-notes">
+      <a href="https://github.com/morpc/morpc-py/edit/main/morpc-color-demo.md" target="_blank">Edit page </a> in <a href="https://livemark.frictionlessdata.io" target="_blank"> Livemark </a><br>
+    (2025-05-28 13:39)
+</div>
+
+<h1>morpc.color Demo</h1>
+<h2>Import morpc package</h2>
+<div><pre><code class="language-python">import morpc
+</code></pre>
+</div><h2>Get standard HEX color codes</h2>
+<p>The get_colors() class provides access to a json file that contains various useful definitions of colors. It takes one argument <code>colorDictPath='../morpc/color/morpc_colors.json'</code> which is the relative path to the json file. </p>
+<p>The json file is stored in the attribute morpc_colors.</p>
+<div><pre><code class="language-python">morpc.color.get_colors().morpc_colors
+</code></pre>
+</div><div><pre><code>{'darkblue': {'key': {'hex': '#2e5072',
+   'hls': '(0.5833, 0.3137, 0.425)',
+   'position': 8},
+  'curves': {'hue': 0.58333,
+   'greys': [0.95, 0.87, 0.78, 0.68, 0.58, 0.45, 0.36, 0.29, 0.21, 0.15, 0.08],
+   'sats': [0.1,
+    0.12,
+    0.15,
+    0.18,
+    0.22,
+    0.29,
+    0.34,
+    0.425,
+    0.44,
+    0.548,
+    0.46]},
+  'gradient': {'rgb': [[0.9460205078124999,
+     0.9509279306640624,
+     0.9558349609375001],
+    [0.8575390625, 0.872803344921875, 0.88806640625],
+    [0.75377197265625, 0.7858899565429688, 0.81800537109375],
+    [0.63456298828125, 0.6903098469726562, 0.74605224609375],
+    [0.5076513671875, 0.5964390982421874, 0.6852197265625],
+    [0.337666015625, 0.4755914542968749, 0.613505859375],
+    [0.25354248046874994, 0.3841604979492187, 0.5147680664062501],
+    [0.180950927734375, 0.3147026154785155, 0.448443603515625],
+    [0.12796875000000002, 0.22851964687499993, 0.3290625],
+    [0.07548046874999997, 0.16699584796874994, 0.25850390625],
+    [0.04719726562500001, 0.08740395195312498, 0.127607421875]],
+   'hex': ['#f1f2f3',
+    '#dadee2',
+    '#c0c8d0',
+    '#a1b0be',
+    '#8198ae',
+    '#56799c',
+    '#406183',
+    '#2e5072',
+    '#203a53',
+    '#132a41',
+    '#0c1620']}},
+ 'blue': {'key': {'hex': '#0077bf',
+   'hls': '(0.5628, 0.3745, 1)',
+   'position': 7},
+  'curves': {'hue': 0.5628,
+   'greys': [0.95, 0.87, 0.78, 0.68, 0.58, 0.43, 0.36, 0.28, 0.21, 0.15, 0.08],
+   'sats': [0.5, 0.64, 0.68, 0.74, 0.8, 0.84, 1, 1, 0.98, 0.92, 0.87]},
+  'gradient': {'rgb': [[0.9263916015625, 0.9569734375, 0.9754638671875],
+    [0.7921972656249999, 0.893272515625, 0.9543847656250001],
+    [0.6402929687499999, 0.821763453125, 0.9314843750000001],
+    [0.4592236328125, 0.7458773750000001, 0.9191943359375],
+    [0.26765136718750004, 0.6733399609374999, 0.9186279296875],
+    [0.07121093750000007, 0.537186828125, 0.8189257812499999],
+    [0.0, 0.46770429687500004, 0.75048828125],
+    [0.0, 0.36363476562499997, 0.58349609375],
+    [0.004375000000000018, 0.271572, 0.433125],
+    [0.012460937499999991, 0.19107103125, 0.2990625],
+    [0.010791015624999983, 0.10080203125000001, 0.15522460937500002]],
+   'hex': ['#ecf4f8',
+    '#cae3f3',
+    '#a3d1ed',
+    '#75beea',
+    '#44abea',
+    '#1288d0',
+    '#0077bf',
+    '#005c94',
+    '#01456e',
+    '#03304c',
+    '#021927']}},
+ 'darkgreen': {'key': {'hex': '#2c7f68',
+   'hsl': '(0.4538, 0.3359, 0.4853)',
+   'position': 7},
+  'curves': {'hue': 0.4538,
+   'greys': [0.95, 0.87, 0.78, 0.68, 0.58, 0.45, 0.39, 0.28, 0.21, 0.15, 0.08],
+   'sats': [0.1, 0.13, 0.18, 0.2, 0.22, 0.32, 0.48, 0.52, 0.54, 0.54, 0.46]},
+  'gradient': {'rgb': [[0.9430664062499999,
+     0.9534179687500001,
+     0.950548515625],
+    [0.84633544921875, 0.88169189453125, 0.871891087890625],
+    [0.7234375000000001, 0.8078124999999999, 0.78442375],
+    [0.5880859375, 0.725390625, 0.6873297656249999],
+    [0.4462939453125, 0.6459912109375, 0.59063512890625],
+    [0.2760839843749999, 0.5359277343750001, 0.46389904687500005],
+    [0.17443359375, 0.49646484375, 0.40719778125],
+    [0.1142578125, 0.36181640625, 0.2931931640625],
+    [0.08164550781250002, 0.2733349609375, 0.22019864453125],
+    [0.05834228515625001, 0.19531982421875, 0.157349650390625],
+    [0.03737548828125001, 0.10105224609374999, 0.08340104882812499]],
+   'hex': ['#f0f3f2',
+    '#d7e0de',
+    '#b8cdc8',
+    '#95b8af',
+    '#71a496',
+    '#468876',
+    '#2c7e67',
+    '#1d5c4a',
+    '#144538',
+    '#0e3128',
+    '#091915']}},
+ 'lightgreen': {'key': {'hex': '#66b561',
+   'hls': '(.3234, 0.5451, 0.3621)',
+   'position': 5},
+  'curves': {'hue': 0.3234,
+   'greys': [0.95, 0.87, 0.78, 0.68, 0.58, 0.45, 0.36, 0.28, 0.21, 0.15, 0.08],
+   'sats': [0.12, 0.18, 0.22, 0.32, 0.36, 0.46, 0.58, 0.58, 0.44, 0.36, 0.28]},
+  'gradient': {'rgb': [[0.9433114843749999,
+     0.9548828125000001,
+     0.9425781249999999],
+    [0.84358524609375, 0.8892919921875, 0.8406884765625],
+    [0.72458048828125, 0.8200439453124999, 0.7185302734375001],
+    [0.5603008593749998, 0.7667480468750001, 0.5472167968749999],
+    [0.40158672656249983, 0.70921875, 0.38208984375],
+    [0.24411928515624984, 0.5991845703124999, 0.22161621093750006],
+    [0.15703462890624972, 0.5072509765625001, 0.13483886718749993],
+    [0.1221048730468748, 0.39442138671875004, 0.10484619140624996],
+    [0.1177497070312499, 0.27685546875, 0.107666015625],
+    [0.09520086718749995, 0.18958984375, 0.08921875000000001],
+    [0.05692623828124997, 0.09671875, 0.054404296874999994]],
+   'hex': ['#f0f3f0',
+    '#d7e2d6',
+    '#b8d1b7',
+    '#8ec38b',
+    '#66b461',
+    '#3e9838',
+    '#288122',
+    '#1f641a',
+    '#1e461b',
+    '#183016',
+    '#0e180d']}},
+ 'bluegreen': {'key': {'hex': '#00b2bf',
+   'hls': '(0.5113, 0.3745, 1.000)',
+   'position': 6},
+  'curves': {'hue': 0.5113,
+   'greys': [0.95, 0.87, 0.78, 0.68, 0.58, 0.49, 0.36, 0.28, 0.21, 0.15, 0.08],
+   'sats': [0.55, 0.68, 0.72, 0.84, 0.96, 1, 1, 1, 0.98, 0.92, 0.87]},
+  'gradient': {'rgb': [[0.90577392578125,
+     0.9681102490234375,
+     0.97264404296875],
+    [0.7202734374999998, 0.9313657578125001, 0.9467187500000002],
+    [0.5070117187500001, 0.891762703125, 0.9197460937499999],
+    [0.19230468750000007, 0.8797657734374998, 0.9297656249999999],
+    [0.017714843749999987, 0.8103761562499999, 0.86802734375],
+    [0.0, 0.6909568359374999, 0.7412109375],
+    [0.0, 0.5075209960937499, 0.54443359375],
+    [0.0, 0.39463740234375, 0.42333984375],
+    [0.0031909179687499845, 0.29469914355468746, 0.31590087890625],
+    [0.009257812500000018, 0.20775086718749997, 0.22218749999999998],
+    [0.008124999999999993, 0.10950175000000001, 0.116875]],
+   'hex': ['#e6f6f8',
+    '#b7edf1',
+    '#81e3ea',
+    '#31e0ed',
+    '#04cedd',
+    '#00b0bd',
+    '#00818a',
+    '#00646b',
+    '#004b50',
+    '#023438',
+    '#021b1d']}},
+ 'midblue': {'key': {'hex': '#2c6179',
+   'hls': '(0.5519, 0.3235, 0.4667)',
+   'position': 7},
+  'curves': {'hue': 0.5519,
+   'greys': [0.95, 0.87, 0.78, 0.67, 0.56, 0.45, 0.33, 0.26, 0.2, 0.15, 0.08],
+   'sats': [0.1, 0.13, 0.2, 0.26, 0.3, 0.38, 0.46, 0.52, 0.54, 0.54, 0.46]},
+  'gradient': {'rgb': [[0.94481201171875,
+     0.9517215478515625,
+     0.95484619140625],
+    [0.85240478515625, 0.8757896142578125, 0.88636474609375],
+    [0.733984375, 0.795043828125, 0.82265625],
+    [0.5801025390625, 0.699430732421875, 0.7533935546875],
+    [0.4217285156249999, 0.60551208984375, 0.6886230468750001],
+    [0.2751855468750001, 0.50746700390625, 0.6125097656249999],
+    [0.17527587890625002, 0.38090434667968753, 0.47389404296875],
+    [0.12246093749999998, 0.30516857421875004, 0.38779296875],
+    [0.09018066406249997, 0.23597691992187503, 0.30190917968750003],
+    [0.06766357421875, 0.1770561572265625, 0.22652587890625],
+    [0.042451171875, 0.09225362890625001, 0.114775390625]],
+   'hex': ['#f0f2f3',
+    '#d9dfe2',
+    '#bbcad1',
+    '#93b2c0',
+    '#6b9aaf',
+    '#46819c',
+    '#2c6178',
+    '#1f4d62',
+    '#163c4c',
+    '#112d39',
+    '#0a171d']}},
+ 'rose': {'key': {'hex': '#b0503f',
+   'hls': '(0.0251, 0.4686, 0.4728)',
+   'position': 6},
+  'curves': {'hue': 0.0251,
+   'greys': [0.95, 0.87, 0.78, 0.67, 0.56, 0.45, 0.33, 0.26, 0.2, 0.15, 0.08],
+   'sats': [0.18, 0.24, 0.32, 0.42, 0.47, 0.5, 0.52, 0.52, 0.48, 0.4, 0.34]},
+  'gradient': {'rgb': [[0.9605615234375, 0.9458546269531249, 0.9432470703125],
+    [0.906298828125, 0.8560316015625, 0.847119140625],
+    [0.8604638671875, 0.7489137578125, 0.7291357421875],
+    [0.8251220703125, 0.609993271484375, 0.5718505859375],
+    [0.7890869140625, 0.471349931640625, 0.4150146484375],
+    [0.7528076171875, 0.33287719726562504, 0.2584228515625],
+    [0.56814453125, 0.23795687109375002, 0.17941406250000003],
+    [0.44753906250000003, 0.18744349218749998, 0.14132812499999997],
+    [0.33187988281249997, 0.14902662500000002, 0.11660644531250003],
+    [0.23071289062499997, 0.11873144531250002, 0.09887695312500003],
+    [0.11613769531250001, 0.066077841796875, 0.05720214843749999]],
+   'hex': ['#f4f1f0',
+    '#e7dad8',
+    '#dbbeb9',
+    '#d29b91',
+    '#c97869',
+    '#bf5441',
+    '#903c2d',
+    '#722f24',
+    '#54261d',
+    '#3a1e19',
+    '#1d100e']}},
+ 'gold': {'key': {'hex': '#977118',
+   'hls': '(0.1173, 0.342, 0.726)',
+   'position': 5},
+  'curves': {'hue': 0.1173,
+   'greys': [0.95, 0.87, 0.78, 0.67, 0.56, 0.45, 0.33, 0.26, 0.2, 0.15, 0.08],
+   'sats': [0.32, 0.4, 0.45, 0.56, 0.63, 0.72, 0.78, 0.78, 0.67, 0.6, 0.54]},
+  'gradient': {'rgb': [[0.960654296875, 0.949685640625, 0.923623046875],
+    [0.9061035156249999, 0.8690206640625, 0.7809082031250001],
+    [0.8504150390624999, 0.777912568359375, 0.6056396484375001],
+    [0.809541015625, 0.6659418671874999, 0.324736328125],
+    [0.7202880859374999, 0.5553677441406251, 0.16350097656250007],
+    [0.5929296875, 0.44589415625, 0.09652343750000003],
+    [0.44130615234375, 0.3267470419921875, 0.05454345703125002],
+    [0.34765625, 0.2574078125, 0.04296875],
+    [0.2601220703125, 0.198298998046875, 0.05140136718749999],
+    [0.19140625, 0.14888535156250002, 0.0478515625],
+    [0.10019775390625, 0.0793842080078125, 0.029929199218749994]],
+   'hex': ['#f4f2eb',
+    '#e7ddc7',
+    '#d8c69a',
+    '#cea952',
+    '#b78d29',
+    '#977118',
+    '#70530d',
+    '#58410a',
+    '#42320d',
+    '#30250c',
+    '#191407']}}}
+</code></pre>
+</div><h2>Key Colors</h2>
+<p>The standard colors are retrieved using <code>.KEYS</code> instance.</p>
+<div><pre><code class="language-python">morpc.color.get_colors().KEYS
+</code></pre>
+</div><div><pre><code>{'darkblue': '#2e5072',
+ 'blue': '#0077bf',
+ 'darkgreen': '#2c7f68',
+ 'lightgreen': '#66b561',
+ 'bluegreen': '#00b2bf',
+ 'midblue': '#2c6179',
+ 'rose': '#b0503f',
+ 'gold': '#977118'}
+</code></pre>
+</div><h2>Plot color strips from hex lists to see colors</h2>
+<p>You can plot a list of hex codes using the <code>plot_from_hex_list()</code> function. In the following example, we pass the values of the key colors to see them. The plot includes the HLS values, a grey values, and the hex code. </p>
+<div><pre><code class="language-python">morpc.color.plot_from_hex_list(morpc.color.get_colors().KEYS.values())
+</code></pre>
+</div><p><img src="/morpc-color-demo/output_11_0.png" alt="png"></p>
+<h2>Sequential color gradients for each color</h2>
+<p>Each color has an associated gradient. These gradients can be returned using the <code>.SEQ()</code> function. Simply pass the color name to the funcion.</p>
+<div><pre><code class="language-python">morpc.color.plot_from_hex_list(morpc.color.get_colors().SEQ('midblue').hex_list)
+</code></pre>
+</div><p><img src="/morpc-color-demo/output_14_0.png" alt="png"></p>
+<div><pre><code class="language-python">for color in morpc.color.get_colors().KEYS.keys():
+    morpc.color.plot_from_hex_list(morpc.color.get_colors().SEQ(color).hex_list)
+</code></pre>
+</div><p><img src="/morpc-color-demo/output_15_0.png" alt="png"></p>
+<p><img src="/morpc-color-demo/output_15_1.png" alt="png"></p>
+<p><img src="/morpc-color-demo/output_15_2.png" alt="png"></p>
+<p><img src="/morpc-color-demo/output_15_3.png" alt="png"></p>
+<p><img src="/morpc-color-demo/output_15_4.png" alt="png"></p>
+<p><img src="/morpc-color-demo/output_15_5.png" alt="png"></p>
+<p><img src="/morpc-color-demo/output_15_6.png" alt="png"></p>
+<p><img src="/morpc-color-demo/output_15_7.png" alt="png"></p>
+<p>Limit the number of colors returned in the gradient by passing an integer 1 through 12 to the <code>n = </code> attribute.</p>
+<div><pre><code class="language-python">morpc.color.plot_from_hex_list(morpc.color.get_colors().SEQ('gold', 4).hex_list)
+</code></pre>
+</div><p><img src="/morpc-color-demo/output_17_0.png" alt="png"></p>
+<h2>Two color sequential gradients</h2>
+<p>Pass a list of two color names to <code>.SEQ2()</code> method to get a split gradient. </p>
+<div><pre><code class="language-python">morpc.color.plot_from_hex_list(morpc.color.get_colors().SEQ2(['gold', 'darkblue']).hex_list)
+</code></pre>
+</div><p><img src="/morpc-color-demo/output_20_0.png" alt="png"></p>
+<div><pre><code class="language-python">morpc.color.plot_from_hex_list(morpc.color.get_colors().SEQ2(['rose', 'blue']).hex_list)
+</code></pre>
+</div><p><img src="/morpc-color-demo/output_21_0.png" alt="png"></p>
+<h2>Three color sequential gradients</h2>
+<p>The same can be done with three colors using <code>.SEQ3()</code> method.</p>
+<div><pre><code class="language-python">morpc.color.plot_from_hex_list(morpc.get_colors().SEQ3(['gold', 'darkgreen', 'darkblue']).hex_list)
+</code></pre>
+</div><p><img src="/morpc-color-demo/output_24_0.png" alt="png"></p>
+<h2>Color maps</h2>
+<p>Using any method, you can return a color map in the form of the gradient using the <code>.cmap</code> instance.</p>
+<div><pre><code class="language-python">morpc.color.get_colors().SEQ3(['gold', 'darkgreen', 'darkblue']).cmap
+</code></pre>
+</div><div style="vertical-align: middle;"><strong>my_cmp</strong> </div><div class="cmap"><img alt="my_cmp colormap" title="my_cmp" style="border: 1px solid #555;" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAgAAAABACAYAAABsv8+/AAAAFXRFWHRUaXRsZQBteV9jbXAgY29sb3JtYXAlV7erAAAAG3RFWHREZXNjcmlwdGlvbgBteV9jbXAgY29sb3JtYXBswK9PAAAAMXRFWHRBdXRob3IATWF0cGxvdGxpYiB2My4xMC4zLCBodHRwczovL21hdHBsb3RsaWIub3Jnhnp4VQAAADN0RVh0U29mdHdhcmUATWF0cGxvdGxpYiB2My4xMC4zLCBodHRwczovL21hdHBsb3RsaWIub3JnI15roQAAAjhJREFUeJzt1sFSgzAARdGo//+j7hy3hThKCRImgDPu3jkbTEkC02J7Xz4/3msppdQ6fx++/3gelmMp63h0ft6Pu2Mtg3VX529e98/7Pvc73n8/fx7st18/ntefH123v6+7+432X8fTczztzm+v78fb+v+af2+fv+77KG8/x6m+LseyHpfXH924nX/Ob+vbvMHrdT8e7rte9+791PPrzu0xXv6Yu+d3Prw+n867Ht9c3/4f/+f6te1XzsfL8Nf/w735h+scXt+v2w539z2fv36Q62PcPtip7h7rbd5+XWmP//l+7fx0vl+73nSxbnT9fr/tDTl9H4/jbn33XDXd+3z8/i+D34ub+17Mq/3vWbv//nu8m3fxO3V8v/rrnP+eHu63fbCj64/ub1m3fOsAAFEEAAAEEgAAEEgAAEAgAQAAgQQAAAQSAAAQSAAAQCABAACBBAAABBIAABBIAABAIAEAAIEEAAAEEgAAEEgAAEAgAQAAgQQAAAQSAAAQSAAAQCABAACBBAAABBIAABBIAABAIAEAAIEEAAAEEgAAEEgAAEAgAQAAgQQAAAQSAAAQSAAAQCABAACBBAAABBIAABBIAABAIAEAAIEEAAAEEgAAEEgAAEAgAQAAgQQAAAQSAAAQSAAAQCABAACBBAAABBIAABBIAABAIAEAAIEEAAAEEgAAEEgAAEAgAQAAgQQAAAQSAAAQSAAAQCABAACBBAAABBIAABBIAABAIAEAAIEEAAAEEgAAEOgLO0UR3IDRAN0AAAAASUVORK5CYII="></div><div style="vertical-align: middle; max-width: 514px; display: flex; justify-content: space-between;"><div style="float: left;"><div title="#f3f1eaff" style="display: inline-block; width: 1em; height: 1em; margin: 0; vertical-align: middle; border: 1px solid #555; background-color: #f3f1eaff;"></div> under</div><div style="margin: 0 auto; display: inline-block;">bad <div title="#00000000" style="display: inline-block; width: 1em; height: 1em; margin: 0; vertical-align: middle; border: 1px solid #555; background-color: #00000000;"></div></div><div style="float: right;">over <div title="#0c1620ff" style="display: inline-block; width: 1em; height: 1em; margin: 0; vertical-align: middle; border: 1px solid #555; background-color: #0c1620ff;"></div></div></div>
+<h2>Diverging color gradients</h2>
+<p>Use the <code>.DIV()</code> method can be used to create diverging gradients and color maps. </p>
+<div><pre><code class="language-python">morpc.color.plot_from_hex_list(morpc.get_colors().DIV(['gold','darkblue']).hex_list)
+</code></pre>
+</div><p><img src="/morpc-color-demo/output_30_0.png" alt="png"></p>
+<div><pre><code class="language-python">morpc.color.plot_from_hex_list(morpc.color.get_colors().DIV(['rose','darkgreen']).hex_list)
+</code></pre>
+</div><p><img src="/morpc-color-demo/output_31_0.png" alt="png"></p>
+<h2>Qualitative color groups</h2>
+<p>Use the <code>.QUAL()</code> method to return groups for qualitative data. It selects a number of grouped lightness variations of each color. </p>
+<div><pre><code class="language-python">morpc.color.plot_from_hex_list(morpc.color.get_colors().QUAL(20).hex_list)
+</code></pre>
+</div><p><img src="/morpc-color-demo/output_34_0.png" alt="png"></p>
+<h2>Testing color maps for color blindness accessibility</h2>
+<div><pre><code class="language-python">import numpy as np
+import matplotlib.pyplot as plt
+
+np.random.seed(19680801)
+data = np.random.randn(30, 30)
+fig, ax = plt.subplots()
+psm = ax.pcolormesh(data, cmap=morpc.color.get_colors().DIV(['gold', 'bluegreen']).cmap, rasterized=True, vmin=-4, vmax=4)
+fig.colorbar(psm, ax=ax)
+</code></pre>
+</div><div><pre><code>&lt;matplotlib.colorbar.Colorbar at 0x1baaaa349e0&gt;
+</code></pre>
+</div><p><img src="/morpc-color-demo/output_36_1.png" alt="png"></p>
+<div><pre><code class="language-python">from daltonize import daltonize
+daltonize.simulate_mpl(fig, color_deficit='p')
+</code></pre>
+</div><p><img src="/morpc-color-demo/output_37_0.png" alt="png"></p>
+
+<div id="livemark-signs">
+  <div>
+            <div class="prev">
+      <a href="index.html">
+        « morpc-py
+      </a>
+    </div>
+      </div>
+</div>
+</div>
+<div id="livemark-right">
+
+<div id="livemark-rating">
+  <iframe src="https://ghbtns.com/github-btn.html?user=morpc&amp;repo=morpc-py&amp;type=star&amp;count=true&amp;size=large" width="160px" height="30px" title="GitHub">
+  </iframe>
+</div>
+
+<div id="livemark-topics">
+  <div class="toc">
+  </div>
+</div>
+</div>
+<script src="https://unpkg.com/lodash@4.17.21/lodash.min.js"></script>
+<script src="https://unpkg.com/jquery@3.6.0/dist/jquery.min.js"></script>
+<script src="https://unpkg.com/popper.js@1.16.1/dist/umd/popper.min.js"></script>
+<script src="https://unpkg.com/bootstrap@4.6.0/dist/js/bootstrap.min.js"></script>
+<script src="https://unpkg.com/prismjs@1.23.0/components/prism-core.min.js"></script>
+<script src="https://unpkg.com/prismjs@1.23.0/plugins/autoloader/prism-autoloader.min.js"></script>
+<script>
+
+document.addEventListener("DOMContentLoaded", function () {
+  const content = document.querySelector("#livemark-main");
+  const headings = content.querySelectorAll("h1, h2, h3, h4, h5, h6, h7");
+  const headingMap = {};
+
+  // Add identifiers
+  Array.prototype.forEach.call(headings, function (heading) {
+    const id = heading.id
+      ? heading.id
+      : heading.textContent
+          .trim()
+          .toLowerCase()
+          .split(" ")
+          .join("-")
+          .replace(/[!@#$%^&*():]/gi, "")
+          .replace(/\//gi, "-");
+    headingMap[id] = !isNaN(headingMap[id]) ? ++headingMap[id] : 0;
+    if (headingMap[id]) {
+      heading.id = id + "-" + headingMap[id];
+    } else {
+      heading.id = id;
+    }
+  });
+
+  // Add links
+  Array.prototype.forEach.call(headings, function (heading) {
+    const link = document.createElement("a");
+    link.href = "#" + heading.id;
+    link.innerText = "#";
+    link.classList.add("heading");
+    heading.appendChild(link);
+  });
+});
+
+</script>
+<script>
+
+document.addEventListener("DOMContentLoaded", function () {
+  const groups = $("#livemark-pages li.group");
+  for (const group of groups) {
+    $(group)
+      .children("a")
+      .click((ev) => {
+        ev.preventDefault();
+        $(group).toggleClass("active");
+        // $(group).find(".fa").toggleClass("fa-chevron-right");
+        // $(group).find(".fa").toggleClass("fa-chevron-down");
+      });
+  }
+});
+
+</script>
+<script src="https://unpkg.com/tocbot@4.12.3/dist/tocbot.min.js"></script>
+<script>
+
+document.addEventListener("DOMContentLoaded", function () {
+  // Start tocbot
+  tocbot.init({
+    // Where to render the table of contents.
+    tocSelector: ".toc",
+    // Where to grab the headings to build the table of contents.
+    contentSelector: "#livemark-main",
+    // Which headings to grab inside of the contentSelector element.
+    headingSelector: "h2",
+    // For headings inside relative or absolute positioned containers within content.
+    hasInnerContainers: true,
+    // Called each time a heading is parsed. Expects a string in return.
+    headingLabelCallback: (label) => {
+      label = label.replace(/(^#|#$)/g, "").trim();
+      // label = label.replace(/\(.*?\)$/g, "");
+      return label;
+    },
+    // Disable generating ordered lists (ol)
+    orderedList: false,
+    // Fix active link class
+    onClick: syncList,
+    scrollEndCallback: syncList,
+  });
+
+  // Style list
+  $("#livemark-topics .toc > ul").addClass("primary");
+  $("#livemark-topics .toc > ul > li").addClass("primary");
+  $("#livemark-topics .toc > ul > li > a").addClass("primary");
+  $("#livemark-topics .toc ul.is-collapsible").addClass("secondary");
+  $("#livemark-topics .toc ul.is-collapsible li").addClass("secondary");
+  $("#livemark-topics .toc ul.is-collapsible li > a").addClass("secondary");
+  for (const element of $("#livemark-topics .primary")) {
+    if ($(element).find(".secondary").length) {
+      $(element).addClass("group");
+    }
+  }
+
+  // Sync list
+  function syncList() {
+    for (const element of $("#livemark-topics li.primary")) {
+      if ($(element).find(".is-active-li").length) {
+        $(element).addClass("is-active-li");
+      }
+    }
+  }
+  syncList();
+});
+
+</script>
+<script>
+
+document.addEventListener("DOMContentLoaded", function () {
+  const handlePopstate = async () => {
+    const href = location.hash;
+    if (href.startsWith("#card=")) {
+      const code = href.split("=")[1];
+      const response = await fetch(`/assets/cards/${code}.html`);
+      const html = await response.text();
+      $("#livemark-cards .modal-title").html("");
+      $("#livemark-cards .modal-body").html(html);
+      $("#livemark-cards h1").appendTo("#livemark-cards .modal-title");
+      $("#livemark-cards .modal").modal();
+      $("#livemark-cards .modal").on("hidden.bs.modal", () => {
+        history.pushState("", document.title, window.location.pathname);
+      });
+    }
+  };
+  window.addEventListener("popstate", handlePopstate);
+  handlePopstate();
+});
+
+</script>
+
+<div id="livemark-cards">
+  <div class="modal fade" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-lg" role="document">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title"></h5>
+          <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+            <span aria-hidden="true">×</span>
+          </button>
+        </div>
+        <div class="modal-body">
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script src="https://unpkg.com/ue-scroll-js@2.0.2/dist/ue-scroll.min.js"></script>
+<script>
+
+document.addEventListener("DOMContentLoaded", function () {
+  // Init
+  const readability = localStorage.getItem("livemark-display-readability");
+  if (readability === "plus") {
+    document.body.classList.add("with-readability");
+  } else {
+    document.body.classList.remove("with-readability");
+  }
+
+  // Plus
+  document
+    .getElementById("livemark-display-plus")
+    .addEventListener("click", function () {
+      document.body.classList.add("with-readability");
+      localStorage.setItem("livemark-display-readability", "plus");
+    });
+
+  // Minus
+  document
+    .getElementById("livemark-display-minus")
+    .addEventListener("click", function () {
+      document.body.classList.remove("with-readability");
+      localStorage.setItem("livemark-display-readability", "minus");
+    });
+
+  // Print
+  document
+    .getElementById("livemark-display-print")
+    .addEventListener("click", function () {
+      window.print();
+    });
+
+  // Scroll
+  const scrollSpeed = parseInt("10");
+  UeScroll.init({ element: "#livemark-display-scroll .fa", scrollSpeed });
+});
+
+</script>
+
+<div id="livemark-display">
+  <div class="control" id="livemark-display-print" title="Print">
+    <span class="fa fa-print"></span>
+  </div>
+  <div class="control" id="livemark-display-plus" title="Increase readability">
+    <span class="fa fa-plus"></span>
+  </div>
+  <div class="control" id="livemark-display-minus" title="Decrease readability">
+    <span class="fa fa-minus"></span>
+  </div>
+  <div class="control" id="livemark-display-scroll" title="Back to top">
+    <span class="fa fa-chevron-up"></span>
+  </div>
+</div>
+<script>
+
+document.addEventListener("DOMContentLoaded", function () {
+  const container = $(".livemark-infinity");
+  if (container.length) {
+    const elements = container
+      .children()
+      .map((index, element) => element.outerHTML)
+      .get();
+    container.html(elements.splice(0, 100));
+    container.show();
+    window.addEventListener("scroll", () => {
+      const element = container.get(0);
+      const position = window.scrollY + window.innerHeight + 100;
+      const threshold = element.offsetTop + element.scrollHeight;
+      if (position > threshold) {
+        container.append(elements.splice(0, 100));
+      }
+    });
+  }
+});
+
+</script>
+<script>
+
+document.addEventListener("DOMContentLoaded", function () {
+  const left = document.getElementById("livemark-left");
+  const mobile = document.getElementById("livemark-mobile");
+  mobile.addEventListener("click", () => {
+    left.classList.toggle("active");
+    mobile.classList.toggle("active");
+  });
+  // NOTE: We can replace the selector by 'a:not[href=""]' after #57
+  left.querySelectorAll("li:not(.group) a").forEach((link) => {
+    link.addEventListener("click", () => {
+      if (left.classList.contains("active")) {
+        left.classList.remove("active");
+        mobile.classList.remove("active");
+      }
+    });
+  });
+});
+
+</script>
+
+<div id="livemark-mobile">
+  <div class="stack" title="Toggle menu">
+    <span class="bar"></span>
+    <span class="bar"></span>
+    <span class="bar"></span>
+  </div>
+</div>
+<script src="https://unpkg.com/paginationjs@2.1.5/dist/pagination.min.js"></script>
+<script>
+
+document.addEventListener("DOMContentLoaded", function () {
+  const container = $(".livemark-pagination");
+  if (container.length) {
+    const elements = container
+      .children()
+      .map((index, element) => element.outerHTML)
+      .get();
+    container.html(`
+      <div class="livemark-pagination-data"></div>
+      <div class="livemark-pagination-navs"></div>
+    `);
+    container.find(".livemark-pagination-navs").pagination({
+      dataSource: elements,
+      callback: (html) => {
+        container.find(".livemark-pagination-data").html(html);
+      },
+    });
+    container.show();
+  }
+});
+
+</script>
+<script src="https://unpkg.com/lunr@2.3.9/lunr.min.js"></script>
+<script src="https://unpkg.com/jquery-highlight@3.5.0/jquery.highlight.js"></script>
+<script src="https://unpkg.com/jquery.scrollto@2.1.3/jquery.scrollTo.js"></script>
+<script>
+
+document.addEventListener("DOMContentLoaded", function () {
+  const prepare = () => {
+    const searchParams = new URLSearchParams(window.location.search);
+    const query = searchParams.get('query') || ''
+    if (query.length >= 3) {
+      searchInput.value = query
+    }
+  }
+  const search = () => {
+    unhighlight()
+    query = searchInput.value
+    searchOutput.innerHTML = ''
+    searchOutput.style.visibility = 'hidden'
+    const searchParams = new URLSearchParams(window.location.search);
+    if (query.length < 3) return
+    const results = searchIndex.search(query)
+    if (!results.length) return
+    searchParams.set('query', query)
+    const newRelativePathQuery = window.location.pathname + '?' + searchParams.toString();
+    history.pushState(null, '', newRelativePathQuery);
+    const elements = []
+    for (const result of results) {
+      const item = searchItems[result.ref]
+      const link = `${item.relpath}.html`
+      const cls = window.location.pathname === link ? 'class="active"' : ''
+      elements.push(`<li ${cls}><a href="${link}?query=${query}">${item.name}</a></li>`)
+    }
+    searchOutput.innerHTML = `<ul>\n${elements.join('\n')}\n</ul>`
+    searchOutput.style.visibility = 'visible'
+    highlight()
+  }
+  const highlight = () => {
+    const stem = lunr.stemmer(new lunr.Token(query)).str
+    $('#livemark-main').highlight(stem, {className: 'livemark-search-found'});
+    setTimeout(() => {
+      $(window).scrollTo($('.livemark-search-found').first(), 1000)
+    }, 1000)
+  }
+  const unhighlight = () => {
+    $('#livemark-main').unhighlight({className: 'livemark-search-found'});
+  }
+  const searchItems = {
+          'index': {
+          'name': 'morpc-py',
+          'path': 'index',
+          'relpath': 'index',
+          'text': "# morpc-py ## Introducion The MORPC data team maintains a package with contains commonly-used constants, mappings, and functions to allow for code-reuse in multiple scripts. The package documentation and code is available at the [morpc-py](https://github.com/morpc/morpc-py) repository in GitHub. This package is still in development but will contain the following modules: - morpc - Main library. Includes contents which are broadly applicable for MORPC\u0027s work, including MORPC branding, region definitions and utilities, and general purpose data manipulation functions. - morpc.frictionless - Functions and classes for working with metadata, including schemas, resources, and data packages. These are for internal processes that us the [frictionless-py](https://github.com/frictionlessdata/frictionless-py/tree/main) package. Frictionless was implemented roughly 2025 to manage all metadata and to develop workflow documentation. - morpc.census - Constants and functions that are relevant when working with Census data, including decennial census, ACS, and PEP. - morpc.rest_apt - Tools for working with ArcGIS Online REST API, including scripts for creating local copies as frictionless resources. - morpc.plot - Tools for standard plots which leverage MORPC branding and data visualization best practices. - morpc.color - Various tools for working with colors, largely implemented through morpc.plot. ## Installation A version of the package is available via pip and can be installed by a standard pip install. ```bash $ pip install morpc ``` ### Dev Install As the package is still in development, the best way to install it is via the pip [-editable option](https://setuptools.pypa.io/en/latest/userguide/development_mode.html). To do so: 1. Pull the most recent verision of the jordan_dev (branch name may change later) to a local repo. 2. Using the following command to install an editable version, replacing the path to the correct location. ```bash $ pip install -e \"C:/path/to/folder/morpc-py/\" ``` Import the package as normal ```bash $ import morpc ``` To contribute to the development branch make changes in the local repo and push them to git. When making changes to the package, you will have to re-import the package. If you are working in a Jupyter environment you will have to do this after restarting the kernel. ## Documentation See [docs](/docs) for documentation. (in development) there will be a livemark site for documenatation.",
+      },
+          'morpc-color-demo': {
+          'name': 'morpc.color Demo',
+          'path': 'morpc-color-demo',
+          'relpath': 'morpc-color-demo',
+          'text': "# morpc.color Demo ## Import morpc package ```python import morpc ``` ## Get standard HEX color codes The get_colors() class provides access to a json file that contains various useful definitions of colors. It takes one argument `colorDictPath=\u0027../morpc/color/morpc_colors.json\u0027` which is the relative path to the json file. The json file is stored in the attribute morpc_colors. ```python morpc.color.get_colors().morpc_colors ``` {\u0027darkblue\u0027: {\u0027key\u0027: {\u0027hex\u0027: \u0027#2e5072\u0027, \u0027hls\u0027: \u0027(0.5833, 0.3137, 0.425)\u0027, \u0027position\u0027: 8}, \u0027curves\u0027: {\u0027hue\u0027: 0.58333, \u0027greys\u0027: [0.95, 0.87, 0.78, 0.68, 0.58, 0.45, 0.36, 0.29, 0.21, 0.15, 0.08], \u0027sats\u0027: [0.1, 0.12, 0.15, 0.18, 0.22, 0.29, 0.34, 0.425, 0.44, 0.548, 0.46]}, \u0027gradient\u0027: {\u0027rgb\u0027: [[0.9460205078124999, 0.9509279306640624, 0.9558349609375001], [0.8575390625, 0.872803344921875, 0.88806640625], [0.75377197265625, 0.7858899565429688, 0.81800537109375], [0.63456298828125, 0.6903098469726562, 0.74605224609375], [0.5076513671875, 0.5964390982421874, 0.6852197265625], [0.337666015625, 0.4755914542968749, 0.613505859375], [0.25354248046874994, 0.3841604979492187, 0.5147680664062501], [0.180950927734375, 0.3147026154785155, 0.448443603515625], [0.12796875000000002, 0.22851964687499993, 0.3290625], [0.07548046874999997, 0.16699584796874994, 0.25850390625], [0.04719726562500001, 0.08740395195312498, 0.127607421875]], \u0027hex\u0027: [\u0027#f1f2f3\u0027, \u0027#dadee2\u0027, \u0027#c0c8d0\u0027, \u0027#a1b0be\u0027, \u0027#8198ae\u0027, \u0027#56799c\u0027, \u0027#406183\u0027, \u0027#2e5072\u0027, \u0027#203a53\u0027, \u0027#132a41\u0027, \u0027#0c1620\u0027]}}, \u0027blue\u0027: {\u0027key\u0027: {\u0027hex\u0027: \u0027#0077bf\u0027, \u0027hls\u0027: \u0027(0.5628, 0.3745, 1)\u0027, \u0027position\u0027: 7}, \u0027curves\u0027: {\u0027hue\u0027: 0.5628, \u0027greys\u0027: [0.95, 0.87, 0.78, 0.68, 0.58, 0.43, 0.36, 0.28, 0.21, 0.15, 0.08], \u0027sats\u0027: [0.5, 0.64, 0.68, 0.74, 0.8, 0.84, 1, 1, 0.98, 0.92, 0.87]}, \u0027gradient\u0027: {\u0027rgb\u0027: [[0.9263916015625, 0.9569734375, 0.9754638671875], [0.7921972656249999, 0.893272515625, 0.9543847656250001], [0.6402929687499999, 0.821763453125, 0.9314843750000001], [0.4592236328125, 0.7458773750000001, 0.9191943359375], [0.26765136718750004, 0.6733399609374999, 0.9186279296875], [0.07121093750000007, 0.537186828125, 0.8189257812499999], [0.0, 0.46770429687500004, 0.75048828125], [0.0, 0.36363476562499997, 0.58349609375], [0.004375000000000018, 0.271572, 0.433125], [0.012460937499999991, 0.19107103125, 0.2990625], [0.010791015624999983, 0.10080203125000001, 0.15522460937500002]], \u0027hex\u0027: [\u0027#ecf4f8\u0027, \u0027#cae3f3\u0027, \u0027#a3d1ed\u0027, \u0027#75beea\u0027, \u0027#44abea\u0027, \u0027#1288d0\u0027, \u0027#0077bf\u0027, \u0027#005c94\u0027, \u0027#01456e\u0027, \u0027#03304c\u0027, \u0027#021927\u0027]}}, \u0027darkgreen\u0027: {\u0027key\u0027: {\u0027hex\u0027: \u0027#2c7f68\u0027, \u0027hsl\u0027: \u0027(0.4538, 0.3359, 0.4853)\u0027, \u0027position\u0027: 7}, \u0027curves\u0027: {\u0027hue\u0027: 0.4538, \u0027greys\u0027: [0.95, 0.87, 0.78, 0.68, 0.58, 0.45, 0.39, 0.28, 0.21, 0.15, 0.08], \u0027sats\u0027: [0.1, 0.13, 0.18, 0.2, 0.22, 0.32, 0.48, 0.52, 0.54, 0.54, 0.46]}, \u0027gradient\u0027: {\u0027rgb\u0027: [[0.9430664062499999, 0.9534179687500001, 0.950548515625], [0.84633544921875, 0.88169189453125, 0.871891087890625], [0.7234375000000001, 0.8078124999999999, 0.78442375], [0.5880859375, 0.725390625, 0.6873297656249999], [0.4462939453125, 0.6459912109375, 0.59063512890625], [0.2760839843749999, 0.5359277343750001, 0.46389904687500005], [0.17443359375, 0.49646484375, 0.40719778125], [0.1142578125, 0.36181640625, 0.2931931640625], [0.08164550781250002, 0.2733349609375, 0.22019864453125], [0.05834228515625001, 0.19531982421875, 0.157349650390625], [0.03737548828125001, 0.10105224609374999, 0.08340104882812499]], \u0027hex\u0027: [\u0027#f0f3f2\u0027, \u0027#d7e0de\u0027, \u0027#b8cdc8\u0027, \u0027#95b8af\u0027, \u0027#71a496\u0027, \u0027#468876\u0027, \u0027#2c7e67\u0027, \u0027#1d5c4a\u0027, \u0027#144538\u0027, \u0027#0e3128\u0027, \u0027#091915\u0027]}}, \u0027lightgreen\u0027: {\u0027key\u0027: {\u0027hex\u0027: \u0027#66b561\u0027, \u0027hls\u0027: \u0027(.3234, 0.5451, 0.3621)\u0027, \u0027position\u0027: 5}, \u0027curves\u0027: {\u0027hue\u0027: 0.3234, \u0027greys\u0027: [0.95, 0.87, 0.78, 0.68, 0.58, 0.45, 0.36, 0.28, 0.21, 0.15, 0.08], \u0027sats\u0027: [0.12, 0.18, 0.22, 0.32, 0.36, 0.46, 0.58, 0.58, 0.44, 0.36, 0.28]}, \u0027gradient\u0027: {\u0027rgb\u0027: [[0.9433114843749999, 0.9548828125000001, 0.9425781249999999], [0.84358524609375, 0.8892919921875, 0.8406884765625], [0.72458048828125, 0.8200439453124999, 0.7185302734375001], [0.5603008593749998, 0.7667480468750001, 0.5472167968749999], [0.40158672656249983, 0.70921875, 0.38208984375], [0.24411928515624984, 0.5991845703124999, 0.22161621093750006], [0.15703462890624972, 0.5072509765625001, 0.13483886718749993], [0.1221048730468748, 0.39442138671875004, 0.10484619140624996], [0.1177497070312499, 0.27685546875, 0.107666015625], [0.09520086718749995, 0.18958984375, 0.08921875000000001], [0.05692623828124997, 0.09671875, 0.054404296874999994]], \u0027hex\u0027: [\u0027#f0f3f0\u0027, \u0027#d7e2d6\u0027, \u0027#b8d1b7\u0027, \u0027#8ec38b\u0027, \u0027#66b461\u0027, \u0027#3e9838\u0027, \u0027#288122\u0027, \u0027#1f641a\u0027, \u0027#1e461b\u0027, \u0027#183016\u0027, \u0027#0e180d\u0027]}}, \u0027bluegreen\u0027: {\u0027key\u0027: {\u0027hex\u0027: \u0027#00b2bf\u0027, \u0027hls\u0027: \u0027(0.5113, 0.3745, 1.000)\u0027, \u0027position\u0027: 6}, \u0027curves\u0027: {\u0027hue\u0027: 0.5113, \u0027greys\u0027: [0.95, 0.87, 0.78, 0.68, 0.58, 0.49, 0.36, 0.28, 0.21, 0.15, 0.08], \u0027sats\u0027: [0.55, 0.68, 0.72, 0.84, 0.96, 1, 1, 1, 0.98, 0.92, 0.87]}, \u0027gradient\u0027: {\u0027rgb\u0027: [[0.90577392578125, 0.9681102490234375, 0.97264404296875], [0.7202734374999998, 0.9313657578125001, 0.9467187500000002], [0.5070117187500001, 0.891762703125, 0.9197460937499999], [0.19230468750000007, 0.8797657734374998, 0.9297656249999999], [0.017714843749999987, 0.8103761562499999, 0.86802734375], [0.0, 0.6909568359374999, 0.7412109375], [0.0, 0.5075209960937499, 0.54443359375], [0.0, 0.39463740234375, 0.42333984375], [0.0031909179687499845, 0.29469914355468746, 0.31590087890625], [0.009257812500000018, 0.20775086718749997, 0.22218749999999998], [0.008124999999999993, 0.10950175000000001, 0.116875]], \u0027hex\u0027: [\u0027#e6f6f8\u0027, \u0027#b7edf1\u0027, \u0027#81e3ea\u0027, \u0027#31e0ed\u0027, \u0027#04cedd\u0027, \u0027#00b0bd\u0027, \u0027#00818a\u0027, \u0027#00646b\u0027, \u0027#004b50\u0027, \u0027#023438\u0027, \u0027#021b1d\u0027]}}, \u0027midblue\u0027: {\u0027key\u0027: {\u0027hex\u0027: \u0027#2c6179\u0027, \u0027hls\u0027: \u0027(0.5519, 0.3235, 0.4667)\u0027, \u0027position\u0027: 7}, \u0027curves\u0027: {\u0027hue\u0027: 0.5519, \u0027greys\u0027: [0.95, 0.87, 0.78, 0.67, 0.56, 0.45, 0.33, 0.26, 0.2, 0.15, 0.08], \u0027sats\u0027: [0.1, 0.13, 0.2, 0.26, 0.3, 0.38, 0.46, 0.52, 0.54, 0.54, 0.46]}, \u0027gradient\u0027: {\u0027rgb\u0027: [[0.94481201171875, 0.9517215478515625, 0.95484619140625], [0.85240478515625, 0.8757896142578125, 0.88636474609375], [0.733984375, 0.795043828125, 0.82265625], [0.5801025390625, 0.699430732421875, 0.7533935546875], [0.4217285156249999, 0.60551208984375, 0.6886230468750001], [0.2751855468750001, 0.50746700390625, 0.6125097656249999], [0.17527587890625002, 0.38090434667968753, 0.47389404296875], [0.12246093749999998, 0.30516857421875004, 0.38779296875], [0.09018066406249997, 0.23597691992187503, 0.30190917968750003], [0.06766357421875, 0.1770561572265625, 0.22652587890625], [0.042451171875, 0.09225362890625001, 0.114775390625]], \u0027hex\u0027: [\u0027#f0f2f3\u0027, \u0027#d9dfe2\u0027, \u0027#bbcad1\u0027, \u0027#93b2c0\u0027, \u0027#6b9aaf\u0027, \u0027#46819c\u0027, \u0027#2c6178\u0027, \u0027#1f4d62\u0027, \u0027#163c4c\u0027, \u0027#112d39\u0027, \u0027#0a171d\u0027]}}, \u0027rose\u0027: {\u0027key\u0027: {\u0027hex\u0027: \u0027#b0503f\u0027, \u0027hls\u0027: \u0027(0.0251, 0.4686, 0.4728)\u0027, \u0027position\u0027: 6}, \u0027curves\u0027: {\u0027hue\u0027: 0.0251, \u0027greys\u0027: [0.95, 0.87, 0.78, 0.67, 0.56, 0.45, 0.33, 0.26, 0.2, 0.15, 0.08], \u0027sats\u0027: [0.18, 0.24, 0.32, 0.42, 0.47, 0.5, 0.52, 0.52, 0.48, 0.4, 0.34]}, \u0027gradient\u0027: {\u0027rgb\u0027: [[0.9605615234375, 0.9458546269531249, 0.9432470703125], [0.906298828125, 0.8560316015625, 0.847119140625], [0.8604638671875, 0.7489137578125, 0.7291357421875], [0.8251220703125, 0.609993271484375, 0.5718505859375], [0.7890869140625, 0.471349931640625, 0.4150146484375], [0.7528076171875, 0.33287719726562504, 0.2584228515625], [0.56814453125, 0.23795687109375002, 0.17941406250000003], [0.44753906250000003, 0.18744349218749998, 0.14132812499999997], [0.33187988281249997, 0.14902662500000002, 0.11660644531250003], [0.23071289062499997, 0.11873144531250002, 0.09887695312500003], [0.11613769531250001, 0.066077841796875, 0.05720214843749999]], \u0027hex\u0027: [\u0027#f4f1f0\u0027, \u0027#e7dad8\u0027, \u0027#dbbeb9\u0027, \u0027#d29b91\u0027, \u0027#c97869\u0027, \u0027#bf5441\u0027, \u0027#903c2d\u0027, \u0027#722f24\u0027, \u0027#54261d\u0027, \u0027#3a1e19\u0027, \u0027#1d100e\u0027]}}, \u0027gold\u0027: {\u0027key\u0027: {\u0027hex\u0027: \u0027#977118\u0027, \u0027hls\u0027: \u0027(0.1173, 0.342, 0.726)\u0027, \u0027position\u0027: 5}, \u0027curves\u0027: {\u0027hue\u0027: 0.1173, \u0027greys\u0027: [0.95, 0.87, 0.78, 0.67, 0.56, 0.45, 0.33, 0.26, 0.2, 0.15, 0.08], \u0027sats\u0027: [0.32, 0.4, 0.45, 0.56, 0.63, 0.72, 0.78, 0.78, 0.67, 0.6, 0.54]}, \u0027gradient\u0027: {\u0027rgb\u0027: [[0.960654296875, 0.949685640625, 0.923623046875], [0.9061035156249999, 0.8690206640625, 0.7809082031250001], [0.8504150390624999, 0.777912568359375, 0.6056396484375001], [0.809541015625, 0.6659418671874999, 0.324736328125], [0.7202880859374999, 0.5553677441406251, 0.16350097656250007], [0.5929296875, 0.44589415625, 0.09652343750000003], [0.44130615234375, 0.3267470419921875, 0.05454345703125002], [0.34765625, 0.2574078125, 0.04296875], [0.2601220703125, 0.198298998046875, 0.05140136718749999], [0.19140625, 0.14888535156250002, 0.0478515625], [0.10019775390625, 0.0793842080078125, 0.029929199218749994]], \u0027hex\u0027: [\u0027#f4f2eb\u0027, \u0027#e7ddc7\u0027, \u0027#d8c69a\u0027, \u0027#cea952\u0027, \u0027#b78d29\u0027, \u0027#977118\u0027, \u0027#70530d\u0027, \u0027#58410a\u0027, \u0027#42320d\u0027, \u0027#30250c\u0027, \u0027#191407\u0027]}}} ## Key Colors The standard colors are retrieved using `.KEYS` instance. ```python morpc.color.get_colors().KEYS ``` {\u0027darkblue\u0027: \u0027#2e5072\u0027, \u0027blue\u0027: \u0027#0077bf\u0027, \u0027darkgreen\u0027: \u0027#2c7f68\u0027, \u0027lightgreen\u0027: \u0027#66b561\u0027, \u0027bluegreen\u0027: \u0027#00b2bf\u0027, \u0027midblue\u0027: \u0027#2c6179\u0027, \u0027rose\u0027: \u0027#b0503f\u0027, \u0027gold\u0027: \u0027#977118\u0027} ## Plot color strips from hex lists to see colors You can plot a list of hex codes using the `plot_from_hex_list()` function. In the following example, we pass the values of the key colors to see them. The plot includes the HLS values, a grey values, and the hex code. ```python morpc.color.plot_from_hex_list(morpc.color.get_colors().KEYS.values()) ``` ![png](/morpc-color-demo/output_11_0.png) ## Sequential color gradients for each color Each color has an associated gradient. These gradients can be returned using the `.SEQ()` function. Simply pass the color name to the funcion. ```python morpc.color.plot_from_hex_list(morpc.color.get_colors().SEQ(\u0027midblue\u0027).hex_list) ``` ![png](/morpc-color-demo/output_14_0.png) ```python for color in morpc.color.get_colors().KEYS.keys(): morpc.color.plot_from_hex_list(morpc.color.get_colors().SEQ(color).hex_list) ``` ![png](/morpc-color-demo/output_15_0.png) ![png](/morpc-color-demo/output_15_1.png) ![png](/morpc-color-demo/output_15_2.png) ![png](/morpc-color-demo/output_15_3.png) ![png](/morpc-color-demo/output_15_4.png) ![png](/morpc-color-demo/output_15_5.png) ![png](/morpc-color-demo/output_15_6.png) ![png](/morpc-color-demo/output_15_7.png) Limit the number of colors returned in the gradient by passing an integer 1 through 12 to the `n = ` attribute. ```python morpc.color.plot_from_hex_list(morpc.color.get_colors().SEQ(\u0027gold\u0027, 4).hex_list) ``` ![png](/morpc-color-demo/output_17_0.png) ## Two color sequential gradients Pass a list of two color names to `.SEQ2()` method to get a split gradient. ```python morpc.color.plot_from_hex_list(morpc.color.get_colors().SEQ2([\u0027gold\u0027, \u0027darkblue\u0027]).hex_list) ``` ![png](/morpc-color-demo/output_20_0.png) ```python morpc.color.plot_from_hex_list(morpc.color.get_colors().SEQ2([\u0027rose\u0027, \u0027blue\u0027]).hex_list) ``` ![png](/morpc-color-demo/output_21_0.png) ## Three color sequential gradients The same can be done with three colors using `.SEQ3()` method. ```python morpc.color.plot_from_hex_list(morpc.get_colors().SEQ3([\u0027gold\u0027, \u0027darkgreen\u0027, \u0027darkblue\u0027]).hex_list) ``` ![png](/morpc-color-demo/output_24_0.png) ## Color maps Using any method, you can return a color map in the form of the gradient using the `.cmap` instance. ```python morpc.color.get_colors().SEQ3([\u0027gold\u0027, \u0027darkgreen\u0027, \u0027darkblue\u0027]).cmap ``` my_cmp underbad over ## Diverging color gradients Use the `.DIV()` method can be used to create diverging gradients and color maps. ```python morpc.color.plot_from_hex_list(morpc.get_colors().DIV([\u0027gold\u0027,\u0027darkblue\u0027]).hex_list) ``` ![png](/morpc-color-demo/output_30_0.png) ```python morpc.color.plot_from_hex_list(morpc.color.get_colors().DIV([\u0027rose\u0027,\u0027darkgreen\u0027]).hex_list) ``` ![png](/morpc-color-demo/output_31_0.png) ## Qualitative color groups Use the `.QUAL()` method to return groups for qualitative data. It selects a number of grouped lightness variations of each color. ```python morpc.color.plot_from_hex_list(morpc.color.get_colors().QUAL(20).hex_list) ``` ![png](/morpc-color-demo/output_34_0.png) ## Testing color maps for color blindness accessibility ```python import numpy as np import matplotlib.pyplot as plt np.random.seed(19680801) data = np.random.randn(30, 30) fig, ax = plt.subplots() psm = ax.pcolormesh(data, cmap=morpc.color.get_colors().DIV([\u0027gold\u0027, \u0027bluegreen\u0027]).cmap, rasterized=True, vmin=-4, vmax=4) fig.colorbar(psm, ax=ax) ``` ![png](/morpc-color-demo/output_36_1.png) ```python from daltonize import daltonize daltonize.simulate_mpl(fig, color_deficit=\u0027p\u0027) ``` ![png](/morpc-color-demo/output_37_0.png)",
+      },
+          'index': {
+          'name': 'morpc-py',
+          'path': 'index',
+          'relpath': 'index',
+          'text': "# morpc-py ## Introducion The MORPC data team maintains a package with contains commonly-used constants, mappings, and functions to allow for code-reuse in multiple scripts. The package documentation and code is available at the [morpc-py](https://github.com/morpc/morpc-py) repository in GitHub. This package is still in development but will contain the following modules: - morpc - Main library. Includes contents which are broadly applicable for MORPC\u0027s work, including MORPC branding, region definitions and utilities, and general purpose data manipulation functions. - morpc.frictionless - Functions and classes for working with metadata, including schemas, resources, and data packages. These are for internal processes that us the [frictionless-py](https://github.com/frictionlessdata/frictionless-py/tree/main) package. Frictionless was implemented roughly 2025 to manage all metadata and to develop workflow documentation. - morpc.census - Constants and functions that are relevant when working with Census data, including decennial census, ACS, and PEP. - morpc.rest_apt - Tools for working with ArcGIS Online REST API, including scripts for creating local copies as frictionless resources. - morpc.plot - Tools for standard plots which leverage MORPC branding and data visualization best practices. - morpc.color - Various tools for working with colors, largely implemented through morpc.plot. ## Installation A version of the package is available via pip and can be installed by a standard pip install. ```bash $ pip install morpc ``` ### Dev Install As the package is still in development, the best way to install it is via the pip [-editable option](https://setuptools.pypa.io/en/latest/userguide/development_mode.html). To do so: 1. Pull the most recent verision of the jordan_dev (branch name may change later) to a local repo. 2. Using the following command to install an editable version, replacing the path to the correct location. ```bash $ pip install -e \"C:/path/to/folder/morpc-py/\" ``` Import the package as normal ```bash $ import morpc ``` To contribute to the development branch make changes in the local repo and push them to git. When making changes to the package, you will have to re-import the package. If you are working in a Jupyter environment you will have to do this after restarting the kernel. ## Documentation See [docs](/docs) for documentation. (in development) there will be a livemark site for documenatation.",
+      },
+          'morpc-color-demo': {
+          'name': 'morpc.color Demo',
+          'path': 'morpc-color-demo',
+          'relpath': 'morpc-color-demo',
+          'text': "# morpc.color Demo ## Import morpc package ```python import morpc ``` ## Get standard HEX color codes The get_colors() class provides access to a json file that contains various useful definitions of colors. It takes one argument `colorDictPath=\u0027../morpc/color/morpc_colors.json\u0027` which is the relative path to the json file. The json file is stored in the attribute morpc_colors. ```python morpc.color.get_colors().morpc_colors ``` {\u0027darkblue\u0027: {\u0027key\u0027: {\u0027hex\u0027: \u0027#2e5072\u0027, \u0027hls\u0027: \u0027(0.5833, 0.3137, 0.425)\u0027, \u0027position\u0027: 8}, \u0027curves\u0027: {\u0027hue\u0027: 0.58333, \u0027greys\u0027: [0.95, 0.87, 0.78, 0.68, 0.58, 0.45, 0.36, 0.29, 0.21, 0.15, 0.08], \u0027sats\u0027: [0.1, 0.12, 0.15, 0.18, 0.22, 0.29, 0.34, 0.425, 0.44, 0.548, 0.46]}, \u0027gradient\u0027: {\u0027rgb\u0027: [[0.9460205078124999, 0.9509279306640624, 0.9558349609375001], [0.8575390625, 0.872803344921875, 0.88806640625], [0.75377197265625, 0.7858899565429688, 0.81800537109375], [0.63456298828125, 0.6903098469726562, 0.74605224609375], [0.5076513671875, 0.5964390982421874, 0.6852197265625], [0.337666015625, 0.4755914542968749, 0.613505859375], [0.25354248046874994, 0.3841604979492187, 0.5147680664062501], [0.180950927734375, 0.3147026154785155, 0.448443603515625], [0.12796875000000002, 0.22851964687499993, 0.3290625], [0.07548046874999997, 0.16699584796874994, 0.25850390625], [0.04719726562500001, 0.08740395195312498, 0.127607421875]], \u0027hex\u0027: [\u0027#f1f2f3\u0027, \u0027#dadee2\u0027, \u0027#c0c8d0\u0027, \u0027#a1b0be\u0027, \u0027#8198ae\u0027, \u0027#56799c\u0027, \u0027#406183\u0027, \u0027#2e5072\u0027, \u0027#203a53\u0027, \u0027#132a41\u0027, \u0027#0c1620\u0027]}}, \u0027blue\u0027: {\u0027key\u0027: {\u0027hex\u0027: \u0027#0077bf\u0027, \u0027hls\u0027: \u0027(0.5628, 0.3745, 1)\u0027, \u0027position\u0027: 7}, \u0027curves\u0027: {\u0027hue\u0027: 0.5628, \u0027greys\u0027: [0.95, 0.87, 0.78, 0.68, 0.58, 0.43, 0.36, 0.28, 0.21, 0.15, 0.08], \u0027sats\u0027: [0.5, 0.64, 0.68, 0.74, 0.8, 0.84, 1, 1, 0.98, 0.92, 0.87]}, \u0027gradient\u0027: {\u0027rgb\u0027: [[0.9263916015625, 0.9569734375, 0.9754638671875], [0.7921972656249999, 0.893272515625, 0.9543847656250001], [0.6402929687499999, 0.821763453125, 0.9314843750000001], [0.4592236328125, 0.7458773750000001, 0.9191943359375], [0.26765136718750004, 0.6733399609374999, 0.9186279296875], [0.07121093750000007, 0.537186828125, 0.8189257812499999], [0.0, 0.46770429687500004, 0.75048828125], [0.0, 0.36363476562499997, 0.58349609375], [0.004375000000000018, 0.271572, 0.433125], [0.012460937499999991, 0.19107103125, 0.2990625], [0.010791015624999983, 0.10080203125000001, 0.15522460937500002]], \u0027hex\u0027: [\u0027#ecf4f8\u0027, \u0027#cae3f3\u0027, \u0027#a3d1ed\u0027, \u0027#75beea\u0027, \u0027#44abea\u0027, \u0027#1288d0\u0027, \u0027#0077bf\u0027, \u0027#005c94\u0027, \u0027#01456e\u0027, \u0027#03304c\u0027, \u0027#021927\u0027]}}, \u0027darkgreen\u0027: {\u0027key\u0027: {\u0027hex\u0027: \u0027#2c7f68\u0027, \u0027hsl\u0027: \u0027(0.4538, 0.3359, 0.4853)\u0027, \u0027position\u0027: 7}, \u0027curves\u0027: {\u0027hue\u0027: 0.4538, \u0027greys\u0027: [0.95, 0.87, 0.78, 0.68, 0.58, 0.45, 0.39, 0.28, 0.21, 0.15, 0.08], \u0027sats\u0027: [0.1, 0.13, 0.18, 0.2, 0.22, 0.32, 0.48, 0.52, 0.54, 0.54, 0.46]}, \u0027gradient\u0027: {\u0027rgb\u0027: [[0.9430664062499999, 0.9534179687500001, 0.950548515625], [0.84633544921875, 0.88169189453125, 0.871891087890625], [0.7234375000000001, 0.8078124999999999, 0.78442375], [0.5880859375, 0.725390625, 0.6873297656249999], [0.4462939453125, 0.6459912109375, 0.59063512890625], [0.2760839843749999, 0.5359277343750001, 0.46389904687500005], [0.17443359375, 0.49646484375, 0.40719778125], [0.1142578125, 0.36181640625, 0.2931931640625], [0.08164550781250002, 0.2733349609375, 0.22019864453125], [0.05834228515625001, 0.19531982421875, 0.157349650390625], [0.03737548828125001, 0.10105224609374999, 0.08340104882812499]], \u0027hex\u0027: [\u0027#f0f3f2\u0027, \u0027#d7e0de\u0027, \u0027#b8cdc8\u0027, \u0027#95b8af\u0027, \u0027#71a496\u0027, \u0027#468876\u0027, \u0027#2c7e67\u0027, \u0027#1d5c4a\u0027, \u0027#144538\u0027, \u0027#0e3128\u0027, \u0027#091915\u0027]}}, \u0027lightgreen\u0027: {\u0027key\u0027: {\u0027hex\u0027: \u0027#66b561\u0027, \u0027hls\u0027: \u0027(.3234, 0.5451, 0.3621)\u0027, \u0027position\u0027: 5}, \u0027curves\u0027: {\u0027hue\u0027: 0.3234, \u0027greys\u0027: [0.95, 0.87, 0.78, 0.68, 0.58, 0.45, 0.36, 0.28, 0.21, 0.15, 0.08], \u0027sats\u0027: [0.12, 0.18, 0.22, 0.32, 0.36, 0.46, 0.58, 0.58, 0.44, 0.36, 0.28]}, \u0027gradient\u0027: {\u0027rgb\u0027: [[0.9433114843749999, 0.9548828125000001, 0.9425781249999999], [0.84358524609375, 0.8892919921875, 0.8406884765625], [0.72458048828125, 0.8200439453124999, 0.7185302734375001], [0.5603008593749998, 0.7667480468750001, 0.5472167968749999], [0.40158672656249983, 0.70921875, 0.38208984375], [0.24411928515624984, 0.5991845703124999, 0.22161621093750006], [0.15703462890624972, 0.5072509765625001, 0.13483886718749993], [0.1221048730468748, 0.39442138671875004, 0.10484619140624996], [0.1177497070312499, 0.27685546875, 0.107666015625], [0.09520086718749995, 0.18958984375, 0.08921875000000001], [0.05692623828124997, 0.09671875, 0.054404296874999994]], \u0027hex\u0027: [\u0027#f0f3f0\u0027, \u0027#d7e2d6\u0027, \u0027#b8d1b7\u0027, \u0027#8ec38b\u0027, \u0027#66b461\u0027, \u0027#3e9838\u0027, \u0027#288122\u0027, \u0027#1f641a\u0027, \u0027#1e461b\u0027, \u0027#183016\u0027, \u0027#0e180d\u0027]}}, \u0027bluegreen\u0027: {\u0027key\u0027: {\u0027hex\u0027: \u0027#00b2bf\u0027, \u0027hls\u0027: \u0027(0.5113, 0.3745, 1.000)\u0027, \u0027position\u0027: 6}, \u0027curves\u0027: {\u0027hue\u0027: 0.5113, \u0027greys\u0027: [0.95, 0.87, 0.78, 0.68, 0.58, 0.49, 0.36, 0.28, 0.21, 0.15, 0.08], \u0027sats\u0027: [0.55, 0.68, 0.72, 0.84, 0.96, 1, 1, 1, 0.98, 0.92, 0.87]}, \u0027gradient\u0027: {\u0027rgb\u0027: [[0.90577392578125, 0.9681102490234375, 0.97264404296875], [0.7202734374999998, 0.9313657578125001, 0.9467187500000002], [0.5070117187500001, 0.891762703125, 0.9197460937499999], [0.19230468750000007, 0.8797657734374998, 0.9297656249999999], [0.017714843749999987, 0.8103761562499999, 0.86802734375], [0.0, 0.6909568359374999, 0.7412109375], [0.0, 0.5075209960937499, 0.54443359375], [0.0, 0.39463740234375, 0.42333984375], [0.0031909179687499845, 0.29469914355468746, 0.31590087890625], [0.009257812500000018, 0.20775086718749997, 0.22218749999999998], [0.008124999999999993, 0.10950175000000001, 0.116875]], \u0027hex\u0027: [\u0027#e6f6f8\u0027, \u0027#b7edf1\u0027, \u0027#81e3ea\u0027, \u0027#31e0ed\u0027, \u0027#04cedd\u0027, \u0027#00b0bd\u0027, \u0027#00818a\u0027, \u0027#00646b\u0027, \u0027#004b50\u0027, \u0027#023438\u0027, \u0027#021b1d\u0027]}}, \u0027midblue\u0027: {\u0027key\u0027: {\u0027hex\u0027: \u0027#2c6179\u0027, \u0027hls\u0027: \u0027(0.5519, 0.3235, 0.4667)\u0027, \u0027position\u0027: 7}, \u0027curves\u0027: {\u0027hue\u0027: 0.5519, \u0027greys\u0027: [0.95, 0.87, 0.78, 0.67, 0.56, 0.45, 0.33, 0.26, 0.2, 0.15, 0.08], \u0027sats\u0027: [0.1, 0.13, 0.2, 0.26, 0.3, 0.38, 0.46, 0.52, 0.54, 0.54, 0.46]}, \u0027gradient\u0027: {\u0027rgb\u0027: [[0.94481201171875, 0.9517215478515625, 0.95484619140625], [0.85240478515625, 0.8757896142578125, 0.88636474609375], [0.733984375, 0.795043828125, 0.82265625], [0.5801025390625, 0.699430732421875, 0.7533935546875], [0.4217285156249999, 0.60551208984375, 0.6886230468750001], [0.2751855468750001, 0.50746700390625, 0.6125097656249999], [0.17527587890625002, 0.38090434667968753, 0.47389404296875], [0.12246093749999998, 0.30516857421875004, 0.38779296875], [0.09018066406249997, 0.23597691992187503, 0.30190917968750003], [0.06766357421875, 0.1770561572265625, 0.22652587890625], [0.042451171875, 0.09225362890625001, 0.114775390625]], \u0027hex\u0027: [\u0027#f0f2f3\u0027, \u0027#d9dfe2\u0027, \u0027#bbcad1\u0027, \u0027#93b2c0\u0027, \u0027#6b9aaf\u0027, \u0027#46819c\u0027, \u0027#2c6178\u0027, \u0027#1f4d62\u0027, \u0027#163c4c\u0027, \u0027#112d39\u0027, \u0027#0a171d\u0027]}}, \u0027rose\u0027: {\u0027key\u0027: {\u0027hex\u0027: \u0027#b0503f\u0027, \u0027hls\u0027: \u0027(0.0251, 0.4686, 0.4728)\u0027, \u0027position\u0027: 6}, \u0027curves\u0027: {\u0027hue\u0027: 0.0251, \u0027greys\u0027: [0.95, 0.87, 0.78, 0.67, 0.56, 0.45, 0.33, 0.26, 0.2, 0.15, 0.08], \u0027sats\u0027: [0.18, 0.24, 0.32, 0.42, 0.47, 0.5, 0.52, 0.52, 0.48, 0.4, 0.34]}, \u0027gradient\u0027: {\u0027rgb\u0027: [[0.9605615234375, 0.9458546269531249, 0.9432470703125], [0.906298828125, 0.8560316015625, 0.847119140625], [0.8604638671875, 0.7489137578125, 0.7291357421875], [0.8251220703125, 0.609993271484375, 0.5718505859375], [0.7890869140625, 0.471349931640625, 0.4150146484375], [0.7528076171875, 0.33287719726562504, 0.2584228515625], [0.56814453125, 0.23795687109375002, 0.17941406250000003], [0.44753906250000003, 0.18744349218749998, 0.14132812499999997], [0.33187988281249997, 0.14902662500000002, 0.11660644531250003], [0.23071289062499997, 0.11873144531250002, 0.09887695312500003], [0.11613769531250001, 0.066077841796875, 0.05720214843749999]], \u0027hex\u0027: [\u0027#f4f1f0\u0027, \u0027#e7dad8\u0027, \u0027#dbbeb9\u0027, \u0027#d29b91\u0027, \u0027#c97869\u0027, \u0027#bf5441\u0027, \u0027#903c2d\u0027, \u0027#722f24\u0027, \u0027#54261d\u0027, \u0027#3a1e19\u0027, \u0027#1d100e\u0027]}}, \u0027gold\u0027: {\u0027key\u0027: {\u0027hex\u0027: \u0027#977118\u0027, \u0027hls\u0027: \u0027(0.1173, 0.342, 0.726)\u0027, \u0027position\u0027: 5}, \u0027curves\u0027: {\u0027hue\u0027: 0.1173, \u0027greys\u0027: [0.95, 0.87, 0.78, 0.67, 0.56, 0.45, 0.33, 0.26, 0.2, 0.15, 0.08], \u0027sats\u0027: [0.32, 0.4, 0.45, 0.56, 0.63, 0.72, 0.78, 0.78, 0.67, 0.6, 0.54]}, \u0027gradient\u0027: {\u0027rgb\u0027: [[0.960654296875, 0.949685640625, 0.923623046875], [0.9061035156249999, 0.8690206640625, 0.7809082031250001], [0.8504150390624999, 0.777912568359375, 0.6056396484375001], [0.809541015625, 0.6659418671874999, 0.324736328125], [0.7202880859374999, 0.5553677441406251, 0.16350097656250007], [0.5929296875, 0.44589415625, 0.09652343750000003], [0.44130615234375, 0.3267470419921875, 0.05454345703125002], [0.34765625, 0.2574078125, 0.04296875], [0.2601220703125, 0.198298998046875, 0.05140136718749999], [0.19140625, 0.14888535156250002, 0.0478515625], [0.10019775390625, 0.0793842080078125, 0.029929199218749994]], \u0027hex\u0027: [\u0027#f4f2eb\u0027, \u0027#e7ddc7\u0027, \u0027#d8c69a\u0027, \u0027#cea952\u0027, \u0027#b78d29\u0027, \u0027#977118\u0027, \u0027#70530d\u0027, \u0027#58410a\u0027, \u0027#42320d\u0027, \u0027#30250c\u0027, \u0027#191407\u0027]}}} ## Key Colors The standard colors are retrieved using `.KEYS` instance. ```python morpc.color.get_colors().KEYS ``` {\u0027darkblue\u0027: \u0027#2e5072\u0027, \u0027blue\u0027: \u0027#0077bf\u0027, \u0027darkgreen\u0027: \u0027#2c7f68\u0027, \u0027lightgreen\u0027: \u0027#66b561\u0027, \u0027bluegreen\u0027: \u0027#00b2bf\u0027, \u0027midblue\u0027: \u0027#2c6179\u0027, \u0027rose\u0027: \u0027#b0503f\u0027, \u0027gold\u0027: \u0027#977118\u0027} ## Plot color strips from hex lists to see colors You can plot a list of hex codes using the `plot_from_hex_list()` function. In the following example, we pass the values of the key colors to see them. The plot includes the HLS values, a grey values, and the hex code. ```python morpc.color.plot_from_hex_list(morpc.color.get_colors().KEYS.values()) ``` ![png](/morpc-color-demo/output_11_0.png) ## Sequential color gradients for each color Each color has an associated gradient. These gradients can be returned using the `.SEQ()` function. Simply pass the color name to the funcion. ```python morpc.color.plot_from_hex_list(morpc.color.get_colors().SEQ(\u0027midblue\u0027).hex_list) ``` ![png](/morpc-color-demo/output_14_0.png) ```python for color in morpc.color.get_colors().KEYS.keys(): morpc.color.plot_from_hex_list(morpc.color.get_colors().SEQ(color).hex_list) ``` ![png](/morpc-color-demo/output_15_0.png) ![png](/morpc-color-demo/output_15_1.png) ![png](/morpc-color-demo/output_15_2.png) ![png](/morpc-color-demo/output_15_3.png) ![png](/morpc-color-demo/output_15_4.png) ![png](/morpc-color-demo/output_15_5.png) ![png](/morpc-color-demo/output_15_6.png) ![png](/morpc-color-demo/output_15_7.png) Limit the number of colors returned in the gradient by passing an integer 1 through 12 to the `n = ` attribute. ```python morpc.color.plot_from_hex_list(morpc.color.get_colors().SEQ(\u0027gold\u0027, 4).hex_list) ``` ![png](/morpc-color-demo/output_17_0.png) ## Two color sequential gradients Pass a list of two color names to `.SEQ2()` method to get a split gradient. ```python morpc.color.plot_from_hex_list(morpc.color.get_colors().SEQ2([\u0027gold\u0027, \u0027darkblue\u0027]).hex_list) ``` ![png](/morpc-color-demo/output_20_0.png) ```python morpc.color.plot_from_hex_list(morpc.color.get_colors().SEQ2([\u0027rose\u0027, \u0027blue\u0027]).hex_list) ``` ![png](/morpc-color-demo/output_21_0.png) ## Three color sequential gradients The same can be done with three colors using `.SEQ3()` method. ```python morpc.color.plot_from_hex_list(morpc.get_colors().SEQ3([\u0027gold\u0027, \u0027darkgreen\u0027, \u0027darkblue\u0027]).hex_list) ``` ![png](/morpc-color-demo/output_24_0.png) ## Color maps Using any method, you can return a color map in the form of the gradient using the `.cmap` instance. ```python morpc.color.get_colors().SEQ3([\u0027gold\u0027, \u0027darkgreen\u0027, \u0027darkblue\u0027]).cmap ``` my_cmp underbad over ## Diverging color gradients Use the `.DIV()` method can be used to create diverging gradients and color maps. ```python morpc.color.plot_from_hex_list(morpc.get_colors().DIV([\u0027gold\u0027,\u0027darkblue\u0027]).hex_list) ``` ![png](/morpc-color-demo/output_30_0.png) ```python morpc.color.plot_from_hex_list(morpc.color.get_colors().DIV([\u0027rose\u0027,\u0027darkgreen\u0027]).hex_list) ``` ![png](/morpc-color-demo/output_31_0.png) ## Qualitative color groups Use the `.QUAL()` method to return groups for qualitative data. It selects a number of grouped lightness variations of each color. ```python morpc.color.plot_from_hex_list(morpc.color.get_colors().QUAL(20).hex_list) ``` ![png](/morpc-color-demo/output_34_0.png) ## Testing color maps for color blindness accessibility ```python import numpy as np import matplotlib.pyplot as plt np.random.seed(19680801) data = np.random.randn(30, 30) fig, ax = plt.subplots() psm = ax.pcolormesh(data, cmap=morpc.color.get_colors().DIV([\u0027gold\u0027, \u0027bluegreen\u0027]).cmap, rasterized=True, vmin=-4, vmax=4) fig.colorbar(psm, ax=ax) ``` ![png](/morpc-color-demo/output_36_1.png) ```python from daltonize import daltonize daltonize.simulate_mpl(fig, color_deficit=\u0027p\u0027) ``` ![png](/morpc-color-demo/output_37_0.png)",
+      },
+      };
+  const searchIndex = lunr(function () {
+    this.ref("path")
+    this.field("name", { boost: 10 })
+    this.field("text")
+    for (const item of Object.values(searchItems)) {
+      this.add(item)
+    }
+  });
+  const searchOutput = document.getElementById('livemark-search-output')
+  const searchInput = document.getElementById('livemark-search-input')
+  searchInput.addEventListener('input', search)
+  prepare()
+  search()
+});
+
+</script>
+
+<div id="livemark-search">
+  <div id="livemark-search-output"></div>
+  <input id="livemark-search-input" type="search" placeholder="Search...">
+</div>
+<script>
+
+document.addEventListener("DOMContentLoaded", function () {
+  // Add buttons
+  $("h2").append('<a href="" class="livemark-source-button">Source</a>');
+
+  // Enable buttons
+  $(".livemark-source-button").click(async (ev) => {
+    ev.preventDefault();
+
+    // Close open
+    if ($(".livemark-source-section").length) {
+      $(".livemark-source-section").remove();
+      return;
+    }
+
+    // Load content
+    let source = location.href.replace(".html", ".md");
+    if (!source.endsWith(".md")) source = `${source}index.md`;
+    const heading = $(ev.target).parent().contents().get(0).nodeValue;
+    response = await fetch(source);
+    content = await response.text();
+
+    // Extract section
+    let isCapture;
+    const lines = [];
+    for (const line of content.split(/\r?\n/)) {
+      if (line.startsWith("##")) {
+        isCapture = line.startsWith(`## ${heading}`) ? true : false;
+        continue;
+      }
+      if (isCapture) {
+        lines.push(line);
+      }
+    }
+    const section = _.escape(lines.join("\n").trim());
+
+    // Show section
+    $(ev.target)
+      .parent()
+      .after(
+        `<pre class="livemark-source-section" style="white-space: pre-wrap;">${section}</pre>`
+      );
+  });
+});
+
+</script>
+</body>
+</html>
