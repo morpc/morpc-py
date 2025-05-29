@@ -1,6 +1,8 @@
 version: 1
 project:
-    title: morpc-py documentation
+    title: morpc-py
+    subtitle: A python package developed by the MORPC Data Team
+    description: This is the documentation for the morpc-py package which contains tools used by the MORPC Data Team. For more information email dataandmaps@morpc.org.
     github: https://github.com/morpc/morpc-py
 site:
     template: book-theme

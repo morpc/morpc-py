@@ -6,3 +6,6 @@ build/
 morpc.egg-info/
 demo/
 
+
+# MyST build outputs
+#_build

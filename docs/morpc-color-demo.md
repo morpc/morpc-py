@@ -12,6 +12,8 @@ kernelspec:
   name: python3
 ---
 
++++ {"editable": true, "slideshow": {"slide_type": ""}}
+
 # morpc.color Demo
 
 +++
@@ -48,7 +50,7 @@ morpc.color.get_colors().KEYS
 
 +++
 
-You can plot a list of hex codes using the `plot_from_hex_list()` function. In the following example, we pass the values of the key colors to see them. The plot includes the HLS values, a grey values, and the hex code. 
+You can plot a list of hex codes using the `plot_from_hex_list()` function. In the following example, we pass the values of the key colors to see them. The plot includes the HLS values, a grey values, and the hex code.
 
 ```{code-cell} ipython3
 morpc.color.plot_from_hex_list(morpc.color.get_colors().KEYS.values())
@@ -79,7 +81,7 @@ morpc.color.plot_from_hex_list(morpc.color.get_colors().SEQ('gold', 4).hex_list)
 
 +++
 
-Pass a list of two color names to `.SEQ2()` method to get a split gradient. 
+Pass a list of two color names to `.SEQ2()` method to get a split gradient.
 
 ```{code-cell} ipython3
 morpc.color.plot_from_hex_list(morpc.color.get_colors().SEQ2(['gold', 'darkblue']).hex_list)
@@ -96,46 +98,84 @@ morpc.color.plot_from_hex_list(morpc.color.get_colors().SEQ2(['rose', 'blue']).h
 The same can be done with three colors using `.SEQ3()` method.
 
 ```{code-cell} ipython3
-morpc.color.plot_from_hex_list(morpc.get_colors().SEQ3(['gold', 'darkgreen', 'darkblue']).hex_list)
+---
+editable: true
+slideshow:
+  slide_type: ''
+---
+morpc.color.plot_from_hex_list(morpc.color.get_colors().SEQ3(['gold', 'darkgreen', 'darkblue']).hex_list)
 ```
+
++++ {"editable": true, "slideshow": {"slide_type": ""}}
 
 ## Color maps
 
-+++
++++ {"editable": true, "slideshow": {"slide_type": ""}}
 
 Using any method, you can return a color map in the form of the gradient using the `.cmap` instance.
 
 ```{code-cell} ipython3
+---
+editable: true
+slideshow:
+  slide_type: ''
+---
 morpc.color.get_colors().SEQ3(['gold', 'darkgreen', 'darkblue']).cmap
 ```
 
++++ {"editable": true, "slideshow": {"slide_type": ""}}
+
 ## Diverging color gradients
 
-+++
++++ {"editable": true, "slideshow": {"slide_type": ""}}
 
-Use the `.DIV()` method can be used to create diverging gradients and color maps. 
+Use the `.DIV()` method can be used to create diverging gradients and color maps.
 
 ```{code-cell} ipython3
-morpc.color.plot_from_hex_list(morpc.get_colors().DIV(['gold','darkblue']).hex_list)
+---
+editable: true
+slideshow:
+  slide_type: ''
+---
+morpc.color.plot_from_hex_list(morpc.color.get_colors().DIV(['gold','darkblue']).hex_list)
 ```
 
 ```{code-cell} ipython3
+---
+editable: true
+slideshow:
+  slide_type: ''
+---
 morpc.color.plot_from_hex_list(morpc.color.get_colors().DIV(['rose','darkgreen']).hex_list)
 ```
 
++++ {"editable": true, "slideshow": {"slide_type": ""}}
+
 ## Qualitative color groups
 
-+++
++++ {"editable": true, "slideshow": {"slide_type": ""}}
 
-Use the `.QUAL()` method to return groups for qualitative data. It selects a number of grouped lightness variations of each color. 
+Use the `.QUAL()` method to return groups for qualitative data. It selects a number of grouped lightness variations of each color.
 
 ```{code-cell} ipython3
+---
+editable: true
+slideshow:
+  slide_type: ''
+---
 morpc.color.plot_from_hex_list(morpc.color.get_colors().QUAL(20).hex_list)
 ```
+
++++ {"editable": true, "slideshow": {"slide_type": ""}}
 
 ## Testing color maps for color blindness accessibility
 
 ```{code-cell} ipython3
+---
+editable: true
+slideshow:
+  slide_type: ''
+---
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -147,10 +187,11 @@ fig.colorbar(psm, ax=ax)
 ```
 
 ```{code-cell} ipython3
+---
+editable: true
+slideshow:
+  slide_type: ''
+---
 from daltonize import daltonize
 daltonize.simulate_mpl(fig, color_deficit='p')
-```
-
-```{code-cell} ipython3
-
 ```
