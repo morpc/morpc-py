@@ -3,3 +3,6 @@ __pycache__/
 *.pkl
 dist/
 build/
+morpc.egg-info/
+demo/
+
