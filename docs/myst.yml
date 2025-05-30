@@ -6,3 +6,5 @@ project:
     github: https://github.com/morpc/morpc-py
 site:
     template: book-theme
+    options:
+        logo-text: MORPC Python Package
