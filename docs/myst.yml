@@ -8,4 +8,5 @@ site:
     template: book-theme
     title: MORPC Data Team
     options:
+        logo: ./assets/HORIZONTAL LOGOS_PRIMARY COLOR_V2.png
         logo-text: MORPC Python Package
