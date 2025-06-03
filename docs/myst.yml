@@ -9,3 +9,4 @@ site:
     title: Mid-Ohio Regional Planning Commission
     options:
         logo: ./assets/HORIZONTAL_LOGOS_PRIMARY_COLOR_V2.png
+        logo-text: Mid-Ohio Regional Planning Commission
