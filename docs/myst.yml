@@ -8,5 +8,5 @@ site:
     template: book-theme
     title: MORPC Data Team
     options:
-        logo: './assets/HORIZONTAL_LOGOS_PRIMARY_COLOR_V2.png'
-        logo-text: MORPC Python Package
+        logo: ./assets/HORIZONTAL_LOGOS_PRIMARY_COLOR_V2.png
+        logo-text: Mid-Ohio Regional Planning Commission
