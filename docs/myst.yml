@@ -6,7 +6,5 @@ project:
     github: https://github.com/morpc/morpc-py
 site:
     template: book-theme
-    title: MORPC Data Team
     options:
-        logo: https://github.com/morpc/morpc-py/blob/jordan_dev/assets/HORIZONTAL%20LOGOS_PRIMARY%20COLOR_V2.png
-        logo-text: MORPC Python Package
+        logo: ../assets/HORIZONTAL%20LOGOS_PRIMARY%20COLOR_V2.png
