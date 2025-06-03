@@ -7,9 +7,9 @@ project:
     description: This is the documentation for the morpc-py package which contains tools used by the MORPC Data Team. For more information email dataandmaps@morpc.org.
     github: https://github.com/morpc/morpc-py
 site:
-    nav:
-        - title: Mid-Ohio Regional Planning Commission Data and Mapping
-        url: https://www.morpc.org/programs-services/data-mapping-resources/
+  nav:
+    - title: Mid-Ohio Regional Planning Commission
+      url: https://www.morpc.org/programs-services/data-mapping-resources/
     template: book-theme
     options:
         logo-text: MORPC Python Package
