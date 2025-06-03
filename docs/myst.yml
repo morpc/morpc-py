@@ -6,6 +6,6 @@ project:
     github: https://github.com/morpc/morpc-py
 site:
     template: book-theme
-    title:    Mid-Ohio Regional Planning Commission
+    title: Mid-Ohio Regional Planning Commission
     options:
         logo: ./assets/HORIZONTAL_LOGOS_PRIMARY_COLOR_V2.png
