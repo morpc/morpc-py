@@ -169,6 +169,26 @@ def hex_to_hls(hex_color):
 
     return rgb_to_hls(r, g, b)
 
+
+def hls_to_hex(h, l, s):
+    """Converts HLS color values to a hexadecimal color code.
+
+    Args:
+        h: Hue (0-1).
+        l: Lightness (0-1).
+        s: Saturation (0-1).
+
+    Returns:
+        A hexadecimal color code string (e.g., "#RRGGBB").
+    """
+    import colorsys
+
+    r, g, b = colorsys.hls_to_rgb(h, l, s)
+    r = int(r * 255)
+    g = int(g * 255)
+    b = int(b * 255)
+    return f"#{r:02x}{g:02x}{b:02x}"
+
 def rgb_to_greyscale(rgb):
     """Convert RGB color to grayscale using luminance weights."""
     r, g, b = rgb
@@ -215,7 +235,7 @@ def is_dark(rgb):
 
     return dict['AA'] == 'pass'
 
-def plot_from_rgb_list(rgb_colors, position=None):
+def plot_from_rgb_list(rgb_colors, labels = ['hls', 'grey', 'hex'], position=None):
     """
     Plot a list of RGB colors as squares with hex value overlays.
 
@@ -243,16 +263,15 @@ def plot_from_rgb_list(rgb_colors, position=None):
         square = plt.Rectangle((i, 0), 1, 1, color=rgb)
         ax.add_patch(square)
 
-        # Add hex text overlay
-        ax.text(i + 0.5, 0.23, hex_color, color=text_color,
-                ha='center', va='center', fontsize=10, weight='bold')
-        ax.text(i + 0.5, 0.5, grey_text, color=text_color,
-                ha='center', va='center', fontsize=10, weight='bold')        
-        ax.text(i + 0.5, 0.78, hls_text, color=text_color,
-                ha='center', va='center', fontsize=10, weight='bold')
+        if 'hex' in labels:
+            ax.text(i + 0.5, 0.23, hex_color, color=text_color, ha='center', va='center', fontsize=10, weight='bold')
+        if 'grey' in labels:
+            ax.text(i + 0.5, 0.5, grey_text, color=text_color, ha='center', va='center', fontsize=10, weight='bold')
+        if 'hls' in labels:
+            ax.text(i + 0.5, 0.78, hls_text, color=text_color, ha='center', va='center', fontsize=10, weight='bold')
 
     if position:
-        outline = plt.Rectangle((position-1, 0), 1, 1, lw=2, edgecolor='white', facecolor='none')
+        outline = plt.Rectangle((position-1, 0), 1, 1, lw=3, edgecolor='white', facecolor='none')
         ax.add_patch(outline)
     ax.set_xlim(0, len(rgb_colors))
     ax.set_ylim(0, 1)
@@ -266,7 +285,7 @@ def rgb_list_to_hex_list(rgb_colors):
         hex_colors.append(hex_color)
     return hex_colors
 
-def plot_from_hex_list(hex_colors, position=None):
+def plot_from_hex_list(hex_colors, labels = ['hls', 'grey', 'hex'], position=None):
     """
     Plot a list of RGB colors as squares with hex value overlays.
 
@@ -294,16 +313,15 @@ def plot_from_hex_list(hex_colors, position=None):
         square = plt.Rectangle((i, 0), 1, 1, color=hex)
         ax.add_patch(square)
 
-        # Add hex text overlay
-        ax.text(i + 0.5, 0.23, hex, color=text_color,
-                ha='center', va='center', fontsize=10, weight='bold')
-        ax.text(i + 0.5, 0.5, grey_text, color=text_color,
-                ha='center', va='center', fontsize=10, weight='bold')        
-        ax.text(i + 0.5, 0.78, hls_text, color=text_color,
-                ha='center', va='center', fontsize=10, weight='bold')
+        if 'hex' in labels:
+            ax.text(i + 0.5, 0.23, hex, color=text_color, ha='center', va='center', fontsize=10, weight='bold')
+        if 'grey' in labels:
+            ax.text(i + 0.5, 0.5, grey_text, color=text_color, ha='center', va='center', fontsize=10, weight='bold')
+        if 'hls' in labels:
+            ax.text(i + 0.5, 0.78, hls_text, color=text_color, ha='center', va='center', fontsize=10, weight='bold')
 
     if position:
-        outline = plt.Rectangle((position-1, 0), 1, 1, lw=2, edgecolor='white', facecolor='none')
+        outline = plt.Rectangle((position-1, 0), 1, 1, lw=3, edgecolor='white', facecolor='none')
         ax.add_patch(outline)
     ax.set_xlim(0, len(hex_colors))
     ax.set_ylim(0, 1)
