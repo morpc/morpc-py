@@ -15,7 +15,8 @@ class get_colors():
 
         self.KEYS = {}
         for __COLOR in self.morpc_colors:
-            self.KEYS[__COLOR] = self.morpc_colors[__COLOR]['key']['hex']
+            __key = self.morpc_colors[__COLOR]['key']['position']
+            self.KEYS[__COLOR] = self.morpc_colors[__COLOR]['gradient']['hex'][__key]
 
     def SEQ(self, color, n=None):
         self.hex_list = self.morpc_colors[color]['gradient']['hex']
@@ -38,9 +39,9 @@ class get_colors():
         if len(colors) != 2:
             raise ValueError('Pass two color names')
 
-        self.hex_list = [x for x in itertools.chain.from_iterable([self.morpc_colors[colors[0]]['gradient']['hex'][0:5:1], 
+        self.hex_list = [x for x in itertools.chain.from_iterable([self.morpc_colors[colors[0]]['gradient']['hex'][0:5:1],
                                                                             self.morpc_colors[colors[1]]['gradient']['hex'][6:12:1]])]
-        self.rgb_list = [x for x in itertools.chain.from_iterable([self.morpc_colors[colors[0]]['gradient']['rgb'][0:5:1], 
+        self.rgb_list = [x for x in itertools.chain.from_iterable([self.morpc_colors[colors[0]]['gradient']['rgb'][0:5:1],
                                                                             self.morpc_colors[colors[1]]['gradient']['rgb'][6:12:1]])]
         __key = self.morpc_colors[colors[1]]['key']['position']
         if n:
@@ -53,7 +54,7 @@ class get_colors():
         self.cmap_r = get_continuous_cmap(self.hex_list_r)
 
         return self
-    
+        
     def SEQ3(self, colors, n=None):
         import itertools
         if len(colors) != 3:
@@ -97,21 +98,24 @@ class get_colors():
     
     def QUAL(self, n):
         self.hex_list = []
-        if n <= 8:
+        if n <= 10:
             for color in self.morpc_colors:
-                self.hex_list.append(self.morpc_colors[color]['key']['hex'])
-        if 8 < n <= 16:
+                if not 'grey' in color:
+                    self.hex_list.append(self.morpc_colors[color]['key']['hex'])
+        if 10 < n <= 20:
             for color in self.morpc_colors:
-                key_pos = self.morpc_colors[color]['key']['position']-1
-                positions = [key_pos - 2, key_pos]
-                for pos in positions:
-                    self.hex_list.append(self.morpc_colors[color]['gradient']['hex'][pos])
-        if 16 < n <= 24:
+                if not 'grey' in color:
+                    key_pos = self.morpc_colors[color]['key']['position']-1
+                    positions = [key_pos - 2, key_pos]
+                    for pos in positions:
+                        self.hex_list.append(self.morpc_colors[color]['gradient']['hex'][pos])
+        if 20 < n <= 30:
             for color in self.morpc_colors:
-                key_pos = self.morpc_colors[color]['key']['position']-1
-                positions = [key_pos - 2, key_pos, key_pos + 2]
-                for pos in positions:
-                    self.hex_list.append(self.morpc_colors[color]['gradient']['hex'][pos])
+                if not 'grey' in color:
+                    key_pos = self.morpc_colors[color]['key']['position']-1
+                    positions = [key_pos - 2, key_pos, key_pos + 2]
+                    for pos in positions:
+                        self.hex_list.append(self.morpc_colors[color]['gradient']['hex'][pos])
 
         self.hex_list = self.hex_list[0:n]
         self.hex_list_r = self.hex_list[::-1]
