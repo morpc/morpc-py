@@ -1,6 +1,5 @@
 import json
-
-import morpc.color
+import morpc
 
 class get_colors():
 
@@ -15,93 +14,92 @@ class get_colors():
 
         self.KEYS = {}
         for __COLOR in self.morpc_colors:
-            __key = self.morpc_colors[__COLOR]['key']['position']
+            __key = self.morpc_colors[__COLOR]['key']['position'] - 1
             self.KEYS[__COLOR] = self.morpc_colors[__COLOR]['gradient']['hex'][__key]
 
-    def SEQ(self, color, n=None):
+    def SEQ(self, color, reverse=False):
         self.hex_list = self.morpc_colors[color]['gradient']['hex']
-        self.rgb_list = self.morpc_colors[color]['gradient']['rgb']
-        __key = self.morpc_colors[color]['key']['position']
-        if n:
-            self.hex_list = select_color_array(self.hex_list, __key, n)
-            self.rgb_list = select_color_array(self.rgb_list, __key, n)
-
         self.hex_list_r = self.hex_list[::-1]
-        self.rgb_list_r = self.rgb_list[::-1]
 
-        self.cmap = get_continuous_cmap(self.hex_list)
-        self.cmap_r = get_continuous_cmap(self.hex_list_r)
+        if reverse:
+            return self.hex_list_r
+        else:
+            return self.hex_list
 
-        return self
-
-    def SEQ2(self, colors, n=None):
-        import itertools
+    def SEQ2(self, colors, reverse=False):
         if len(colors) != 2:
             raise ValueError('Pass two color names')
 
-        self.hex_list = [x for x in itertools.chain.from_iterable([self.morpc_colors[colors[0]]['gradient']['hex'][0:5:1],
-                                                                            self.morpc_colors[colors[1]]['gradient']['hex'][6:12:1]])]
-        self.rgb_list = [x for x in itertools.chain.from_iterable([self.morpc_colors[colors[0]]['gradient']['rgb'][0:5:1],
-                                                                            self.morpc_colors[colors[1]]['gradient']['rgb'][6:12:1]])]
-        __key = self.morpc_colors[colors[1]]['key']['position']
-        if n:
-            self.hex_list = select_color_array(self.hex_list, __key, n)
-            self.rgb_list = select_color_array(self.rgb_list, __key, n)
+        left = self.morpc_colors[colors[0]]['gradient']['hex'][0:2]
+        start = self.morpc_colors[colors[0]]['gradient']['hex'][2]
+        stop = self.morpc_colors[colors[1]]['gradient']['hex'][-4]
+        right = self.morpc_colors[colors[1]]['gradient']['hex'][-3:]
+
+        _cmap = get_continuous_cmap([start, stop], N=6)
+        self.hex_list = left + rgb_list_to_hex_list([_cmap(i) for i in range(_cmap.N)]) + right
         self.hex_list_r = self.hex_list[::-1]
-        self.rgb_list_r = self.rgb_list[::-1]
 
-        self.cmap = get_continuous_cmap(self.hex_list)
-        self.cmap_r = get_continuous_cmap(self.hex_list_r)
+        if reverse:
+            return self.hex_list_r
+        else:
+            return self.hex_list
 
-        return self
-        
-    def SEQ3(self, colors, n=None):
-        import itertools
+    def SEQ3(self, colors, reverse=False):
         if len(colors) != 3:
             raise ValueError('Pass three color names')
 
-        self.hex_list = [x for x in itertools.chain.from_iterable([self.morpc_colors[colors[0]]['gradient']['hex'][0:4:1], 
-                                                                   self.morpc_colors[colors[1]]['gradient']['hex'][4:7:1],
-                                                                   self.morpc_colors[colors[2]]['gradient']['hex'][8:12:1]]
-                                                                   )]
-        
-        self.rgb_list = [x for x in itertools.chain.from_iterable([self.morpc_colors[colors[0]]['gradient']['rgb'][0:4:1], 
-                                                                   self.morpc_colors[colors[1]]['gradient']['rgb'][4:7:1],
-                                                                   self.morpc_colors[colors[2]]['gradient']['rgb'][8:12:1]]
-                                                                   )]
-        __key = self.morpc_colors[colors[1]]['key']['position']
-        if n:
-            self.hex_list = select_color_array(self.hex_list, __key, n)
-            self.rgb_list = select_color_array(self.rgb_list, __key, n)
+        first = self.morpc_colors[colors[0]]['gradient']['hex'][0:1]
+        start1 = self.morpc_colors[colors[0]]['gradient']['hex'][1]
+        stop1 = self.morpc_colors[colors[1]]['gradient']['hex'][5]
+        middle = self.morpc_colors[colors[1]]['gradient']['hex'][5]
+        start2 = self.morpc_colors[colors[1]]['gradient']['hex'][5]
+        stop2 = self.morpc_colors[colors[2]]['gradient']['hex'][7]
+        last = self.morpc_colors[colors[2]]['gradient']['hex'][8:10]
+
+        _cmap1 = get_continuous_cmap([start1, stop1], N=4)
+        _cmap1 = rgb_list_to_hex_list([_cmap1(i) for i in range(_cmap1.N)])
+        _cmap2 = get_continuous_cmap([start2, stop2], N=5)
+        _cmap2 = rgb_list_to_hex_list([_cmap2(i) for i in range(_cmap2.N)])
+        self.hex_list = first + _cmap1[0:-1] + [middle] + _cmap2[1:5] + last
         self.hex_list_r = self.hex_list[::-1]
-        self.rgb_list_r = self.rgb_list[::-1]
 
-        self.cmap = get_continuous_cmap(self.hex_list)
-        self.cmap_r = get_continuous_cmap(self.hex_list_r)
+        if reverse:
+            return self.hex_list_r
+        else:
+            return self.hex_list
 
-        return self
+    def DIV(self, colors, reverse=False):
+        if len(colors) != 3:
+            raise ValueError('Pass three color names')
 
-    def DIV(self, colors):
-        import itertools
+        first = self.morpc_colors[colors[0]]['gradient']['hex'][5:8]
+        start1 = self.morpc_colors[colors[0]]['gradient']['hex'][4]
+        stop1 = self.morpc_colors[colors[1]]['gradient']['hex'][1]
+        middle = self.morpc_colors[colors[1]]['gradient']['hex'][1]
+        start2 = self.morpc_colors[colors[1]]['gradient']['hex'][1]
+        stop2 = self.morpc_colors[colors[2]]['gradient']['hex'][4]
+        last = self.morpc_colors[colors[2]]['gradient']['hex'][6:8]
 
-        self.hex_list = [x for x in itertools.chain.from_iterable([self.morpc_colors[colors[0]]['gradient']['hex'][12:0:-2], 
-                                                                    self.morpc_colors[colors[1]]['gradient']['hex'][0:12:2]])]
-        self.rgb_list = [x for x in itertools.chain.from_iterable([self.morpc_colors[colors[0]]['gradient']['rgb'][12:0:-2], 
-                                                                    self.morpc_colors[colors[1]]['gradient']['rgb'][0:12:2]])]
+        _cmap1 = get_continuous_cmap([start1, stop1], N=3)
+        _cmap1 = rgb_list_to_hex_list([_cmap1(i) for i in range(_cmap1.N)])
+        _cmap2 = get_continuous_cmap([start2, stop2], N=4)
+        _cmap2 = rgb_list_to_hex_list([_cmap2(i) for i in range(_cmap2.N)])
+        self.hex_list = first[::-1] + _cmap1[0:2] + [middle] + _cmap2[1:4] + last
         self.hex_list_r = self.hex_list[::-1]
-        self.rgb_list_r = self.rgb_list[::-1]
+        self.hex_list_r = self.hex_list[::-1]
 
-        self.cmap = get_continuous_cmap(self.hex_list)
-        self.cmap_r = get_continuous_cmap(self.hex_list_r)
+        if reverse:
+            return self.hex_list_r
+        else:
+            return self.hex_list
 
-        return self
-    
     def QUAL(self, n):
         self.hex_list = []
         if n <= 10:
             for color in self.morpc_colors:
                 if not 'grey' in color:
-                    self.hex_list.append(self.morpc_colors[color]['key']['hex'])
+                    __key = self.morpc_colors[color]['key']['position']
+                    self.hex_list.append(self.morpc_colors[color]['gradient']['hex'][__key])
         if 10 < n <= 20:
             for color in self.morpc_colors:
                 if not 'grey' in color:
@@ -118,35 +116,32 @@ class get_colors():
                         self.hex_list.append(self.morpc_colors[color]['gradient']['hex'][pos])
 
         self.hex_list = self.hex_list[0:n]
-        self.hex_list_r = self.hex_list[::-1]
+        
+        return self.hex_list
 
-        self.cmap = get_continuous_cmap(self.hex_list)
-        self.cmap_r = get_continuous_cmap(self.hex_list_r)        
-
-        return self
-    
 def select_color_array(_list, key, n):
+    import numpy as np
     if key not in list(range(0, len(_list))):
         raise ValueError("key not in list.")
     if n > len(_list):
         raise ValueError("Too many values requested.")
-    
-    result = [_list[key]]
+
+    result = [key]
     left = key - 1
     right = key + 1
 
     while len(result) < n:
         if left >= 0:
-            result.append(_list[left])
+            result.append(left)
             left -= 1
             if len(result) == n:
                 break
         if right < len(_list):
-            result.append(_list[right])
+            result.append(right)
             right += 1
-    result.sort(reverse=True)
-
-    return result
+    result.sort()
+    
+    return [_list[i] for i in result]
 
 
 
@@ -239,7 +234,7 @@ def is_dark(rgb):
 
     return dict['AA'] == 'pass'
 
-def plot_from_rgb_list(rgb_colors, labels = ['hls', 'grey', 'hex'], position=None):
+def plot_from_rgb_list(rgb_colors, labels = ['hls', 'grey', 'hex'], position=None, title=None):
     """
     Plot a list of RGB colors as squares with hex value overlays.
 
@@ -279,6 +274,8 @@ def plot_from_rgb_list(rgb_colors, labels = ['hls', 'grey', 'hex'], position=Non
         ax.add_patch(outline)
     ax.set_xlim(0, len(rgb_colors))
     ax.set_ylim(0, 1)
+    if title:
+        plt.text(0, 1.05, title, fontsize=10, weight='bold')
     plt.tight_layout()
     plt.show()
 
@@ -289,7 +286,7 @@ def rgb_list_to_hex_list(rgb_colors):
         hex_colors.append(hex_color)
     return hex_colors
 
-def plot_from_hex_list(hex_colors, labels = ['hls', 'grey', 'hex'], position=None):
+def plot_from_hex_list(hex_colors, labels = ['hls', 'grey', 'hex'], position=None, title=None):
     """
     Plot a list of RGB colors as squares with hex value overlays.
 
@@ -329,6 +326,8 @@ def plot_from_hex_list(hex_colors, labels = ['hls', 'grey', 'hex'], position=Non
         ax.add_patch(outline)
     ax.set_xlim(0, len(hex_colors))
     ax.set_ylim(0, 1)
+    if title:
+        plt.text(0, 1.05, title, fontsize=10, weight='bold')
     plt.tight_layout()
     plt.show()
 
@@ -373,7 +372,7 @@ def check_contrast(bkgcolor, textcolor = "#FFFFFF"):
 
     return dict
 
-def get_continuous_cmap(hex_list, float_list=None):
+def get_continuous_cmap(hex_list, float_list=None, N=256):
     ''' creates and returns a color map that can be used in heat map figures.
         If float_list is not provided, colour map graduates linearly between each color in hex_list.
         If float_list is provided, each color in hex_list is mapped to the respective location in float_list. 
@@ -398,7 +397,7 @@ def get_continuous_cmap(hex_list, float_list=None):
     for num, col in enumerate(['red', 'green', 'blue']):
         col_list = [[float_list[i], rgb_list[i][num], rgb_list[i][num]] for i in range(len(float_list))]
         cdict[col] = col_list
-    cmp = LinearSegmentedColormap('my_cmp', segmentdata=cdict, N=256)
+    cmp = LinearSegmentedColormap('my_cmp', segmentdata=cdict, N=N)
     return cmp
 
 def hex_to_rgb(value):
