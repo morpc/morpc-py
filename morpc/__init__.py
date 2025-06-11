@@ -5,4 +5,5 @@ import morpc.frictionless
 import morpc.census
 import morpc.plot
 import morpc.color
+import morpc.color.palette as palette
 import morpc.rest_api
