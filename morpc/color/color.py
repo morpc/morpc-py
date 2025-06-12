@@ -1,13 +1,15 @@
 import json
 import morpc
+from importlib.resources import files
 
 class get_colors():
 
-    def __init__(self, colorDictPath='../morpc/color/morpc_colors.json'):
+    def __init__(self):
         import os
-
+        ## Use importlib.resources to access non-package files.
+        ## See https://docs.python.org/3/library/importlib.resources.html#importlib-resources-functional
         try:
-            with open(os.path.normpath(colorDictPath)) as file:
+            with files('morpc').joinpath('color', 'morpc_colors.json').open('r') as file: 
                 self.morpc_colors = json.load(file)
         except ValueError as e:
             print(e)
