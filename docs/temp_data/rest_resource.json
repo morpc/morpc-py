@@ -1,36 +1,21 @@
 {
-  "name": "metropolitan-statistical-areas",
+  "name": "morpc-mpo-boundary-2020",
   "type": "json",
-  "path": "https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/CBSA/MapServer/3",
+  "path": "https://services1.arcgis.com/EjjnBtwS9ivTGI8x/arcgis/rest/services/MORPC_MPO_Boundary_2020/FeatureServer/0",
   "scheme": "https",
   "format": "json",
   "mediatype": "application/geo+json",
   "schema": {
     "fields": [
       {
-        "name": "MTFCC",
+        "name": "OBJECTID",
         "type": "string",
-        "title": "MTFCC"
+        "title": "OBJECTID"
       },
       {
-        "name": "OID",
-        "type": "string",
-        "title": "OID"
-      },
-      {
-        "name": "GEOID",
-        "type": "string",
-        "title": "GEOID"
-      },
-      {
-        "name": "CBSA",
-        "type": "string",
-        "title": "CBSA"
-      },
-      {
-        "name": "BASENAME",
-        "type": "string",
-        "title": "BASENAME"
+        "name": "SQMILES",
+        "type": "number",
+        "title": "SQMILES"
       },
       {
         "name": "NAME",
@@ -38,60 +23,31 @@
         "title": "NAME"
       },
       {
-        "name": "LSADC",
+        "name": "Updated",
         "type": "string",
-        "title": "LSADC"
+        "title": "Updated"
       },
       {
-        "name": "FUNCSTAT",
+        "name": "Source",
         "type": "string",
-        "title": "FUNCSTAT"
+        "title": "Source"
       },
       {
-        "name": "AREALAND",
-        "type": "string",
-        "title": "AREALAND"
+        "name": "Shape__Area",
+        "type": "number",
+        "title": "Shape__Area"
       },
       {
-        "name": "AREAWATER",
-        "type": "string",
-        "title": "AREAWATER"
-      },
-      {
-        "name": "CSA",
-        "type": "string",
-        "title": "CSA"
-      },
-      {
-        "name": "CENTLAT",
-        "type": "string",
-        "title": "CENTLAT"
-      },
-      {
-        "name": "CENTLON",
-        "type": "string",
-        "title": "CENTLON"
-      },
-      {
-        "name": "INTPTLAT",
-        "type": "string",
-        "title": "INTPTLAT"
-      },
-      {
-        "name": "INTPTLON",
-        "type": "string",
-        "title": "INTPTLON"
-      },
-      {
-        "name": "OBJECTID",
-        "type": "string",
-        "title": "OBJECTID"
+        "name": "Shape__Length",
+        "type": "number",
+        "title": "Shape__Length"
       }
     ]
   },
   "_metadata": {
     "type": "arcgis_service",
-    "total_records": 393,
-    "max_record_count": 100000
+    "total_records": 1,
+    "max_record_count": 2000,
+    "wkid": 102723
   }
 }
