@@ -14,12 +14,14 @@ classifiers = [
 ]
 dependencies = [
     "requests",
+    "os",
     "pandas",
     "geopandas",
     "frictionless",
     "shapely",
     "IPython",
     "xlsxwriter",
+    "plotnine"
 ]
 
 [build-system]

@@ -14,7 +14,7 @@ class from_resource:
             frictionless.resource
         schema : json
             frictionless.schema
-        
+
         Returns:
         --------
         pn.ggplot.ggplot
@@ -65,7 +65,7 @@ class from_resource:
             _xscale = (_xscale + pn.theme(axis_text_x=pn.element_text(rotation=90)))
 
         return _xscale
-    
+
     def get_yaxis(self):
         import numpy as np
 
@@ -99,7 +99,7 @@ class from_resource:
 
         self.plot = (self.plot
         + pn.geom_line(
-            data=self.data, 
+            data=self.data,
             mapping=pn.aes(
                 x = self.x.name,
                 y = self.y.name,
@@ -112,15 +112,15 @@ class from_resource:
         + pn.theme_bw()
         )
 
-    
+
     def bar(self, x, group=None, fill=None):
         import plotnine
 
         self.plot = (self.plot
         + pn.geom_bar(
-            data=self.data, 
+            data=self.data,
             mapping=pn.aes(
-                x=x, 
+                x=x,
                 fill=fill,
                 group=group
                 )

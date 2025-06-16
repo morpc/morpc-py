@@ -92,14 +92,14 @@ CONST_COUNTY_NAME_TO_ID = {
     'Perry': '39127',
     'Pickaway': '39129',
     'Ross': '39141',
-    'Union': '39159'    
+    'Union': '39159'
 }
 
 ## CONST_COUNTY_ID_TO_NAME inverts the above map, mapping the county GEOID to its name
 CONST_COUNTY_ID_TO_NAME = {value: key for key, value in CONST_COUNTY_NAME_TO_ID.items()}
 
 # Branding
-## CONST_MORPC_COLORS maps human-readable descriptions of the MORPC brand colors to their hex codes  
+## CONST_MORPC_COLORS maps human-readable descriptions of the MORPC brand colors to their hex codes
 CONST_MORPC_COLORS = {
     "darkblue": "#2e5072",
     "blue": "#0077bf",
@@ -169,7 +169,7 @@ SUMLEVEL_DESCRIPTIONS = {
         "authority":"census",
         "idField":"REGIONID",
         "nameField":"REGION"
-    },    
+    },
     '030': {
         "singular":"division",
         "plural":"divisions",
@@ -468,13 +468,13 @@ SUMLEVEL_DESCRIPTIONS = {
 # to its sumlevel code.  For example, SUMLEVEL_LOOKUP["CBSA"] == '310'.
 SUMLEVEL_LOOKUP = {value["hierarchy_string"]:key for key, value in zip(SUMLEVEL_DESCRIPTIONS.keys(), SUMLEVEL_DESCRIPTIONS.values())}
 
-# HIERARCHY_STRING_LOOKUP provides a dictionary that maps each sumlevel code to its hierarchy string (as defined in 
+# HIERARCHY_STRING_LOOKUP provides a dictionary that maps each sumlevel code to its hierarchy string (as defined in
 # SUMLEVEL_DESCRIPTIONS) For example, HIERARCHY_STRING_LOOKUP["310"] = "CBSA".
 HIERARCHY_STRING_LOOKUP = {key:value["hierarchy_string"] for key, value in zip(SUMLEVEL_DESCRIPTIONS.keys(), SUMLEVEL_DESCRIPTIONS.values())}
 
 
 # County lookup object
-# Upon instantiation, this object is pre-loaded with a dataframe describing a set of counties whose scope is specified by the user.  
+# Upon instantiation, this object is pre-loaded with a dataframe describing a set of counties whose scope is specified by the user.
 # The object includes methods for listing the counties by their names or GEOIDs and for two-way conversion between name and GEOID.
 # scope="morpc"     Default. Loads only the counties in the MORPC 15-county region (see CONST_REGIONS['15-County Region'] above)
 # scope="corpo"     Loads only the counties in the CORPO region (see CONST_REGIONS['CORPO Region'] above)
@@ -519,10 +519,10 @@ class countyLookup():
         df = df \
             .sort_values("COUNTY_NAME") \
             .filter(items=["GEOID","COUNTY_NAME"], axis="columns")
-              
+
         self.scope = scope
         self.df = df
-    
+
     # Given a county name of a county, return its ID
     # NOTE: As of January 2024, this is not supported for scope="us"
     def get_id(self, name):

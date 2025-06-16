@@ -3,3 +3,9 @@ __pycache__/
 *.pkl
 dist/
 build/
+morpc.egg-info/
+demo/
+*-checkpoint.*
+
+# MyST build outputs
+#_build

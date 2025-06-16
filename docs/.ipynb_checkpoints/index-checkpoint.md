@@ -1,6 +1,6 @@
 # morpc-py
 
-## Introduction
+## Introducion
 
 The MORPC data team maintains a package with contains commonly-used constants, mappings, and functions to allow for code-reuse in multiple scripts.  The package documentation and code is available at the [morpc-py](https://github.com/morpc/morpc-py) repository in GitHub.
 

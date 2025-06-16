@@ -36,6 +36,7 @@ def get_totalRecordCount(url):
     return total_count
 
 
+    
 def resource_from_services_url(url):
     import frictionless
     import re
@@ -54,11 +55,21 @@ def resource_from_services_url(url):
         "_metadata": {
             "type": "arcgis_service",
             "total_records": get_totalRecordCount(url),
-            "max_record_count": pjson['maxRecordCount']
+            "max_record_count": pjson['maxRecordCount'],
+            "wkid": pjson['spatialReference']['wkid']
         }
     }
 
     return frictionless.Resource(resource)
+
+def esri_wkid_to_epsg(esri_wkid):
+    import json
+    import requests
+
+    r = requests.get(f"https://spatialreference.org/ref/esri/{esri_wkid}/projjson.json")
+    json = r.json()
+    epsg = json['base_crs']['id']['code']
+    return epsg
 
 def print_bar(i, total):
     from IPython.display import clear_output
@@ -101,12 +112,15 @@ def gdf_from_rest_resource(resource_path, field_ids=None, api_key=None):
     import json
     import frictionless
     import geopandas as gpd
+    import pyproj
 
     ## Extract important metadata
     resource = frictionless.Resource(resource_path)
     url = resource.path
     totalRecordCount = resource.to_dict()['_metadata']['total_records']
     maxRecordCount = resource.to_dict()['_metadata']['max_record_count']
+    wkid = resource.to_dict()['_metadata']['wkid']
+    epsg = esri_wkid_to_epsg(wkid)
 
     ## Get field names for filtering fields
     schema = resource.schema
@@ -142,14 +156,18 @@ def gdf_from_rest_resource(resource_path, field_ids=None, api_key=None):
     offset = 0
     exceededLimit = True
     for i in range(len(sources)):
-        print(f"{i}/{len(sources)}")
+        print_bar(i, len(sources))
         # Request geojson for each source url
-        if api_key != None:
+        if api_key == None:
             r = requests.get(sources[i]['path'])
         else:
             r = requests.get(f"{sources[i]['path']}&key={api_key}")
         # Extract the GeoJSON from the API response
-        result = r.json()
+        try:
+            result = r.json()
+        except:
+            print(f"CONTENTS OF REQUESTS {r.content}")
+
 
         # Read this chunk of data into a GeoDataFrame
         temp = gpd.GeoDataFrame.from_features(result["features"])
@@ -164,4 +182,4 @@ def gdf_from_rest_resource(resource_path, field_ids=None, api_key=None):
         # Increase the offset so that the next request fetches the next chunk of data
         offset += maxRecordCount
 
-    return(gdf)
+    return(gdf.set_crs(f"epsg:{epsg}"))
