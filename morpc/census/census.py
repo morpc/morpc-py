@@ -59,7 +59,7 @@ DEC_ID_FIELDS["block"] = [
     {"name":"STATE","type":"string","description":"Unique identifier for state in which geography is located"},
     {"name":"COUNTY","type":"string","description":"Unique identifier for county in which geography is located"},
     {"name":"TRACT","type":"string","description":"Unique identifier for tract in which geography is located"},
-    {"name":"BLKGRP","type":"string","description":"Unique identifier for block group in which geography is located"}
+    # Note: Block is subsidiary to block group, however the API does not provide the block group (BLKGRP) identifiers
 ]
 
 DEC_API = {
