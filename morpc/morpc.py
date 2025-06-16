@@ -222,6 +222,16 @@ SUMLEVEL_DESCRIPTIONS = {
         "authority":"census",
         "idField":"COUSUBPARTID",
         "nameField":"COUSUBPART"
+    },
+    # NOTE: Some references use SUMLEVEL 750 for block in the PL94 data, but the API
+    # uses SUMLEVEL 100
+    '100': {
+        "singular":"census block",
+        "plural":"census blocks",
+        "hierarchy_string":"COUNTY-TRACT-BG-BLOCK",
+        "authority":"census",
+        "idField":"BLOCKID",
+        "nameField":"BLOCK"
     },    
     '140': {
         "singular":"tract",
@@ -294,14 +304,6 @@ SUMLEVEL_DESCRIPTIONS = {
         "authority":"census",
         "idField":"STATEHOUSEID",
         "nameField":"STATEHOUSE"
-    },
-    '750': {
-        "singular":"census block",
-        "plural":"census blocks",
-        "hierarchy_string":"COUNTY-TRACT-BG-BLOCK",
-        "authority":"census",
-        "idField":"BLOCKID",
-        "nameField":"BLOCK"
     },
     '795': {
         "singular":"public use microdata area",
