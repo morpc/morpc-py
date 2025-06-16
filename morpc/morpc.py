@@ -2242,3 +2242,22 @@ def add_placecombo(df, countyField="COUNTY", jurisField="JURIS", munitypeField="
     outDf = df.copy()
     outDf["PLACECOMBO"] = outDf[countyField].str.upper() + "_" + outDf[jurisField].str.upper() + "_" + outDf[munitypeField].str.upper()
     return outDf
+
+def md5(fname):
+    """
+    md5() computes the MD5 checksum for a file.  When the original checksum is known, the current checksum can be compared to it to determine whether the file has changed.
+
+    Input parameters:
+      - fname is a string representing the path to the file for which the checksum is to be computed
+
+     Returns:
+       - MD5 checksum for the file
+    """
+    import hashlib
+    hash_md5 = hashlib.md5()
+    with open(fname, "rb") as f:
+        for chunk in iter(lambda: f.read(4096), b""):
+            hash_md5.update(chunk)
+    return hash_md5.hexdigest()
+    
+

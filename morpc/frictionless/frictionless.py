@@ -1,35 +1,5 @@
-    
-# md5() computes the MD5 checksum for a file.  When the original checksum is known, the current checksum can be compared 
-# to it to determine whether the file has changed.
-#
-# Input parameters:
-#   - fname is a string representing the path to the file for which the checksum is to be computed
-#
-# Returns:
-#   - MD5 checksum for the file
-
-
-
 import datetime
 
-
-def md5(fname):
-    """
-    md5() computes the MD5 checksum for a file.  When the original checksum is known, the current checksum can be compared to it to determine whether the file has changed.
-
-    Input parameters:
-      - fname is a string representing the path to the file for which the checksum is to be computed
-
-     Returns:
-       - MD5 checksum for the file
-    """
-    import hashlib
-    hash_md5 = hashlib.md5()
-    with open(fname, "rb") as f:
-        for chunk in iter(lambda: f.read(4096), b""):
-            hash_md5.update(chunk)
-    return hash_md5.hexdigest()
-    
 # Functions for manipulating schemas in Frictionless TableSchema format
 # Reference: https://specs.frictionlessdata.io/table-schema/
 
