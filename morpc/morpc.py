@@ -190,7 +190,7 @@ SUMLEVEL_DESCRIPTIONS = {
         "authority":"census",
         "idField":"DIVISONID",
         "nameField":"DIVISION"
-    },    
+    },
     '040': {
         "singular":"state",
         "plural":"states",
@@ -198,7 +198,7 @@ SUMLEVEL_DESCRIPTIONS = {
         "authority":"census",
         "idField":"STATEID",
         "nameField":"STATE"
-    },   
+    },
     '050': {
         "singular":"county",
         "plural":"counties",
@@ -232,7 +232,7 @@ SUMLEVEL_DESCRIPTIONS = {
         "authority":"census",
         "idField":"BLOCKID",
         "nameField":"BLOCK"
-    },    
+    },
     '140': {
         "singular":"tract",
         "plural":"tracts",
@@ -256,7 +256,7 @@ SUMLEVEL_DESCRIPTIONS = {
         "authority":"census",
         "idField":"PLACEPARTID",
         "nameField":"PLACEPART"
-    }, 
+    },
     '160': {
         "singular":"place",
         "plural":"places",
@@ -264,7 +264,7 @@ SUMLEVEL_DESCRIPTIONS = {
         "authority":"census",
         "idField":"PLACEID",
         "nameField":"PLACE"
-    },        
+    },
     '310': {
         "singular":"metro area",
         "plural":"metro areas",
@@ -288,7 +288,7 @@ SUMLEVEL_DESCRIPTIONS = {
         "authority":"census",
         "idField":"CONGRESSID",
         "nameField":"CONGRESS"
-    },    
+    },
     '610': {
         "singular":"state senate district",
         "plural":"state senate districts",
@@ -320,7 +320,7 @@ SUMLEVEL_DESCRIPTIONS = {
         "authority":"census",
         "idField":"ZCTA3",
         "nameField":None
-    },    
+    },
     '860': {
         "singular":"zip code tabulation area",
         "plural":"zip code tabulation area",
@@ -336,7 +336,7 @@ SUMLEVEL_DESCRIPTIONS = {
         "authority":"census",
         "idField":"MPOREGIONID",
         "nameField":"MPOREGION"
-    },    
+    },
     '950': {
         "singular":"elementary school district",
         "plural":"elementary school districts",
@@ -456,7 +456,7 @@ SUMLEVEL_DESCRIPTIONS = {
         "authority":"morpc",
         "idField":"MAZ",
         "nameField":None
-    },    
+    },
     'M22': {
         "singular":"GridMAZ zone",
         "plural":"GridMAZ zones",
@@ -464,7 +464,7 @@ SUMLEVEL_DESCRIPTIONS = {
         "authority":"morpc",
         "idField":"GridMAZ",
         "nameField":None
-    },        
+    },
 }
 
 # TODO: include the following sumlevels
@@ -898,7 +898,7 @@ def load_spatial_data(sourcePath, layerName=None, driverName=None, archiveDir=No
     With tabular data this is simple, but with spatial data it can be tricky.  Shapefiles actually consist 
     of up to six files, so it is necessary to copy them all.  Geodatabases may contain many layers in addition 
     to the one we care about.  The `load_spatial_data()` function simplifies the process of reading the data and 
-    (optionally) making an archival copy. 
+    (optionally) making an archival copy.
     
     Example usage:
 
@@ -992,7 +992,7 @@ def load_spatial_data(sourcePath, layerName=None, driverName=None, archiveDir=No
     else:
         gdf = gpd.read_file(sourcePath, layer=layerName, driver=driverName, engine="pyogrio", fid_as_index=True)
 
-    # When reading a File Geodatabase, Geopandas automatically sets the FID (OBJECTID) field to the index.  
+    # When reading a File Geodatabase, Geopandas automatically sets the FID (OBJECTID) field to the index.
     # In this case, reset the index, preserving the name of this field.
     if(driverName == "OpenFileGDB"):
         gdf.index.name="OBJECTID"
@@ -1030,7 +1030,7 @@ def load_spatial_data(sourcePath, layerName=None, driverName=None, archiveDir=No
         else:
             archiveLayer = archiveFileName
             if(verbose):
-                print("morpc.load_spatial_data | INFO | Layer name is unspecified. Using automatically-selected layer name: {}".format(archiveLayer)) 
+                print("morpc.load_spatial_data | INFO | Layer name is unspecified. Using automatically-selected layer name: {}".format(archiveLayer))
 
         if(verbose):
             print("morpc.load_spatial_data | INFO | Creating archival copy of geospatial layer at {}, layer {}".format(archivePath, archiveLayer))
@@ -1039,12 +1039,12 @@ def load_spatial_data(sourcePath, layerName=None, driverName=None, archiveDir=No
     return gdf
 
 # Assign geographic identifiers
-# Sometimes we have a set of locations and we would like to know what geography (county, zipcode, etc.) they fall in. The 
-# `assign_geo_identifiers()` function takes a set of georeference points and a list of geography levels and determines for each 
+# Sometimes we have a set of locations and we would like to know what geography (county, zipcode, etc.) they fall in. The
+# `assign_geo_identifiers()` function takes a set of georeference points and a list of geography levels and determines for each
 # level which area each point falls in.  The function takes two parameters:
 #  - `points` - a GeoPandas GeoDataFrame consisting of the points of interest
-#  - `geographies` - A Python list of one or more strings in which each element corresponds to a geography level. You can specify as 
-#     many levels as you want from the following list, however note that the function must download the polygons and perform the analysis 
+#  - `geographies` - A Python list of one or more strings in which each element corresponds to a geography level. You can specify as
+#     many levels as you want from the following list, however note that the function must download the polygons and perform the analysis
 #     for each level so if you specify many levels it may take a long time.
 #    - "county" - County (Census TIGER)
 #    - "tract" - *Not currently implemented*
@@ -1070,7 +1070,6 @@ def assign_geo_identifiers(points, geographies):
     import requests
     from io import BytesIO
 
- 
     # Create a copy of the input data so Python doesn't manipulate the original object.
     points = points.copy()
 
@@ -1108,16 +1107,16 @@ def assign_geo_identifiers(points, geographies):
             polyIdField = "GEOID"
         elif(geography == "placecombo"):
             print("ERROR: Geography is currently unsupported: {}".format(geography))
-            raise RuntimeError                
+            raise RuntimeError
         elif(geography == "juris"):
             print("ERROR: Geography is currently unsupported: {}".format(geography))
-            raise RuntimeError        
+            raise RuntimeError
         elif(geography == "region15County"):
             print("ERROR: Geography is currently unsupported: {}".format(geography))
             raise RuntimeError
         elif(geography == "region10County"):
             print("ERROR: Geography is currently unsupported: {}".format(geography))
-            raise RuntimeError      
+            raise RuntimeError
         elif(geography == "regionCORPO"):
             print("ERROR: Geography is currently unsupported: {}".format(geography))
             raise RuntimeError
@@ -1143,24 +1142,24 @@ def assign_geo_identifiers(points, geographies):
         points = points.loc[:, ~points.columns.str.startswith('fid_')]
     return points
 
-# The following function performs "bucket rounding" on a pandas Series object.  Bucket rounding 
-# refers to a rounding technique for a series of data in which each element 
-# is rounded to the specified number of digits in such a way that the sum of the series is 
-# preserved. For example, a model may produce non-integer population values for small 
-# geographies such as GridMAZ. Population must be an integer, and therefore the population for
-# each GridMAZ must be rounded. Bucket rounding ensures that the rounding error resulting from 
-# each of tens of thousands of individual GridMAZ does not accumulate and cause significant 
-# error for combined population of all GridMAZ.
+
 def round_preserve_sum(inputValues, digits=0, verbose=False):
     """
-    TODO: add docstring
+    The following function performs "bucket rounding" on a pandas Series object.  Bucket rounding
+    refers to a rounding technique for a series of data in which each element
+    is rounded to the specified number of digits in such a way that the sum of the series is
+    preserved. For example, a model may produce non-integer population values for small
+    geographies such as GridMAZ. Population must be an integer, and therefore the population for
+    each GridMAZ must be rounded. Bucket rounding ensures that the rounding error resulting from
+    each of tens of thousands of individual GridMAZ does not accumulate and cause significant
+    error for combined population of all GridMAZ.
     """
     import math
     import pandas as pd
 
     # Make a copy of the input so that we avoid altering it due to chains or views.
     inputValuesCopy = inputValues.copy()
-    
+
     # Create a new numerical index that is used exclusively within this function.  This is necessary due to some
     # nuances of the implementation that use the indices of the records with the largest fractional values to
     # allocate residuals.  Original index will be restored before series is returned.
@@ -1172,14 +1171,14 @@ def round_preserve_sum(inputValues, digits=0, verbose=False):
 
     # Extract a series using the new index.
     rawValues = outputValues.drop(columns=previousIndexName).iloc[:,0]
-  
+
     # Compute a multiplier to be used to "inflate" the series such that the desired decimal digit ends up in the ones place so we can 
     # truncate the values to the ones place using floor
     multiplier = 10**digits
 
     # Compute the "inflated" values
     inflatedValues = rawValues * multiplier
-  
+
     # Truncate the values to the ones place
     truncatedValues = inflatedValues.apply(lambda x:math.floor(x))
 
@@ -1187,19 +1186,19 @@ def round_preserve_sum(inputValues, digits=0, verbose=False):
     # Note: Floating point arithmetic results in extraneous decimal places due to high-precision rounding error, however this 
     # should be insignificant for our purposes.
     residual = (inflatedValues-truncatedValues).round(10)
-    
-    # Create an array of the indices of the datapoints in ascending order according to their residual, i.e. the first element in 
-    # this array is the index of the datapoint with the smallest residual and the last element is the index of the datapoint with 
+
+    # Create an array of the indices of the datapoints in ascending order according to their residual, i.e. the first element in
+    # this array is the index of the datapoint with the smallest residual and the last element is the index of the datapoint with
     # the largest residual.
     residualOrder = residual.sort_values().index
-    
+
     # Compute the overall residual, i.e. the difference between the sum of the full values and the sum of the truncated values
-    # Note: Floating point arithmetic results in extraneous decimal places due to high-precision rounding error, however this 
+    # Note: Floating point arithmetic results in extraneous decimal places due to high-precision rounding error, however this
     # should be insignificant for our purposes.
     overallResidual = inflatedValues.sum() - truncatedValues.sum()
-    
-    # Round the overall residual to determine the combined number of integer units that need to be reallocated. For example, if the 
-    # series represents population, these units represent the "whole" people that were formed from the "partial" people that were 
+
+    # Round the overall residual to determine the combined number of integer units that need to be reallocated. For example, if the
+    # series represents population, these units represent the "whole" people that were formed from the "partial" people that were
     # removed from each individual record via the truncation.
     unitsToReallocate = round(overallResidual)
 
@@ -1207,12 +1206,12 @@ def round_preserve_sum(inputValues, digits=0, verbose=False):
     adjustedValues = truncatedValues.copy()
     if(unitsToReallocate > 0):
 
-        # First, select the indices for the N records with the largest residuals, where N is the number of integer units available for 
+        # First, select the indices for the N records with the largest residuals, where N is the number of integer units available for
         # reallocation.
         indicesToReceiveReallocatedUnit = residualOrder[-unitsToReallocate:]
 
         # Reallocate one unit to each record selected to receive one
-        adjustedValues[indicesToReceiveReallocatedUnit] = adjustedValues[indicesToReceiveReallocatedUnit] + 1       
+        adjustedValues[indicesToReceiveReallocatedUnit] = adjustedValues[indicesToReceiveReallocatedUnit] + 1
 
     # Undo the inflation that we did at the beginning.  This completes the bucket rounding process.
     bucketRoundedValues = (adjustedValues/multiplier).astype("int")
@@ -1232,7 +1231,7 @@ def round_preserve_sum(inputValues, digits=0, verbose=False):
         print("Indices of records to receive reallocated units: {}".format(indicesToReceiveReallocatedUnit.tolist()))
         print("Adjusted values (still inflated): {}".format(adjustedValues.tolist()))
         print("Bucket-rounded values (deflated): {}".format(outputValues.tolist()))
-  
+
     return(outputValues)
 
 
@@ -1241,10 +1240,10 @@ def round_preserve_sum(inputValues, digits=0, verbose=False):
 # for groups using group names from a specified column.
 #
 # Parameters:
-# 
+#
 # inputDf is a pandas DataFrame with a column containing the values and (optionally) 
 # a column containing the group labels
-# 
+#
 # valueField is the name of the column of inputDf that contains the values. This may 
 # be omitted if the DataFrame contains only one column.
 #
