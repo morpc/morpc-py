@@ -1,3 +1,5 @@
+import json
+
 ACS_MISSING_VALUES = ["","-222222222","-333333333","-555555555","-666666666","-888888888","-999999999"]
 
 ACS_PRIMARY_KEY = "GEO_ID"
@@ -44,6 +46,58 @@ ACS_ID_FIELDS = {
         {"name":"SUMLEVEL", "type":"string", "description":"Code representing the geographic summary level for the data"},
         {"name":"NAME", "type":"string", "description":"Name by which geography is known"}
     ]
+}
+
+DEC_MISSING_VALUES = [""]
+
+DEC_PRIMARY_KEY = "GEO_ID"
+
+DEC_ID_FIELDS = json.loads(json.dumps(ACS_ID_FIELDS))  # Start with same fields as ACS, then adjust
+DEC_ID_FIELDS["block"] = [
+    {"name":"GEO_ID", "type":"string", "description":"Unique identifier for geography"},
+    {"name":"SUMLEVEL", "type":"string", "description":"Code representing the geographic summary level for the data"},
+    {"name":"STATE","type":"string","description":"Unique identifier for state in which geography is located"},
+    {"name":"COUNTY","type":"string","description":"Unique identifier for county in which geography is located"},
+    {"name":"TRACT","type":"string","description":"Unique identifier for tract in which geography is located"},
+    # Note: Block is subsidiary to block group, however the API does not provide the block group (BLKGRP) identifiers
+]
+
+DEC_API = {
+    "sdhc": {
+        "title": "Supplemental Demographic and Housing Characteristics File",
+        "abbrev": "S-DHC",
+        "url": "https://api.census.gov/data/{year}/dec/sdhc"
+    },
+    "ddhcb": {
+        "title": "Detailed Demographic and Housing Characteristics File B",
+        "abbrev": "Detailed DHC-B",
+        "url": "https://api.census.gov/data/{year}/dec/ddhcb"
+    },
+    "ddhca": {
+        "title": "Detailed Demographic and Housing Characteristics File A",
+        "abbrev": "Detailed DHC-A",
+        "url": "https://api.census.gov/data/{year}/dec/ddhca"
+    },
+    "dhc": {
+        "title": "Demographic Profile",
+        "abbrev": "S-DHC",
+        "url": "https://api.census.gov/data/{year}/dec/dhc"
+    },
+    "dp": {
+        "title": "Demographic and Housing Characteristics File",
+        "abbrev": "DP",
+        "url": "https://api.census.gov/data/{year}/dec/dp"
+    },
+    "pl": {
+        "title": "Redistricting Data",
+        "abbrev": "PL 94-171",
+        "url": "https://api.census.gov/data/{year}/dec/pl"
+    },
+    "pes": {
+        "title": "Decennial Post-Enumeration Survey",
+        "abbrev": "PES",
+        "url": "https://api.census.gov/data/{year}/dec/pes"
+    }
 }
 
 ACS_STANDARD_AGEGROUP_MAP = {
@@ -93,38 +147,12 @@ ACS_AGEGROUP_SORT_ORDER = {
     '85 years and over': 18
 }
  
-# acsGet() is a low-level wrapper for Census API requests that returns the results as a pandas dataframe. If necessary, it
-# splits the request into several smaller requests to bypass the 50-variable limit imposed by the API.  The resulting dataframe
-# is indexed by GEOID (regardless of whether it was requested) and omits other fields that are not requested but which are returned 
-# automatically with each API request (e.g. "state", "county") 
-#
-# Input parameters:
-#   - url is the base URL of the desired Census API endpoint.  For example:
-#
-#       https://api.census.gov/data/2022/acs/acs1
-#
-#   - params is a dict (in requests format) the parameters for the query string to be sent to the Census API. For example:
-#
-#       {
-#           "get": "GEO_ID,NAME,B01001_001E",
-#           "for": "county:049,041",
-#           "in": "state:39"
-#       }
-
-#   - varBatchSize is an integer representing the number of variables to request in each batch. If unspecified it defaults to
-#         20 and is limited to 49 (to respect the API limit while allowing for inclusion of GEO_ID with each request)
-#
-#   - verbose is a boolean. If True, the function will display text updates of its status, otherwise it will be silent.
-#
-# Returns:
-#   - pandas dataframe indexed by GEO_ID and having a column for each requested variable
-# 
-def acs_get(url, params, varBatchSize=20, verbose=True):
+def api_get(url, params, varBatchSize=20, verbose=True):
     """
-    acs_get(url, params, varBatchSize=20, verbose=True)
-
-    acsGet() is a low-level wrapper for Census API requests that returns the results as a pandas dataframe. 
-        
+    api_get() is a low-level wrapper for Census API requests that returns the results as a pandas dataframe. If necessary, it
+    splits the request into several smaller requests to bypass the 50-variable limit imposed by the API.  The resulting dataframe
+    is indexed by GEOID (regardless of whether it was requested) and omits other fields that are not requested but which are returned 
+    automatically with each API request (e.g. "state", "county")         
 
     Parameters
     ----------
@@ -218,13 +246,13 @@ def acs_get(url, params, varBatchSize=20, verbose=True):
         # If this is our first request, construct the output dataframe by copying the temporary one. Otherwise,
         # join the temporary dataframe to the existing one using the GEO_ID.
         if(requestCount == 1):
-            acsData = df.set_index("GEO_ID").copy()
+            censusData = df.set_index("GEO_ID").copy()
         else:
-            acsData = acsData.join(df.set_index("GEO_ID"))
+            censusData = censusData.join(df.set_index("GEO_ID"))
         
         requestCount += 1
 
-    return acsData
+    return censusData
 
 # acs_label_to_dimensions obtains the data dimensions associated with a particular variable by decomposing the "Label" column as described in the 
 # Census API variable list, e.g. https://api.census.gov/data/2022/acs/acs5/variables.html. There is a label associated with each variable provided 
@@ -395,3 +423,5 @@ def acs_flatten_category(inDf, categoryField, subclassField):
     df.update(temp)
     df = df.drop(columns=categoryField)
     return df
+
+

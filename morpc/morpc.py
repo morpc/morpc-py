@@ -1,5 +1,18 @@
 import json
 
+# PANDAS_EXPORT_ARGS_OVERRIDE is a dictionary indexed by tabular output format (csv, xlsx, etc.) whose
+# keys contain overrides for the default values for the arguments for the pandas functions used to
+# export data in those formats.  For example, the values associated with the "csv" key are used
+# by morpc.write_table() to override the defaults for pandas.DataFrame.to_csv().  The primary need
+# for this is to force text files to be written with Windows-style line endings (i.e. "\r\n") to 
+# ensure that their checksums can be interpreted correctly when the file is validated.
+PANDAS_EXPORT_ARGS_OVERRIDE = {
+    "csv": {
+        "lineterminator": "\r\n",
+    },
+    "xlsx": None
+}
+
 # Conversion factors
 # The following constants represent commonly used conversion factors for various units of measure
 ## Area
@@ -209,6 +222,16 @@ SUMLEVEL_DESCRIPTIONS = {
         "authority":"census",
         "idField":"COUSUBPARTID",
         "nameField":"COUSUBPART"
+    },
+    # NOTE: Some references use SUMLEVEL 750 for block in the PL94 data, but the API
+    # uses SUMLEVEL 100
+    '100': {
+        "singular":"census block",
+        "plural":"census blocks",
+        "hierarchy_string":"COUNTY-TRACT-BG-BLOCK",
+        "authority":"census",
+        "idField":"BLOCKID",
+        "nameField":"BLOCK"
     },    
     '140': {
         "singular":"tract",
@@ -281,14 +304,6 @@ SUMLEVEL_DESCRIPTIONS = {
         "authority":"census",
         "idField":"STATEHOUSEID",
         "nameField":"STATEHOUSE"
-    },
-    '750': {
-        "singular":"census block",
-        "plural":"census blocks",
-        "hierarchy_string":"COUNTY-TRACT-BG-BLOCK",
-        "authority":"census",
-        "idField":"BLOCKID",
-        "nameField":"BLOCK"
     },
     '795': {
         "singular":"public use microdata area",
@@ -2259,5 +2274,57 @@ def md5(fname):
         for chunk in iter(lambda: f.read(4096), b""):
             hash_md5.update(chunk)
     return hash_md5.hexdigest()
-    
 
+def write_table(df, path, format=None, index=None):
+    """Write a pandas dataframe to a tabular data file applying MORPC file standards
+    
+    Example usage: morpc.write_table(myDf, "./path/to/somefile.csv")
+
+    Parameters
+    ----------
+    df : pandas.core.frame.DataFrame
+        A pandas DataFrame that is to be written to a tabular data file.
+    path : str
+        The path to the data file to be written
+    format : str
+        Optional. The file format to use. Currently "csv" and "xlsx" are supported.  If format is not specified, it will be inferred from the file
+        extension provided in path
+    index : bool
+        Optional. Set to True to include the dataframe index in the output. Set to False otherwise. Specifying a value here overrides the MORPC default
+        specified in morpc.PANDAS_EXPORT_ARGS_OVERRIDE.
+        
+
+    Returns
+    -------
+    None
+    
+    """
+    import os
+    import pandas
+    import json
+    
+    outDf = df.copy()
+
+    if(format == None):
+        print("morpc.write_table | INFO | Format is unspecified. Will attempt to determine format based on file extension.")
+        format = os.path.splitext(path)[1]
+
+    format = format.lower()
+
+    try:
+        exportArgs = json.loads(json.dumps(PANDAS_EXPORT_ARGS_OVERRIDE[format]))
+    except KeyError:
+        print("morpc.write_table | ERROR | This function does not currently support format {}.  Add export arguments for this format in morpc.PANDAS_EXPORT_ARGS_OVERRIDE or use the native pandas export functions.".format(format))
+        raise RuntimeError
+
+    if(index != None):
+        exportArgs["index"] = index
+   
+    print("morpc.write_table | INFO | Writing dataframe to file {}".format(path))     
+    if(format == "csv"):
+        outDf.to_csv(path, **exportArgs)
+    elif(format == "xlsx"):
+        outDf.to_excel(path, **exportArgs)
+    else:
+        print("morpc.write_table | ERROR | This function does not currently support format {}.  Add export arguments for this format in morpc.PANDAS_EXPORT_ARGS_OVERRIDE or use the native pandas export functions.".format(format))
+        raise RuntimeError

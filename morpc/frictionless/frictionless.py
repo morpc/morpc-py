@@ -249,6 +249,7 @@ def create_resource(dataPath, title=None, name=None, description=None, resourceP
     import os
     import re
     import frictionless
+    import morpc
 
     EXTENSION_MAP = {
         ".gpkg": {
@@ -279,20 +280,20 @@ def create_resource(dataPath, title=None, name=None, description=None, resourceP
 
     if(os.path.basename(dataFilePath) != os.path.normpath(dataFilePath)):
         # If dataFilePath is not simply a filename
-        print("morpc.create_resource | WARNING | You seem to have specified a data path that is not simply a file name.  This implies that the data is located in a different directory than the resource file.  Typically the data is located in the same directory as the resource file and the path is simply the filename.")   
+        print("morpc.frictionless.create_resource | WARNING | You seem to have specified a data path that is not simply a file name.  This implies that the data is located in a different directory than the resource file.  Typically the data is located in the same directory as the resource file and the path is simply the filename.")   
 
     resourceFilePath = None
     if(resourcePath != None):
         if(not writeResource):
             # Warn the user if they specified a resource file location but did not enable writeResource
-            print("morpc.create_resource | WARNING | You specified a path for the resource file, however writeResource is not set to True. Resource file will not be written to disk.")   
+            print("morpc.frictionless.create_resource | WARNING | You specified a path for the resource file, however writeResource is not set to True. Resource file will not be written to disk.")   
 
         # If the user has specified a path to the resource file, we'll use it without modification. Warn the user if the choice is unusual.
         if(os.path.basename(dataFilePath) != os.path.normpath(dataFilePath)):
             # If dataFilePath is not simply a filename
             if(os.path.dirname(os.path.abspath(resourcePath)) != os.path.dirname(os.path.abspath(dataFilePath))):
                 # If the absolute path to the resource file and the absolute path to the data put them in different directories
-                print("morpc.create_resource | WARNING | You seem to have specified a path for the resource file that is in a different directory than the data.  Typically the data is located in the same directory as the resource file and the path is simply the filename.")   
+                print("morpc.frictionless.create_resource | WARNING | You seem to have specified a path for the resource file that is in a different directory than the data.  Typically the data is located in the same directory as the resource file and the path is simply the filename.")   
         resourceFilePath = os.path.normpath(resourcePath)
         
     if resFormat != None:
@@ -300,9 +301,9 @@ def create_resource(dataPath, title=None, name=None, description=None, resourceP
     else:
         if dataFileExtension.lower() in EXTENSION_MAP:
             resourceFormat = EXTENSION_MAP[dataFileExtension.lower()]["format"]
-            print("morpc.create_resource | INFO | Format not specified. Using format derived from data file extension: {}".format(resourceFormat))
+            print("morpc.frictionless.create_resource | INFO | Format not specified. Using format derived from data file extension: {}".format(resourceFormat))
         else:
-            print("morpc.create_resource | ERROR | Format not specified and could not be determined from data file extension.")
+            print("morpc.frictionless.create_resource | ERROR | Format not specified and could not be determined from data file extension.")
             raise RuntimeError
 
     if(not ignoreSchema):
@@ -313,31 +314,31 @@ def create_resource(dataPath, title=None, name=None, description=None, resourceP
                 # If dataFilePath is not simply a filename
                 if(os.path.dirname(os.path.abspath(schemaPath)) != os.path.dirname(os.path.abspath(dataFilePath))):
                     # If the absolute path to the schema file and the absolute path to the data put them in different directories
-                    print("morpc.create_resource | WARNING | You seem to have specified a path for the schema file that is in a different directory than the data.  Typically the schema is located in the same directory as the data.")   
+                    print("morpc.frictionless.create_resource | WARNING | You seem to have specified a path for the schema file that is in a different directory than the data.  Typically the schema is located in the same directory as the data.")   
             schemaFilePath = os.path.normpath(schemaPath)
         else:
             # If the user has not specified a path to the schema file, we'll assume that it should go in the same directory as the data. In that
             # case, derive the path from the data path.
             schemaFilePath = dataFilePath.replace(dataFileExtension, ".schema.yaml")
-            print("morpc.create_resource | INFO | Schema path not specified. Using path derived from data file path: {}".format(schemaFilePath))
+            print("morpc.frictionless.create_resource | INFO | Schema path not specified. Using path derived from data file path: {}".format(schemaFilePath))
 
     if title != None:
         resourceTitle = title
     else: 
         resourceTitle = dataFileName
-        print("morpc.create_resource | INFO | Title not specified. Using placeholder value derived from data filename: {}".format(resourceTitle))
+        print("morpc.frictionless.create_resource | INFO | Title not specified. Using placeholder value derived from data filename: {}".format(resourceTitle))
 
     if name != None:
         resourceName = name
     else:
         resourceName = re.sub(r"\W+", "-", dataFileName).lower()
-        print("morpc.create_resource | INFO | Name not specified. Using placeholder value derived from data filename: {}".format(resourceName))
+        print("morpc.frictionless.create_resource | INFO | Name not specified. Using placeholder value derived from data filename: {}".format(resourceName))
 
     if description != None:
         resourceDescription = description
     else:
         resourceDescription = "This dataset was produced by MORPC. For more information, please contact dataandmaps@morpc.org."
-        print("morpc.create_resource | INFO | Description not specified. Using boilerplate placeholder value: {}".format(resourceDescription))
+        print("morpc.frictionless.create_resource | INFO | Description not specified. Using boilerplate placeholder value: {}".format(resourceDescription))
 
     if resMediaType != None:
         resourceMediaType = resMediaType
@@ -345,7 +346,7 @@ def create_resource(dataPath, title=None, name=None, description=None, resourceP
         if dataFileExtension.lower() in EXTENSION_MAP:
             resourceMediaType = EXTENSION_MAP[dataFileExtension.lower()]["mediatype"]
         else:
-            print("morpc.create_resource | ERROR | Media type not specified and could not be determined from data file extension.")
+            print("morpc.frictionless.create_resource | ERROR | Media type not specified and could not be determined from data file extension.")
             raise RuntimeError        
 
     if resProfile != None:
@@ -369,14 +370,14 @@ def create_resource(dataPath, title=None, name=None, description=None, resourceP
     unlocatedDataWarningIssued = False
     if(computeHash):
         if(resourceFilePath != None):
-            resource.hash = md5(os.path.join(os.path.dirname(resourceFilePath), dataFilePath))
+            resource.hash = morpc.md5(os.path.join(os.path.dirname(resourceFilePath), dataFilePath))
         else:
             try:
-                print("morpc.create_resource | WARNING | Data path is specified relative to resource file, however no resource file path was specified. Assuming data path is relative to current working directory.")
+                print("morpc.frictionless.create_resource | WARNING | Data path is specified relative to resource file, however no resource file path was specified. Assuming data path is relative to current working directory.")
                 unlocatedDataWarningIssued = True
-                resource.hash = md5(dataFilePath)
+                resource.hash = morpc.md5(dataFilePath)
             except:
-                print("morpc.create_resource | ERROR | Unable to compute MD5 hash.  Data file could not be located.")
+                print("morpc.frictionless.create_resource | ERROR | Unable to compute MD5 hash.  Data file could not be located.")
                 raise RuntimeError            
 
     if(computeBytes):
@@ -386,26 +387,26 @@ def create_resource(dataPath, title=None, name=None, description=None, resourceP
         else:
             try:
                 if(not unlocatedDataWarningIssued):
-                    print("morpc.create_resource | WARNING | Data path is specified relative to resource file, however no resource file path was specified. Assuming data path is relative to current working directory.")
-                resource.hash = md5(dataFilePath)
+                    print("morpc.frictionless.create_resource | WARNING | Data path is specified relative to resource file, however no resource file path was specified. Assuming data path is relative to current working directory.")
+                resource.hash = morpc.md5(dataFilePath)
             except:
-                print("morpc.create_resource | ERROR | Unable to compute file size (bytes).  Data file could not be located.")
+                print("morpc.frictionless.create_resource | ERROR | Unable to compute file size (bytes).  Data file could not be located.")
                 raise RuntimeError
 
     if(writeResource):
         if(resourceFilePath != None):
-            print("morpc.create_resource | INFO | Writing Frictionless Resource file to {}".format(resourceFilePath))
+            print("morpc.frictionless.create_resource | INFO | Writing Frictionless Resource file to {}".format(resourceFilePath))
             write_resource(resource, resourceFilePath)
         else:
-            print("morpc.create_resource | ERROR | Unable to validate resource.  No resource file path specified.")
+            print("morpc.frictionless.create_resource | ERROR | Unable to validate resource.  No resource file path specified.")
             raise RuntimeError            
 
     if(validate == True):
         if(resourceFilePath != None):
-            print("morpc.create_resource | INFO | Validating resource on disk.")
+            print("morpc.frictionless.create_resource | INFO | Validating resource on disk.")
             validate_resource(resourceFilePath)
         else:
-            print("morpc.create_resource | ERROR | Unable to validate resource.  No resource file path specified.")
+            print("morpc.frictionless.create_resource | ERROR | Unable to validate resource.  No resource file path specified.")
             raise RuntimeError            
         
     return resource
