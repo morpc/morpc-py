@@ -985,6 +985,8 @@ def load_spatial_data(sourcePath, layerName=None, driverName=None, archiveDir=No
     # When reading a shapefile from Census FTP site, read the data from temp zip
     elif(driverName == 'Census Shapefile'):
         gdf = gpd.read_file(tempFileName, layer=None, driver='ESRI Shapefile', engine='pyogrio', fid_as_index=True)
+        if os.path.exists(tempFileName):
+            os.unlink(tempFileName)
 
     # Everything else
     else:
