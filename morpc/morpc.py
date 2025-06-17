@@ -860,11 +860,36 @@ def avro_cast_field_types(df, schema, forceInteger=False, verbose=True):
                     else:
                         # If the user has not allow coercion of the values to integers, then throw an error.
                         print("WARNING: Unable to coerce value to Int64 type.  Ensure that fractional part of values is zero, or set forceInteger=True")
-                        raise RuntimeError           
+                        raise RuntimeError
         else:
             outDF[fieldName] = outDF[fieldName].astype(fieldType)
-            
+
     return outDF
+
+def wget(url, archive_dir = './input_data'):
+    """
+    This function uses wget within a subprocess call to retrieve a file from an ftp site. This is used as a means of retrieving Census TigerLine shapefiles.
+
+    Parameters
+    ----------
+    url : string
+        The url for the location of the file, should begin with "https://www2.census.gov/geo/tiger/"
+
+    archive_dir : string, path like
+        The location to save the file.
+
+    """
+    import subprocess
+    import os
+
+    cmd = ['wget', url]
+    cmd.extend(['-O', os.path.normpath(f'./{archive_dir}/{os.path.basename(url)}')])
+
+    if not os.path.exists(archive_dir):
+        os.mkdir(archive_dir)
+
+    subprocess.run(cmd, check=True)
+
 
 # Load spatial data
 def load_spatial_data(sourcePath, layerName=None, driverName=None, archiveDir=None, archiveFileName=None, verbose=True):
@@ -907,14 +932,25 @@ def load_spatial_data(sourcePath, layerName=None, driverName=None, archiveDir=No
     -------
     gdf : pandas.core.frame.DataFrame
         A GeoPandas GeoDataframe constructed from the data at the location specified by sourcePath and layerName
-    
+
     """
 
     import geopandas as gpd
-    import os    
+    import os
+    import shutil
 
     if(verbose):
         print("morpc.load_spatial_data | INFO | Loading spatial data from location: {}".format(sourcePath))
+
+    # Due to changes at the Census gpd.read_file() and requests.get() are blocked. Using wget as work around.
+    if sourcePath.find('www2.census.gov') > -1:
+        if(verbose):
+            print("morpc.load_spatial_data | INFO | Attempting to load data from Census FTP site. Using wget to archive file.")
+            print("morpc.load_spatial_data | WARNING | Data from Census FTP must be temp saved. Using ./temp_data.")
+        tempDir = './temp_data'
+        wget(url = sourcePath, archive_dir = tempDir)
+        driverName = 'Census Shapefile'
+        tempFileName = os.path.normpath(f"./{tempDir}/{os.path.split(sourcePath)[-1]}")
 
     if(driverName == None):
         if(verbose):
@@ -942,9 +978,15 @@ def load_spatial_data(sourcePath, layerName=None, driverName=None, archiveDir=No
 
     if(verbose):
         print("morpc.load_spatial_data | INFO | Reading spatial data...")
+    # Geopandas will throw an error if we attempt to specify a layer name when reading a Shapefile
     if(driverName == "ESRI Shapefile"):
-        # Geopandas will throw an error if we attempt to specify a layer name when reading a Shapefile
         gdf = gpd.read_file(sourcePath, layer=None, driver=driverName, engine="pyogrio", fid_as_index=True)
+
+    # When reading a shapefile from Census FTP site, read the data from temp zip
+    elif(driverName == 'Census Shapefile'):
+        gdf = gpd.read_file(tempFileName, layer=None, driver='ESRI Shapefile', engine='pyogrio', fid_as_index=True)
+
+    # Everything else
     else:
         gdf = gpd.read_file(sourcePath, layer=layerName, driver=driverName, engine="pyogrio", fid_as_index=True)
 
@@ -977,7 +1019,7 @@ def load_spatial_data(sourcePath, layerName=None, driverName=None, archiveDir=No
                 archiveFileName = os.path.splitext(os.path.split(sourcePath)[-1])[0]
                 if(verbose):
                     print("morpc.load_spatial_data | INFO | Using automatically-selected file name: {}".format(archiveFileName)) 
-        
+
         archivePath = os.path.join(archiveDir, "{}.gpkg".format(archiveFileName))
 
         # If the layer name was unspecified (e.g. for Shapefiles), use the file name as the layer name (sans extension)
@@ -991,8 +1033,8 @@ def load_spatial_data(sourcePath, layerName=None, driverName=None, archiveDir=No
         if(verbose):
             print("morpc.load_spatial_data | INFO | Creating archival copy of geospatial layer at {}, layer {}".format(archivePath, archiveLayer))
         gdf.to_file(archivePath, layer=layerName, driver="GPKG")
-    
-    return gdf    
+
+    return gdf
 
 # Assign geographic identifiers
 # Sometimes we have a set of locations and we would like to know what geography (county, zipcode, etc.) they fall in. The 
@@ -1041,26 +1083,28 @@ def assign_geo_identifiers(points, geographies):
         if(geography == "county"):
             filePath = "https://www2.census.gov/geo/tiger/TIGER2020PL/LAYER/COUNTY/2020/tl_2020_39_county20.zip"
             layerName = None
-            driverName = "ESRI Shapefile"
+            driverName = "Census Shapefile" # Custom driver name for load_spatial_data
             polyIdField = "GEOID20"
         elif(geography == "tract"):
-            print("ERROR: Geography is currently unsupported: {}".format(geography))
-            raise RuntimeError
+            filePath = "https://www2.census.gov/geo/tiger/TIGER2020PL/LAYER/TRACT/2020/tl_2020_39_tract20.zip"
+            layerName = None
+            driverName = "Census Shapefile" # Custom driver name for load_spatial_data
+            polyIdField = "GEOID20"
         elif(geography == "blockgroup"):
             print("ERROR: Geography is currently unsupported: {}".format(geography))
-            raise RuntimeError      
-        elif(geography == "block"):        
+            raise RuntimeError
+        elif(geography == "block"):
             print("ERROR: Geography is currently unsupported: {}".format(geography))
             raise RuntimeError
-        elif(geography == "zcta"):        
+        elif(geography == "zcta"):
             print("ERROR: Geography is currently unsupported: {}".format(geography))
             raise RuntimeError
         elif(geography == "place"):
             filePath = "https://www2.census.gov/geo/tiger/TIGER2020/PLACE/tl_2020_39_place.zip"
             layerName = None
-            driverName = "ESRI Shapefile"
-            polyIdField = "GEOID"               
-        elif(geography == "placecombo"):        
+            driverName = "Census Shapefile"
+            polyIdField = "GEOID"
+        elif(geography == "placecombo"):
             print("ERROR: Geography is currently unsupported: {}".format(geography))
             raise RuntimeError                
         elif(geography == "juris"):
@@ -1081,11 +1125,8 @@ def assign_geo_identifiers(points, geographies):
         else:
             print("morpc.load_spatial_data | ERROR | Geography is unknown: {}".format(geography))
             raise RuntimeError
-        
-        # Read the polygon data
-        r = requests.get(filePath, headers = {"User-Agent": "Firefox"})
-        polys = pyogrio.read_dataframe(BytesIO(r.content))
-        # polys = gpd.read_file(filePath, layer=layerName, driver=driverName) # Return 403 due to changes in Census website
+
+        polys = load_spatial_data(sourcePath = filePath, layerName = layerName, verbose=False)
 
         # Extract only the fields containing the polygon geometries and the unique IDs. Rename the unique ID field
         # using the following format "id_{}".format(geography), for example "id_county" for the "county" geography level
@@ -1095,9 +1136,9 @@ def assign_geo_identifiers(points, geographies):
 
         # Spatially join the polygon unique IDs to the points
         points = points.sjoin(polys.to_crs(points.crs), how="left")
-        
+
         # Drop the index field from the polygon data
-        points = points.drop(columns="index_right")
+        points = points.loc[:, ~points.columns.str.startswith('fid_')]
     return points
 
 # The following function performs "bucket rounding" on a pandas Series object.  Bucket rounding 

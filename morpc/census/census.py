@@ -146,13 +146,13 @@ ACS_AGEGROUP_SORT_ORDER = {
     '80 to 84 years': 17,
     '85 years and over': 18
 }
- 
+
 def api_get(url, params, varBatchSize=20, verbose=True):
     """
     api_get() is a low-level wrapper for Census API requests that returns the results as a pandas dataframe. If necessary, it
     splits the request into several smaller requests to bypass the 50-variable limit imposed by the API.  The resulting dataframe
     is indexed by GEOID (regardless of whether it was requested) and omits other fields that are not requested but which are returned 
-    automatically with each API request (e.g. "state", "county")         
+    automatically with each API request (e.g. "state", "county")
 
     Parameters
     ----------
