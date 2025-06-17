@@ -190,7 +190,7 @@ SUMLEVEL_DESCRIPTIONS = {
         "authority":"census",
         "idField":"DIVISONID",
         "nameField":"DIVISION"
-    },    
+    },
     '040': {
         "singular":"state",
         "plural":"states",
@@ -198,7 +198,7 @@ SUMLEVEL_DESCRIPTIONS = {
         "authority":"census",
         "idField":"STATEID",
         "nameField":"STATE"
-    },   
+    },
     '050': {
         "singular":"county",
         "plural":"counties",
@@ -232,7 +232,7 @@ SUMLEVEL_DESCRIPTIONS = {
         "authority":"census",
         "idField":"BLOCKID",
         "nameField":"BLOCK"
-    },    
+    },
     '140': {
         "singular":"tract",
         "plural":"tracts",
@@ -256,7 +256,7 @@ SUMLEVEL_DESCRIPTIONS = {
         "authority":"census",
         "idField":"PLACEPARTID",
         "nameField":"PLACEPART"
-    }, 
+    },
     '160': {
         "singular":"place",
         "plural":"places",
@@ -264,7 +264,7 @@ SUMLEVEL_DESCRIPTIONS = {
         "authority":"census",
         "idField":"PLACEID",
         "nameField":"PLACE"
-    },        
+    },
     '310': {
         "singular":"metro area",
         "plural":"metro areas",
@@ -288,7 +288,7 @@ SUMLEVEL_DESCRIPTIONS = {
         "authority":"census",
         "idField":"CONGRESSID",
         "nameField":"CONGRESS"
-    },    
+    },
     '610': {
         "singular":"state senate district",
         "plural":"state senate districts",
@@ -320,7 +320,7 @@ SUMLEVEL_DESCRIPTIONS = {
         "authority":"census",
         "idField":"ZCTA3",
         "nameField":None
-    },    
+    },
     '860': {
         "singular":"zip code tabulation area",
         "plural":"zip code tabulation area",
@@ -336,7 +336,7 @@ SUMLEVEL_DESCRIPTIONS = {
         "authority":"census",
         "idField":"MPOREGIONID",
         "nameField":"MPOREGION"
-    },    
+    },
     '950': {
         "singular":"elementary school district",
         "plural":"elementary school districts",
@@ -456,7 +456,7 @@ SUMLEVEL_DESCRIPTIONS = {
         "authority":"morpc",
         "idField":"MAZ",
         "nameField":None
-    },    
+    },
     'M22': {
         "singular":"GridMAZ zone",
         "plural":"GridMAZ zones",
@@ -464,7 +464,7 @@ SUMLEVEL_DESCRIPTIONS = {
         "authority":"morpc",
         "idField":"GridMAZ",
         "nameField":None
-    },        
+    },
 }
 
 # TODO: include the following sumlevels
@@ -860,11 +860,36 @@ def avro_cast_field_types(df, schema, forceInteger=False, verbose=True):
                     else:
                         # If the user has not allow coercion of the values to integers, then throw an error.
                         print("WARNING: Unable to coerce value to Int64 type.  Ensure that fractional part of values is zero, or set forceInteger=True")
-                        raise RuntimeError           
+                        raise RuntimeError
         else:
             outDF[fieldName] = outDF[fieldName].astype(fieldType)
-            
+
     return outDF
+
+def wget(url, archive_dir = './input_data'):
+    """
+    This function uses wget within a subprocess call to retrieve a file from an ftp site. This is used as a means of retrieving Census TigerLine shapefiles.
+
+    Parameters
+    ----------
+    url : string
+        The url for the location of the file, should begin with "https://www2.census.gov/geo/tiger/"
+
+    archive_dir : string, path like
+        The location to save the file.
+
+    """
+    import subprocess
+    import os
+
+    cmd = ['wget', url]
+    cmd.extend(['-O', os.path.normpath(f'./{archive_dir}/{os.path.basename(url)}')])
+
+    if not os.path.exists(archive_dir):
+        os.mkdir(archive_dir)
+
+    subprocess.run(cmd, check=True)
+
 
 # Load spatial data
 def load_spatial_data(sourcePath, layerName=None, driverName=None, archiveDir=None, archiveFileName=None, verbose=True):
@@ -873,7 +898,7 @@ def load_spatial_data(sourcePath, layerName=None, driverName=None, archiveDir=No
     With tabular data this is simple, but with spatial data it can be tricky.  Shapefiles actually consist 
     of up to six files, so it is necessary to copy them all.  Geodatabases may contain many layers in addition 
     to the one we care about.  The `load_spatial_data()` function simplifies the process of reading the data and 
-    (optionally) making an archival copy. 
+    (optionally) making an archival copy.
     
     Example usage:
 
@@ -907,14 +932,25 @@ def load_spatial_data(sourcePath, layerName=None, driverName=None, archiveDir=No
     -------
     gdf : pandas.core.frame.DataFrame
         A GeoPandas GeoDataframe constructed from the data at the location specified by sourcePath and layerName
-    
+
     """
 
     import geopandas as gpd
-    import os    
+    import os
+    import shutil
 
     if(verbose):
         print("morpc.load_spatial_data | INFO | Loading spatial data from location: {}".format(sourcePath))
+
+    # Due to changes at the Census gpd.read_file() and requests.get() are blocked. Using wget as work around.
+    if sourcePath.find('www2.census.gov') > -1:
+        if(verbose):
+            print("morpc.load_spatial_data | INFO | Attempting to load data from Census FTP site. Using wget to archive file.")
+            print("morpc.load_spatial_data | WARNING | Data from Census FTP must be temp saved. Using ./temp_data.")
+        tempDir = './temp_data'
+        wget(url = sourcePath, archive_dir = tempDir)
+        driverName = 'Census Shapefile'
+        tempFileName = os.path.normpath(f"./{tempDir}/{os.path.split(sourcePath)[-1]}")
 
     if(driverName == None):
         if(verbose):
@@ -942,13 +978,21 @@ def load_spatial_data(sourcePath, layerName=None, driverName=None, archiveDir=No
 
     if(verbose):
         print("morpc.load_spatial_data | INFO | Reading spatial data...")
+    # Geopandas will throw an error if we attempt to specify a layer name when reading a Shapefile
     if(driverName == "ESRI Shapefile"):
-        # Geopandas will throw an error if we attempt to specify a layer name when reading a Shapefile
         gdf = gpd.read_file(sourcePath, layer=None, driver=driverName, engine="pyogrio", fid_as_index=True)
+
+    # When reading a shapefile from Census FTP site, read the data from temp zip
+    elif(driverName == 'Census Shapefile'):
+        gdf = gpd.read_file(tempFileName, layer=None, driver='ESRI Shapefile', engine='pyogrio', fid_as_index=True)
+        if os.path.exists(tempFileName):
+            os.unlink(tempFileName)
+
+    # Everything else
     else:
         gdf = gpd.read_file(sourcePath, layer=layerName, driver=driverName, engine="pyogrio", fid_as_index=True)
 
-    # When reading a File Geodatabase, Geopandas automatically sets the FID (OBJECTID) field to the index.  
+    # When reading a File Geodatabase, Geopandas automatically sets the FID (OBJECTID) field to the index.
     # In this case, reset the index, preserving the name of this field.
     if(driverName == "OpenFileGDB"):
         gdf.index.name="OBJECTID"
@@ -977,7 +1021,7 @@ def load_spatial_data(sourcePath, layerName=None, driverName=None, archiveDir=No
                 archiveFileName = os.path.splitext(os.path.split(sourcePath)[-1])[0]
                 if(verbose):
                     print("morpc.load_spatial_data | INFO | Using automatically-selected file name: {}".format(archiveFileName)) 
-        
+
         archivePath = os.path.join(archiveDir, "{}.gpkg".format(archiveFileName))
 
         # If the layer name was unspecified (e.g. for Shapefiles), use the file name as the layer name (sans extension)
@@ -986,21 +1030,21 @@ def load_spatial_data(sourcePath, layerName=None, driverName=None, archiveDir=No
         else:
             archiveLayer = archiveFileName
             if(verbose):
-                print("morpc.load_spatial_data | INFO | Layer name is unspecified. Using automatically-selected layer name: {}".format(archiveLayer)) 
+                print("morpc.load_spatial_data | INFO | Layer name is unspecified. Using automatically-selected layer name: {}".format(archiveLayer))
 
         if(verbose):
             print("morpc.load_spatial_data | INFO | Creating archival copy of geospatial layer at {}, layer {}".format(archivePath, archiveLayer))
         gdf.to_file(archivePath, layer=layerName, driver="GPKG")
-    
-    return gdf    
+
+    return gdf
 
 # Assign geographic identifiers
-# Sometimes we have a set of locations and we would like to know what geography (county, zipcode, etc.) they fall in. The 
-# `assign_geo_identifiers()` function takes a set of georeference points and a list of geography levels and determines for each 
+# Sometimes we have a set of locations and we would like to know what geography (county, zipcode, etc.) they fall in. The
+# `assign_geo_identifiers()` function takes a set of georeference points and a list of geography levels and determines for each
 # level which area each point falls in.  The function takes two parameters:
 #  - `points` - a GeoPandas GeoDataFrame consisting of the points of interest
-#  - `geographies` - A Python list of one or more strings in which each element corresponds to a geography level. You can specify as 
-#     many levels as you want from the following list, however note that the function must download the polygons and perform the analysis 
+#  - `geographies` - A Python list of one or more strings in which each element corresponds to a geography level. You can specify as
+#     many levels as you want from the following list, however note that the function must download the polygons and perform the analysis
 #     for each level so if you specify many levels it may take a long time.
 #    - "county" - County (Census TIGER)
 #    - "tract" - *Not currently implemented*
@@ -1026,7 +1070,6 @@ def assign_geo_identifiers(points, geographies):
     import requests
     from io import BytesIO
 
- 
     # Create a copy of the input data so Python doesn't manipulate the original object.
     points = points.copy()
 
@@ -1041,37 +1084,39 @@ def assign_geo_identifiers(points, geographies):
         if(geography == "county"):
             filePath = "https://www2.census.gov/geo/tiger/TIGER2020PL/LAYER/COUNTY/2020/tl_2020_39_county20.zip"
             layerName = None
-            driverName = "ESRI Shapefile"
+            driverName = "Census Shapefile" # Custom driver name for load_spatial_data
             polyIdField = "GEOID20"
         elif(geography == "tract"):
-            print("ERROR: Geography is currently unsupported: {}".format(geography))
-            raise RuntimeError
+            filePath = "https://www2.census.gov/geo/tiger/TIGER2020PL/LAYER/TRACT/2020/tl_2020_39_tract20.zip"
+            layerName = None
+            driverName = "Census Shapefile" # Custom driver name for load_spatial_data
+            polyIdField = "GEOID20"
         elif(geography == "blockgroup"):
             print("ERROR: Geography is currently unsupported: {}".format(geography))
-            raise RuntimeError      
-        elif(geography == "block"):        
+            raise RuntimeError
+        elif(geography == "block"):
             print("ERROR: Geography is currently unsupported: {}".format(geography))
             raise RuntimeError
-        elif(geography == "zcta"):        
+        elif(geography == "zcta"):
             print("ERROR: Geography is currently unsupported: {}".format(geography))
             raise RuntimeError
         elif(geography == "place"):
             filePath = "https://www2.census.gov/geo/tiger/TIGER2020/PLACE/tl_2020_39_place.zip"
             layerName = None
-            driverName = "ESRI Shapefile"
-            polyIdField = "GEOID"               
-        elif(geography == "placecombo"):        
+            driverName = "Census Shapefile"
+            polyIdField = "GEOID"
+        elif(geography == "placecombo"):
             print("ERROR: Geography is currently unsupported: {}".format(geography))
-            raise RuntimeError                
+            raise RuntimeError
         elif(geography == "juris"):
             print("ERROR: Geography is currently unsupported: {}".format(geography))
-            raise RuntimeError        
+            raise RuntimeError
         elif(geography == "region15County"):
             print("ERROR: Geography is currently unsupported: {}".format(geography))
             raise RuntimeError
         elif(geography == "region10County"):
             print("ERROR: Geography is currently unsupported: {}".format(geography))
-            raise RuntimeError      
+            raise RuntimeError
         elif(geography == "regionCORPO"):
             print("ERROR: Geography is currently unsupported: {}".format(geography))
             raise RuntimeError
@@ -1081,11 +1126,8 @@ def assign_geo_identifiers(points, geographies):
         else:
             print("morpc.load_spatial_data | ERROR | Geography is unknown: {}".format(geography))
             raise RuntimeError
-        
-        # Read the polygon data
-        r = requests.get(filePath, headers = {"User-Agent": "Firefox"})
-        polys = pyogrio.read_dataframe(BytesIO(r.content))
-        # polys = gpd.read_file(filePath, layer=layerName, driver=driverName) # Return 403 due to changes in Census website
+
+        polys = load_spatial_data(sourcePath = filePath, layerName = layerName, verbose=False)
 
         # Extract only the fields containing the polygon geometries and the unique IDs. Rename the unique ID field
         # using the following format "id_{}".format(geography), for example "id_county" for the "county" geography level
@@ -1095,29 +1137,29 @@ def assign_geo_identifiers(points, geographies):
 
         # Spatially join the polygon unique IDs to the points
         points = points.sjoin(polys.to_crs(points.crs), how="left")
-        
+
         # Drop the index field from the polygon data
-        points = points.drop(columns="index_right")
+        points = points.loc[:, ~points.columns.str.startswith('fid_')]
     return points
 
-# The following function performs "bucket rounding" on a pandas Series object.  Bucket rounding 
-# refers to a rounding technique for a series of data in which each element 
-# is rounded to the specified number of digits in such a way that the sum of the series is 
-# preserved. For example, a model may produce non-integer population values for small 
-# geographies such as GridMAZ. Population must be an integer, and therefore the population for
-# each GridMAZ must be rounded. Bucket rounding ensures that the rounding error resulting from 
-# each of tens of thousands of individual GridMAZ does not accumulate and cause significant 
-# error for combined population of all GridMAZ.
+
 def round_preserve_sum(inputValues, digits=0, verbose=False):
     """
-    TODO: add docstring
+    The following function performs "bucket rounding" on a pandas Series object.  Bucket rounding
+    refers to a rounding technique for a series of data in which each element
+    is rounded to the specified number of digits in such a way that the sum of the series is
+    preserved. For example, a model may produce non-integer population values for small
+    geographies such as GridMAZ. Population must be an integer, and therefore the population for
+    each GridMAZ must be rounded. Bucket rounding ensures that the rounding error resulting from
+    each of tens of thousands of individual GridMAZ does not accumulate and cause significant
+    error for combined population of all GridMAZ.
     """
     import math
     import pandas as pd
 
     # Make a copy of the input so that we avoid altering it due to chains or views.
     inputValuesCopy = inputValues.copy()
-    
+
     # Create a new numerical index that is used exclusively within this function.  This is necessary due to some
     # nuances of the implementation that use the indices of the records with the largest fractional values to
     # allocate residuals.  Original index will be restored before series is returned.
@@ -1129,14 +1171,14 @@ def round_preserve_sum(inputValues, digits=0, verbose=False):
 
     # Extract a series using the new index.
     rawValues = outputValues.drop(columns=previousIndexName).iloc[:,0]
-  
+
     # Compute a multiplier to be used to "inflate" the series such that the desired decimal digit ends up in the ones place so we can 
     # truncate the values to the ones place using floor
     multiplier = 10**digits
 
     # Compute the "inflated" values
     inflatedValues = rawValues * multiplier
-  
+
     # Truncate the values to the ones place
     truncatedValues = inflatedValues.apply(lambda x:math.floor(x))
 
@@ -1144,19 +1186,19 @@ def round_preserve_sum(inputValues, digits=0, verbose=False):
     # Note: Floating point arithmetic results in extraneous decimal places due to high-precision rounding error, however this 
     # should be insignificant for our purposes.
     residual = (inflatedValues-truncatedValues).round(10)
-    
-    # Create an array of the indices of the datapoints in ascending order according to their residual, i.e. the first element in 
-    # this array is the index of the datapoint with the smallest residual and the last element is the index of the datapoint with 
+
+    # Create an array of the indices of the datapoints in ascending order according to their residual, i.e. the first element in
+    # this array is the index of the datapoint with the smallest residual and the last element is the index of the datapoint with
     # the largest residual.
     residualOrder = residual.sort_values().index
-    
+
     # Compute the overall residual, i.e. the difference between the sum of the full values and the sum of the truncated values
-    # Note: Floating point arithmetic results in extraneous decimal places due to high-precision rounding error, however this 
+    # Note: Floating point arithmetic results in extraneous decimal places due to high-precision rounding error, however this
     # should be insignificant for our purposes.
     overallResidual = inflatedValues.sum() - truncatedValues.sum()
-    
-    # Round the overall residual to determine the combined number of integer units that need to be reallocated. For example, if the 
-    # series represents population, these units represent the "whole" people that were formed from the "partial" people that were 
+
+    # Round the overall residual to determine the combined number of integer units that need to be reallocated. For example, if the
+    # series represents population, these units represent the "whole" people that were formed from the "partial" people that were
     # removed from each individual record via the truncation.
     unitsToReallocate = round(overallResidual)
 
@@ -1164,12 +1206,12 @@ def round_preserve_sum(inputValues, digits=0, verbose=False):
     adjustedValues = truncatedValues.copy()
     if(unitsToReallocate > 0):
 
-        # First, select the indices for the N records with the largest residuals, where N is the number of integer units available for 
+        # First, select the indices for the N records with the largest residuals, where N is the number of integer units available for
         # reallocation.
         indicesToReceiveReallocatedUnit = residualOrder[-unitsToReallocate:]
 
         # Reallocate one unit to each record selected to receive one
-        adjustedValues[indicesToReceiveReallocatedUnit] = adjustedValues[indicesToReceiveReallocatedUnit] + 1       
+        adjustedValues[indicesToReceiveReallocatedUnit] = adjustedValues[indicesToReceiveReallocatedUnit] + 1
 
     # Undo the inflation that we did at the beginning.  This completes the bucket rounding process.
     bucketRoundedValues = (adjustedValues/multiplier).astype("int")
@@ -1189,7 +1231,7 @@ def round_preserve_sum(inputValues, digits=0, verbose=False):
         print("Indices of records to receive reallocated units: {}".format(indicesToReceiveReallocatedUnit.tolist()))
         print("Adjusted values (still inflated): {}".format(adjustedValues.tolist()))
         print("Bucket-rounded values (deflated): {}".format(outputValues.tolist()))
-  
+
     return(outputValues)
 
 
@@ -1198,10 +1240,10 @@ def round_preserve_sum(inputValues, digits=0, verbose=False):
 # for groups using group names from a specified column.
 #
 # Parameters:
-# 
+#
 # inputDf is a pandas DataFrame with a column containing the values and (optionally) 
 # a column containing the group labels
-# 
+#
 # valueField is the name of the column of inputDf that contains the values. This may 
 # be omitted if the DataFrame contains only one column.
 #
