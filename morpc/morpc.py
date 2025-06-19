@@ -196,7 +196,7 @@ SUMLEVEL_DESCRIPTIONS = {
         "plural":"states",
         "hierarchy_string":"STATE",
         "authority":"census",
-        "idField":"STATEID",
+        "idField":"STATEFP",
         "nameField":"STATE"
     },   
     '050': {
@@ -204,7 +204,7 @@ SUMLEVEL_DESCRIPTIONS = {
         "plural":"counties",
         "hierarchy_string":"COUNTY",
         "authority":"census",
-        "idField":"COUNTYID",
+        "idField":"COUNTYFP",
         "nameField":"COUNTY"
     },
     '060': {
@@ -212,7 +212,7 @@ SUMLEVEL_DESCRIPTIONS = {
         "plural":"county subdivisions",
         "hierarchy_string":"COUNTY-COUSUB",
         "authority":"census",
-        "idField":"COUSUBID",
+        "idField":"COUSUBFP",
         "nameField":"COUSUB"
     },
     '070': {
@@ -230,24 +230,24 @@ SUMLEVEL_DESCRIPTIONS = {
         "plural":"census blocks",
         "hierarchy_string":"COUNTY-TRACT-BG-BLOCK",
         "authority":"census",
-        "idField":"BLOCKID",
-        "nameField":"BLOCK"
+        "idField":"BLOCKCE",
+        "nameField":None
     },    
     '140': {
         "singular":"tract",
         "plural":"tracts",
         "hierarchy_string":"COUNTY-TRACT",
         "authority":"census",
-        "idField":"TRACTID",
-        "nameField":"TRACT"
+        "idField":"TRACTCE",
+        "nameField":None
     },
     '150': {
         "singular":"block group",
         "plural":"block groups",
         "hierarchy_string":"COUNTY-TRACT-BG",
         "authority":"census",
-        "idField":"BLOCKGROUPID",
-        "nameField":"BLOCKGROUP"
+        "idField":"BLKGRPCE",
+        "nameField":None
     },
     '155': {
         "singular":"place county part",
@@ -262,7 +262,7 @@ SUMLEVEL_DESCRIPTIONS = {
         "plural":"places",
         "hierarchy_string":"PLACE",
         "authority":"census",
-        "idField":"PLACEID",
+        "idField":"PLACEFP",
         "nameField":"PLACE"
     },        
     '310': {
@@ -270,7 +270,7 @@ SUMLEVEL_DESCRIPTIONS = {
         "plural":"metro areas",
         "hierarchy_string":"CBSA",
         "authority":"census",
-        "idField":"CBSAID",
+        "idField":"CBSAFP",
         "nameField":"CBSA"
     },
     '400': {
@@ -278,7 +278,7 @@ SUMLEVEL_DESCRIPTIONS = {
         "plural":"urban areas",
         "hierarchy_string":"URBANAREA",
         "authority":"census",
-        "idField":"URBANAREAID",
+        "idField":"UACE",
         "nameField":"URBANAREA"
     },
     '500': {
@@ -286,7 +286,7 @@ SUMLEVEL_DESCRIPTIONS = {
         "plural":"congressional districts",
         "hierarchy_string":"CONGRESS",
         "authority":"census",
-        "idField":"CONGRESSID",
+        "idField":"CDFP",  # Census uses CDNNNFP where NNN is the congressional session number
         "nameField":"CONGRESS"
     },    
     '610': {
@@ -294,23 +294,23 @@ SUMLEVEL_DESCRIPTIONS = {
         "plural":"state senate districts",
         "hierarchy_string":"STATESENATE",
         "authority":"census",
-        "idField":"STATESENATEID",
-        "nameField":"STATESENATE"
+        "idField":"SLDUST",
+        "nameField":None
     },
     '620': {
         "singular":"state house district",
         "plural":"state house districts",
         "hierarchy_string":"STATEHOUSE",
         "authority":"census",
-        "idField":"STATEHOUSEID",
-        "nameField":"STATEHOUSE"
+        "idField":"SLDLST",
+        "nameField":None
     },
     '795': {
         "singular":"public use microdata area",
         "plural":"public use microdata areas",
         "hierarchy_string":"PUMA",
         "authority":"census",
-        "idField":"PUMAID",
+        "idField":"PUMACE",
         "nameField":"PUMA"
     },
     '850': {
@@ -318,7 +318,7 @@ SUMLEVEL_DESCRIPTIONS = {
         "plural":"zip code tabulation areas",
         "hierarchy_string":"ZCTA3",
         "authority":"census",
-        "idField":"ZCTA3",
+        "idField":"ZCTA3CE",
         "nameField":None
     },    
     '860': {
@@ -326,7 +326,7 @@ SUMLEVEL_DESCRIPTIONS = {
         "plural":"zip code tabulation area",
         "hierarchy_string":"ZCTA5",
         "authority":"census",
-        "idField":"ZCTA5",
+        "idField":"ZCTA5CE",
         "nameField":None
     },
     '930': {
@@ -340,25 +340,25 @@ SUMLEVEL_DESCRIPTIONS = {
     '950': {
         "singular":"elementary school district",
         "plural":"elementary school districts",
-        "hierarchy_string":"SDELEM",
+        "hierarchy_string":"ELSD",
         "authority":"census",
-        "idField":"SCHOOLDELEMID",
+        "idField":"ELSDLEA",
         "nameField":"SCHOOLDELEM"
     },
     '960': {
         "singular":"high school district",
         "plural":"high school districts",
-        "hierarchy_string":"SDHIGH",
+        "hierarchy_string":"SCSD",
         "authority":"census",
-        "idField":"SCHOOLDHIGHID",
+        "idField":"SCSDLEA",
         "nameField":"SCHOOLDHIGH"
     },
     '970': {
         "singular":"unified school district",
         "plural":"unified school districts",
-        "hierarchy_string":"SDUNIFIED",
+        "hierarchy_string":"UNSD",
         "authority":"census",
-        "idField":"SCHOOLDID",
+        "idField":"UNSDLEA",
         "nameField":"SCHOOLD"
     },
     'M01': {
@@ -446,7 +446,7 @@ SUMLEVEL_DESCRIPTIONS = {
         "plural":"Traffic analysis zones",
         "hierarchy_string":"COUNTY-TAZ",
         "authority":"morpc",
-        "idField":"TAZ",
+        "idField":"TAZ2020",
         "nameField":None
     },
     'M21': {
@@ -454,7 +454,7 @@ SUMLEVEL_DESCRIPTIONS = {
         "plural":"Micro analysis zones",
         "hierarchy_string":"COUNTY-TAZ-MAZ",
         "authority":"morpc",
-        "idField":"MAZ",
+        "idField":"MAZ2020",
         "nameField":None
     },    
     'M22': {
@@ -462,7 +462,7 @@ SUMLEVEL_DESCRIPTIONS = {
         "plural":"GridMAZ zones",
         "hierarchy_string":"COUNTY-TAZ-MAZ-GRIDMAZ",
         "authority":"morpc",
-        "idField":"GridMAZ",
+        "idField":"GridMAZ20",
         "nameField":None
     },        
 }
@@ -473,7 +473,6 @@ SUMLEVEL_DESCRIPTIONS = {
 # GRID1MILE
 # GRIDQUARTERMILE
 # COUNTY-COUSUB-SCD
-# COUNTY-TRACT-BG-BLOCK
 # RESBLOB
 # EMPBLOB
 # GQBLOB
