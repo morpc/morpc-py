@@ -36,7 +36,7 @@ def name_to_desc_map(schema):
 
 # Given a dataframe and the Frictionless Schema object (see load_schema), recast each of the fields in the 
 # dataframe to the data type specified in the schema.    
-def cast_field_types(df, schema, forceInteger=False, handleMissingFields="error", verbose=True):
+def cast_field_types(df, schema, forceInteger=False, forceInt64=False, handleMissingFields="error", verbose=True):
     import frictionless
     import pandas as pd
     import shapely
@@ -64,8 +64,13 @@ def cast_field_types(df, schema, forceInteger=False, handleMissingFields="error"
         # the field must be cast as "Int64" instead.
         if((fieldType == "int") or (fieldType == "integer")):
             try:
-                # Try to cast the field as an "int".  This will fail if nulls are present.
-                outDF[fieldName] = outDF[fieldName].astype("int")
+                if(forceInt64 == True):
+                    # Cast all integer fields as Int64 whether this is necessary or not.  This is useful when trying to merge
+                    # dataframes with mixed int32 and Int64 values.
+                    outDF[fieldName] = outDF[fieldName].astype("Int64")
+                else:
+                    # Try to cast the field as an "int".  This will fail if nulls are present.
+                    outDF[fieldName] = outDF[fieldName].astype("int")
             except:
                 try:
                     # Try to cast as "Int64", which supports nulls. This will fail if the fractional part is non-zero.
@@ -472,7 +477,7 @@ def validate_resource(resourcePath, verbose=True):
             print(results)
         return False
 
-def load_data(resourcePath, archiveDir=None, validate=False, verbose=True):
+def load_data(resourcePath, archiveDir=None, validate=False, forceInteger=False, forceInt64=False, verbose=True):
     """Often we want to make a copy of some input data and work with the copy, for example to protect 
     the original data or to create an archival copy of it so that we can replicate the process later.  
     The `load_data()` function simplifies the process of reading the data and 
@@ -488,6 +493,15 @@ def load_data(resourcePath, archiveDir=None, validate=False, verbose=True):
     validate : bool
         Optional. If True, the resource file, schema file, and data file will be validated.  If archiveDir is
         specified, the copies of the files will be validated.  If not, the original files will be validated.
+        Defaults to False.
+    forceInteger : bool
+        Optional. If True, then try harder to cast integer fields.  This may involve rounding the values to the ones places.
+        Defaults to False.
+    forceInt64 : bool
+        Optional. If True, then cast all integer fields as Int64 regardless of whether this is necessary.  This is useful
+        when trying to merge dataframes which would otherwise have mixed int32 and Int64 fields. Defaults to False.
+    verbose : bool
+        Optional.  If False, then most output will be suppressed.  Defaults to True.
 
     Returns
     -------
@@ -559,7 +573,7 @@ def load_data(resourcePath, archiveDir=None, validate=False, verbose=True):
         print("morpc.load_data | ERROR | Unknown data file extension: {}".format(dataFileExtension))
         raise RuntimeError
 
-    df = cast_field_types(df, resource.schema, verbose=verbose)
+    df = cast_field_types(df, resource.schema, forceInteger=forceInteger, forceInt64=forceInt64, verbose=verbose)
     
     return df, resource, resource.schema
 

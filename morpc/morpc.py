@@ -196,7 +196,7 @@ SUMLEVEL_DESCRIPTIONS = {
         "plural":"states",
         "hierarchy_string":"STATE",
         "authority":"census",
-        "idField":"STATEID",
+        "idField":"STATEFP",
         "nameField":"STATE"
     },
     '050': {
@@ -204,7 +204,7 @@ SUMLEVEL_DESCRIPTIONS = {
         "plural":"counties",
         "hierarchy_string":"COUNTY",
         "authority":"census",
-        "idField":"COUNTYID",
+        "idField":"COUNTYFP",
         "nameField":"COUNTY"
     },
     '060': {
@@ -212,7 +212,7 @@ SUMLEVEL_DESCRIPTIONS = {
         "plural":"county subdivisions",
         "hierarchy_string":"COUNTY-COUSUB",
         "authority":"census",
-        "idField":"COUSUBID",
+        "idField":"COUSUBFP",
         "nameField":"COUSUB"
     },
     '070': {
@@ -230,24 +230,24 @@ SUMLEVEL_DESCRIPTIONS = {
         "plural":"census blocks",
         "hierarchy_string":"COUNTY-TRACT-BG-BLOCK",
         "authority":"census",
-        "idField":"BLOCKID",
-        "nameField":"BLOCK"
-    },
+        "idField":"BLOCKCE",
+        "nameField":None
+    },    
     '140': {
         "singular":"tract",
         "plural":"tracts",
         "hierarchy_string":"COUNTY-TRACT",
         "authority":"census",
-        "idField":"TRACTID",
-        "nameField":"TRACT"
+        "idField":"TRACTCE",
+        "nameField":None
     },
     '150': {
         "singular":"block group",
         "plural":"block groups",
         "hierarchy_string":"COUNTY-TRACT-BG",
         "authority":"census",
-        "idField":"BLOCKGROUPID",
-        "nameField":"BLOCKGROUP"
+        "idField":"BLKGRPCE",
+        "nameField":None
     },
     '155': {
         "singular":"place county part",
@@ -262,7 +262,7 @@ SUMLEVEL_DESCRIPTIONS = {
         "plural":"places",
         "hierarchy_string":"PLACE",
         "authority":"census",
-        "idField":"PLACEID",
+        "idField":"PLACEFP",
         "nameField":"PLACE"
     },
     '310': {
@@ -270,7 +270,7 @@ SUMLEVEL_DESCRIPTIONS = {
         "plural":"metro areas",
         "hierarchy_string":"CBSA",
         "authority":"census",
-        "idField":"CBSAID",
+        "idField":"CBSAFP",
         "nameField":"CBSA"
     },
     '400': {
@@ -278,7 +278,7 @@ SUMLEVEL_DESCRIPTIONS = {
         "plural":"urban areas",
         "hierarchy_string":"URBANAREA",
         "authority":"census",
-        "idField":"URBANAREAID",
+        "idField":"UACE",
         "nameField":"URBANAREA"
     },
     '500': {
@@ -286,7 +286,7 @@ SUMLEVEL_DESCRIPTIONS = {
         "plural":"congressional districts",
         "hierarchy_string":"CONGRESS",
         "authority":"census",
-        "idField":"CONGRESSID",
+        "idField":"CDFP",  # Census uses CDNNNFP where NNN is the congressional session number
         "nameField":"CONGRESS"
     },
     '610': {
@@ -294,23 +294,23 @@ SUMLEVEL_DESCRIPTIONS = {
         "plural":"state senate districts",
         "hierarchy_string":"STATESENATE",
         "authority":"census",
-        "idField":"STATESENATEID",
-        "nameField":"STATESENATE"
+        "idField":"SLDUST",
+        "nameField":None
     },
     '620': {
         "singular":"state house district",
         "plural":"state house districts",
         "hierarchy_string":"STATEHOUSE",
         "authority":"census",
-        "idField":"STATEHOUSEID",
-        "nameField":"STATEHOUSE"
+        "idField":"SLDLST",
+        "nameField":None
     },
     '795': {
         "singular":"public use microdata area",
         "plural":"public use microdata areas",
         "hierarchy_string":"PUMA",
         "authority":"census",
-        "idField":"PUMAID",
+        "idField":"PUMACE",
         "nameField":"PUMA"
     },
     '850': {
@@ -318,7 +318,7 @@ SUMLEVEL_DESCRIPTIONS = {
         "plural":"zip code tabulation areas",
         "hierarchy_string":"ZCTA3",
         "authority":"census",
-        "idField":"ZCTA3",
+        "idField":"ZCTA3CE",
         "nameField":None
     },
     '860': {
@@ -326,7 +326,7 @@ SUMLEVEL_DESCRIPTIONS = {
         "plural":"zip code tabulation area",
         "hierarchy_string":"ZCTA5",
         "authority":"census",
-        "idField":"ZCTA5",
+        "idField":"ZCTA5CE",
         "nameField":None
     },
     '930': {
@@ -340,25 +340,25 @@ SUMLEVEL_DESCRIPTIONS = {
     '950': {
         "singular":"elementary school district",
         "plural":"elementary school districts",
-        "hierarchy_string":"SDELEM",
+        "hierarchy_string":"ELSD",
         "authority":"census",
-        "idField":"SCHOOLDELEMID",
+        "idField":"ELSDLEA",
         "nameField":"SCHOOLDELEM"
     },
     '960': {
         "singular":"high school district",
         "plural":"high school districts",
-        "hierarchy_string":"SDHIGH",
+        "hierarchy_string":"SCSD",
         "authority":"census",
-        "idField":"SCHOOLDHIGHID",
+        "idField":"SCSDLEA",
         "nameField":"SCHOOLDHIGH"
     },
     '970': {
         "singular":"unified school district",
         "plural":"unified school districts",
-        "hierarchy_string":"SDUNIFIED",
+        "hierarchy_string":"UNSD",
         "authority":"census",
-        "idField":"SCHOOLDID",
+        "idField":"UNSDLEA",
         "nameField":"SCHOOLD"
     },
     'M01': {
@@ -446,7 +446,7 @@ SUMLEVEL_DESCRIPTIONS = {
         "plural":"Traffic analysis zones",
         "hierarchy_string":"COUNTY-TAZ",
         "authority":"morpc",
-        "idField":"TAZ",
+        "idField":"TAZ2020",
         "nameField":None
     },
     'M21': {
@@ -454,7 +454,7 @@ SUMLEVEL_DESCRIPTIONS = {
         "plural":"Micro analysis zones",
         "hierarchy_string":"COUNTY-TAZ-MAZ",
         "authority":"morpc",
-        "idField":"MAZ",
+        "idField":"MAZ2020",
         "nameField":None
     },
     'M22': {
@@ -462,7 +462,7 @@ SUMLEVEL_DESCRIPTIONS = {
         "plural":"GridMAZ zones",
         "hierarchy_string":"COUNTY-TAZ-MAZ-GRIDMAZ",
         "authority":"morpc",
-        "idField":"GridMAZ",
+        "idField":"GridMAZ20",
         "nameField":None
     },
 }
@@ -473,7 +473,6 @@ SUMLEVEL_DESCRIPTIONS = {
 # GRID1MILE
 # GRIDQUARTERMILE
 # COUNTY-COUSUB-SCD
-# COUNTY-TRACT-BG-BLOCK
 # RESBLOB
 # EMPBLOB
 # GQBLOB
@@ -817,7 +816,7 @@ def avro_map_from_first_alias(schema):
     return fieldMap
 
 # Wrapper for backward compatibility
-def cast_field_types(df, schema, forceInteger=False, handleMissingFields='error', verbose=True):
+def cast_field_types(df, schema, forceInteger=False, forceInt64=False, handleMissingFields='error', verbose=True):
     """
     Wrapper for backward compatibility with AVRO Schema
 
@@ -825,15 +824,15 @@ def cast_field_types(df, schema, forceInteger=False, handleMissingFields='error'
     import morpc
     # If schema is a dict object, assume it is in Avro format
     if(type(schema) == dict):
-        outDF = avro_cast_field_types(df, schema, forceInteger=forceInteger, verbose=verbose)
+        outDF = avro_cast_field_types(df, schema, forceInteger=forceInteger, forceInt64=forceInt64, verbose=verbose)
     # Otherwise, assume it is in Frictionless format
     else:
-        outDF = morpc.frictionless.cast_field_types(df, schema, forceInteger=forceInteger, handleMissingFields=handleMissingFields, verbose=verbose)
+        outDF = morpc.frictionless.cast_field_types(df, schema, forceInteger=forceInteger, forceInt64=forceInt64, handleMissingFields=handleMissingFields, verbose=verbose)
     return outDF
 
 # Given a dataframe and the Avro dictionary object that describes its schema (see load_avro_schema), recast each of the fields in the dataframe
 # to the data type specified in the schema.    
-def avro_cast_field_types(df, schema, forceInteger=False, verbose=True):
+def avro_cast_field_types(df, schema, forceInteger=False, forceInt64=False, verbose=True):
     outDF = df.copy()
     for field in schema["fields"]:
         fieldName = field["name"]
@@ -844,8 +843,13 @@ def avro_cast_field_types(df, schema, forceInteger=False, verbose=True):
         # the field must be cast as "Int64" instead.
         if((fieldType == "int") or (fieldType == "integer")):
             try:
-                # Try to cast the field as an "int".  This will fail if nulls are present.
-                outDF[fieldName] = outDF[fieldName].astype(fieldType)
+                if(forceInt64 == True):
+                    # Cast all integer fields as Int64 whether this is necessary or not.  This is useful when trying to merge
+                    # dataframes with mixed int32 and Int64 values.
+                    outDF[fieldName] = outDF[fieldName].astype("Int64")
+                else:
+                    # Try to cast the field as an "int".  This will fail if nulls are present.
+                    outDF[fieldName] = outDF[fieldName].astype("int")
             except:
                 try:
                     # Try to cast as "Int64", which supports nulls. This will fail if the fractional part is non-zero.
@@ -1037,6 +1041,139 @@ def load_spatial_data(sourcePath, layerName=None, driverName=None, archiveDir=No
         gdf.to_file(archivePath, layer=layerName, driver="GPKG")
 
     return gdf
+
+# Load tabular data
+def load_tabular_data(sourcePath, sheetName=None, fileType=None, archiveDir=None, archiveFileName=None, verbose=True, sep=None, encoding=None):
+    """Often we want to make a copy of some input data and work with the copy, for example to protect 
+    the original data or to create an archival copy of it so that we can replicate the process later.  
+    The `load_tabular_data()` function simplifies the process of reading the data and (optionally) making 
+    an archival copy.
+    
+    Example usage: df = morpc.load_tabular_data("somefile.xlsx", sheetName="Sheet1", archiveDir="./input_data"))
+
+    Parameters
+    ----------
+    sourcePath : str
+        The path to the tabular data. It may be a file path or URL.
+    sheetName : str
+        Optional. The name of the sheet that you wish to extract from an Excel workbook.  If unspecified, the
+        function will read the first sheet in the workbook.
+    fileType : str
+        Optional. One of "csv" or "xlsx" or "xls". If unspecified, the function will attempt to infer from sourcePath.
+    archiveDir : str
+        Optional. The path to the directory where a copy of a data should be archived.  If this is specified, 
+        the data will be copied to this location.
+    archiveFileName : str
+        Optional. If `archiveDir` is specified, you may use this to specify the name of the archived file.
+        If this is unspecified, the function will preserve the original filename as-is.
+    verbose : bool
+        Set verbose to False to reduce the text output from the function.
+    sep : str
+        Optional. Delimiter to use for delimited text files.  Defaults to "," (i.e. CSV file).  Tabs ("\t")
+        and pipes ("|") are also common.
+    encoding : str
+        Optional. Character encoding to use for delimited text files. Defaults to "utf-8" which works in most cases.
+        Sometimes other encodings are required. Notably, Census PEP tables require the "ISO-8859-1" encoding.
+
+    Returns
+    -------
+    df : pandas.core.frame.DataFrame
+        A Pandas GeoDataframe constructed from the data at the location specified by sourcePath and sheetName
+
+    """
+
+    import pandas as pd
+    import os
+
+    if(verbose):
+        print("morpc.load_tabular_data | INFO | Loading tabular data from location: {}".format(sourcePath))
+
+    # Due to changes at the Census pd.read_csv(), pd.read_excel(), and requests.get() are blocked. Using wget as work around.
+    if sourcePath.find('www2.census.gov') > -1:
+        if(verbose):
+            print("morpc.load_tabular_data | INFO | Attempting to load data from Census FTP site. Using wget to retrieve file.")
+            print("morpc.load_tabular_data | WARNING | Data from Census FTP must be temp saved. Using ./temp_data.")
+        tempDir = os.path.normpath('./temp_data')
+        if not os.path.exists(tempDir):
+            os.makedirs(tempDir)
+        wget(url = sourcePath, archive_dir = tempDir)
+        sourcePath = os.path.join(tempDir, os.path.split(sourcePath)[-1])
+
+    if(fileType == None):
+        if(verbose):
+            print("morpc.load_tabular_data | INFO | File type is unspecified.  Will attempt to infer file type from file extension in source path.")
+        fileExt = os.path.splitext(sourcePath)[1]
+        if(fileExt == ".csv"):
+            fileType = "csv"
+        elif(fileExt == ".xlsx"):
+            fileType = "xlsx"
+        elif(fileExt == ".xls"):
+            fileType = "xls"
+        else:
+            print("morpc.load_tabular_data | ERROR | File extension is unsupported: {}.".format(fileExt))
+            raise RuntimeError
+        if(verbose):
+            print("morpc.load_tabular_data | INFO | Selecting file type {} based on file extension {}".format(fileType, fileExt))
+    else:
+        if(verbose):
+            print("morpc.load_tabular_data | INFO | Using file type {} as specified by user.".format(fileType))
+
+    if("sheetName") == None:
+        if(fileType == "xlsx" or fileType == "xls"):
+            print("morpc.load_tabular_data | WARNING | Sheet name was not specified. Will load first sheet in workbook.")
+
+    if(verbose):
+        print("morpc.load_tabular_data | INFO | Reading tabular data...")
+
+    if(fileType == "csv"):
+        df = pd.read_csv(sourcePath, sep=sep, encoding=encoding)
+    elif(fileType == "xlsx" or fileType == "xls"):
+        df = pd.read_excel(sourcePath, sheet_name=sheetName)        
+    else:
+        print("morpc.load_tabular_data | ERROR | File type {} is not handled. Troubleshoot function.".format(fileType))
+        raise RuntimeError
+
+    # If the user has specified an archive directory, create an archival copy of the data
+    if(archiveDir != None):
+        # If no file name was specified, we need to assign one
+        if(archiveFileName) == None:
+            # First try to determine whether we are retrieving data from an API. In this case we may not be able to extract
+            # a file name from the source path.  Specifically, look for a "?" character in the path. This is forbidden in
+            # Windows file paths and suggests that a query string is present.
+            if(sourcePath.find("?") > -1):
+                if(verbose):
+                    print("morpc.load_tabular_data | INFO | File name is unspecified and source path appears to be an API query. Will assign an alternate file name.")
+                # If the sheet name is specified, use that as the file name. Otherwise use a generic file name.
+                if(sheetName != None):
+                    archiveFileName = "{0}.{1}".format(sheetName, fileType)
+                else:
+                    archiveFileName == "tabularData.{}".format(fileType)
+
+            # If the source path doesn't look like an API query, then attempt to extract the file name from the path
+            else:
+                if(verbose):
+                    print("morpc.load_tabular_data | INFO | File name is unspecified.  Will infer file name from source path.")
+                archiveFileName = os.path.split(sourcePath)[-1]
+                if(verbose):
+                    print("morpc.load_tabular_data | INFO | Using automatically-selected file name: {}".format(archiveFileName)) 
+
+        archivePath = os.path.join(archiveDir, archiveFileName)
+
+        if(verbose):
+            print("morpc.load_tabular_data | INFO | Creating archival copy of tabular data at {}".format(archivePath))
+        if(fileType == "csv"):
+            df.to_csv(archivePath, sep=sep, encoding=encoding, index=False)
+        elif(fileType == "xlsx" or fileType == "xls"):
+            df.to_excel(archivePath, sheet_name=sheetName, index=False)
+        else:
+            print("morpc.load_tabular_data | ERROR | File type {} is not handled. Troubleshoot function.".format(fileType))
+            raise RuntimeError
+            
+        if(tempDir):
+            print("morpc.load_tabular_data | INFO | Removing temporary directory for Census file: {}".format(tempDir))
+            #shutil.rmtree(tempDir)
+
+    return df
 
 # Assign geographic identifiers
 # Sometimes we have a set of locations and we would like to know what geography (county, zipcode, etc.) they fall in. The
