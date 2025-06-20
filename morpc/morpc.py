@@ -1042,6 +1042,139 @@ def load_spatial_data(sourcePath, layerName=None, driverName=None, archiveDir=No
 
     return gdf
 
+# Load tabular data
+def load_tabular_data(sourcePath, sheetName=None, fileType=None, archiveDir=None, archiveFileName=None, verbose=True, sep=None, encoding=None):
+    """Often we want to make a copy of some input data and work with the copy, for example to protect 
+    the original data or to create an archival copy of it so that we can replicate the process later.  
+    The `load_tabular_data()` function simplifies the process of reading the data and (optionally) making 
+    an archival copy.
+    
+    Example usage: df = morpc.load_tabular_data("somefile.xlsx", sheetName="Sheet1", archiveDir="./input_data"))
+
+    Parameters
+    ----------
+    sourcePath : str
+        The path to the tabular data. It may be a file path or URL.
+    sheetName : str
+        Optional. The name of the sheet that you wish to extract from an Excel workbook.  If unspecified, the
+        function will read the first sheet in the workbook.
+    fileType : str
+        Optional. One of "csv" or "xlsx" or "xls". If unspecified, the function will attempt to infer from sourcePath.
+    archiveDir : str
+        Optional. The path to the directory where a copy of a data should be archived.  If this is specified, 
+        the data will be copied to this location.
+    archiveFileName : str
+        Optional. If `archiveDir` is specified, you may use this to specify the name of the archived file.
+        If this is unspecified, the function will preserve the original filename as-is.
+    verbose : bool
+        Set verbose to False to reduce the text output from the function.
+    sep : str
+        Optional. Delimiter to use for delimited text files.  Defaults to "," (i.e. CSV file).  Tabs ("\t")
+        and pipes ("|") are also common.
+    encoding : str
+        Optional. Character encoding to use for delimited text files. Defaults to "utf-8" which works in most cases.
+        Sometimes other encodings are required. Notably, Census PEP tables require the "ISO-8859-1" encoding.
+
+    Returns
+    -------
+    df : pandas.core.frame.DataFrame
+        A Pandas GeoDataframe constructed from the data at the location specified by sourcePath and sheetName
+
+    """
+
+    import pandas as pd
+    import os
+
+    if(verbose):
+        print("morpc.load_tabular_data | INFO | Loading tabular data from location: {}".format(sourcePath))
+
+    # Due to changes at the Census pd.read_csv(), pd.read_excel(), and requests.get() are blocked. Using wget as work around.
+    if sourcePath.find('www2.census.gov') > -1:
+        if(verbose):
+            print("morpc.load_tabular_data | INFO | Attempting to load data from Census FTP site. Using wget to retrieve file.")
+            print("morpc.load_tabular_data | WARNING | Data from Census FTP must be temp saved. Using ./temp_data.")
+        tempDir = os.path.normpath('./temp_data')
+        if not os.path.exists(tempDir):
+            os.makedirs(tempDir)
+        wget(url = sourcePath, archive_dir = tempDir)
+        sourcePath = os.path.join(tempDir, os.path.split(sourcePath)[-1])
+
+    if(fileType == None):
+        if(verbose):
+            print("morpc.load_tabular_data | INFO | File type is unspecified.  Will attempt to infer file type from file extension in source path.")
+        fileExt = os.path.splitext(sourcePath)[1]
+        if(fileExt == ".csv"):
+            fileType = "csv"
+        elif(fileExt == ".xlsx"):
+            fileType = "xlsx"
+        elif(fileExt == ".xls"):
+            fileType = "xls"
+        else:
+            print("morpc.load_tabular_data | ERROR | File extension is unsupported: {}.".format(fileExt))
+            raise RuntimeError
+        if(verbose):
+            print("morpc.load_tabular_data | INFO | Selecting file type {} based on file extension {}".format(fileType, fileExt))
+    else:
+        if(verbose):
+            print("morpc.load_tabular_data | INFO | Using file type {} as specified by user.".format(fileType))
+
+    if("sheetName") == None:
+        if(fileType == "xlsx" or fileType == "xls"):
+            print("morpc.load_tabular_data | WARNING | Sheet name was not specified. Will load first sheet in workbook.")
+
+    if(verbose):
+        print("morpc.load_tabular_data | INFO | Reading tabular data...")
+
+    if(fileType == "csv"):
+        df = pd.read_csv(sourcePath, sep=sep, encoding=encoding)
+    elif(fileType == "xlsx" or fileType == "xls"):
+        df = pd.read_excel(sourcePath, sheet_name=sheetName)        
+    else:
+        print("morpc.load_tabular_data | ERROR | File type {} is not handled. Troubleshoot function.".format(fileType))
+        raise RuntimeError
+
+    # If the user has specified an archive directory, create an archival copy of the data
+    if(archiveDir != None):
+        # If no file name was specified, we need to assign one
+        if(archiveFileName) == None:
+            # First try to determine whether we are retrieving data from an API. In this case we may not be able to extract
+            # a file name from the source path.  Specifically, look for a "?" character in the path. This is forbidden in
+            # Windows file paths and suggests that a query string is present.
+            if(sourcePath.find("?") > -1):
+                if(verbose):
+                    print("morpc.load_tabular_data | INFO | File name is unspecified and source path appears to be an API query. Will assign an alternate file name.")
+                # If the sheet name is specified, use that as the file name. Otherwise use a generic file name.
+                if(sheetName != None):
+                    archiveFileName = "{0}.{1}".format(sheetName, fileType)
+                else:
+                    archiveFileName == "tabularData.{}".format(fileType)
+
+            # If the source path doesn't look like an API query, then attempt to extract the file name from the path
+            else:
+                if(verbose):
+                    print("morpc.load_tabular_data | INFO | File name is unspecified.  Will infer file name from source path.")
+                archiveFileName = os.path.split(sourcePath)[-1]
+                if(verbose):
+                    print("morpc.load_tabular_data | INFO | Using automatically-selected file name: {}".format(archiveFileName)) 
+
+        archivePath = os.path.join(archiveDir, archiveFileName)
+
+        if(verbose):
+            print("morpc.load_tabular_data | INFO | Creating archival copy of tabular data at {}".format(archivePath))
+        if(fileType == "csv"):
+            df.to_csv(archivePath, sep=sep, encoding=encoding, index=False)
+        elif(fileType == "xlsx" or fileType == "xls"):
+            df.to_excel(archivePath, sheet_name=sheetName, index=False)
+        else:
+            print("morpc.load_tabular_data | ERROR | File type {} is not handled. Troubleshoot function.".format(fileType))
+            raise RuntimeError
+            
+        if(tempDir):
+            print("morpc.load_tabular_data | INFO | Removing temporary directory for Census file: {}".format(tempDir))
+            #shutil.rmtree(tempDir)
+
+    return df
+
 # Assign geographic identifiers
 # Sometimes we have a set of locations and we would like to know what geography (county, zipcode, etc.) they fall in. The
 # `assign_geo_identifiers()` function takes a set of georeference points and a list of geography levels and determines for each
