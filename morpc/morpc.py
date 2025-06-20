@@ -816,7 +816,7 @@ def avro_map_from_first_alias(schema):
     return fieldMap
 
 # Wrapper for backward compatibility
-def cast_field_types(df, schema, forceInteger=False, handleMissingFields='error', verbose=True):
+def cast_field_types(df, schema, forceInteger=False, forceInt64=False, handleMissingFields='error', verbose=True):
     """
     Wrapper for backward compatibility with AVRO Schema
 
@@ -824,15 +824,15 @@ def cast_field_types(df, schema, forceInteger=False, handleMissingFields='error'
     import morpc
     # If schema is a dict object, assume it is in Avro format
     if(type(schema) == dict):
-        outDF = avro_cast_field_types(df, schema, forceInteger=forceInteger, verbose=verbose)
+        outDF = avro_cast_field_types(df, schema, forceInteger=forceInteger, forceInt64=forceInt64, verbose=verbose)
     # Otherwise, assume it is in Frictionless format
     else:
-        outDF = morpc.frictionless.cast_field_types(df, schema, forceInteger=forceInteger, handleMissingFields=handleMissingFields, verbose=verbose)
+        outDF = morpc.frictionless.cast_field_types(df, schema, forceInteger=forceInteger, forceInt64=forceInt64, handleMissingFields=handleMissingFields, verbose=verbose)
     return outDF
 
 # Given a dataframe and the Avro dictionary object that describes its schema (see load_avro_schema), recast each of the fields in the dataframe
 # to the data type specified in the schema.    
-def avro_cast_field_types(df, schema, forceInteger=False, verbose=True):
+def avro_cast_field_types(df, schema, forceInteger=False, forceInt64=False, verbose=True):
     outDF = df.copy()
     for field in schema["fields"]:
         fieldName = field["name"]
@@ -843,8 +843,13 @@ def avro_cast_field_types(df, schema, forceInteger=False, verbose=True):
         # the field must be cast as "Int64" instead.
         if((fieldType == "int") or (fieldType == "integer")):
             try:
-                # Try to cast the field as an "int".  This will fail if nulls are present.
-                outDF[fieldName] = outDF[fieldName].astype(fieldType)
+                if(forceInt64 == True):
+                    # Cast all integer fields as Int64 whether this is necessary or not.  This is useful when trying to merge
+                    # dataframes with mixed int32 and Int64 values.
+                    outDF[fieldName] = outDF[fieldName].astype("Int64")
+                else:
+                    # Try to cast the field as an "int".  This will fail if nulls are present.
+                    outDF[fieldName] = outDF[fieldName].astype("int")
             except:
                 try:
                     # Try to cast as "Int64", which supports nulls. This will fail if the fractional part is non-zero.
