@@ -1042,9 +1042,6 @@ def load_spatial_data(sourcePath, layerName=None, driverName=None, archiveDir=No
 
     return gdf
 
-<<<<<<< HEAD
-
-=======
 # Load tabular data
 def load_tabular_data(sourcePath, sheetName=None, fileType=None, archiveDir=None, archiveFileName=None, verbose=True, sep=None, encoding=None):
     """Often we want to make a copy of some input data and work with the copy, for example to protect 
@@ -1201,7 +1198,6 @@ def load_tabular_data(sourcePath, sheetName=None, fileType=None, archiveDir=None
 #
 # **NOTE:** Many of the geography levels are not currently implemented.  They are being implemented as they are needed.  If you need one
 # that has not yet been implemented, please contact Adam Porr (or implement it yourself).
->>>>>>> 174a4533c0db49b70d388de36e6ebdbf6969ed1a
 def assign_geo_identifiers(points, geographies):
     """
     Assign geographic identifiers
