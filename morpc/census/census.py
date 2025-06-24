@@ -10,14 +10,20 @@ ACS_ID_FIELDS = {
         {"name":"SUMLEVEL", "type":"string", "description":"Code representing the geographic summary level for the data"},
         {"name":"STATE","type":"string","description":"Unique identifier for state in which geography is located"},
         {"name":"COUNTY","type":"string","description":"Unique identifier for county in which geography is located"},
-        {"name":"TRACT","type":"string","description":"Unique identifier for tract in which geography is located"}       
+        {"name":"TRACT","type":"string","description":"Unique identifier for tract in which geography is located"}
     ],
     "tract": [
         {"name":"GEO_ID", "type":"string", "description":"Unique identifier for geography"},
         {"name":"SUMLEVEL", "type":"string", "description":"Code representing the geographic summary level for the data"},
         {"name":"STATE","type":"string","description":"Unique identifier for state in which geography is located"},
         {"name":"COUNTY","type":"string","description":"Unique identifier for county in which geography is located"}
-    ],    
+    ],
+    "county subdivision": [
+        {"name":"GEO_ID", "type":"string", "description":"Unique identifier for geography"},
+        {"name":"SUMLEVEL", "type":"string", "description":"Code representing the geographic summary level for the data"},
+        {"name":"STATE","type":"string","description":"Unique identifier for state in which geography is located"},
+        {"name":"COUNTY","type":"string","description":"Unique identifier for county in which geography is located"}
+    ],
     "county": [
         {"name":"GEO_ID", "type":"string", "description":"Unique identifier for geography"},
         {"name":"SUMLEVEL", "type":"string", "description":"Code representing the geographic summary level for the data"},
@@ -278,6 +284,39 @@ def api_get(url, params, varBatchSize=20, verbose=True):
 #         |--------------|----------------|---------------------|-------------------------|
 #         | B25127_004E  | Owner occupied | Built 2020 or later | 1, detached or attached |
 #
+
+def acs_variables_by_group(groupNumber, acsYear, acsSurvey):
+    """
+    Get a list of all variables that are in a census variable group.
+
+    Parameters
+    ----------
+    groupNumber : str
+        The group number to search for within the variables table. ie. B11001
+
+    acsYear : str
+        The year of the survey. ie. 2023
+
+    acsSurvey : str
+        The acs survey to get variables for. ie. 1 or 5
+
+    Returns
+    -------
+    dict
+        A dict of the variables in the group and related fields.
+    """
+    import requests
+    import json
+
+    r = requests.get(f'https://api.census.gov/data/{acsYear}/acs/acs{acsSurvey}/variables.json')
+    json = r.json()
+
+    variables = {}
+    for variable in json['variables']:
+        if json['variables'][variable]['group'] == groupNumber:
+            variables[variable] = json['variables'][variable]
+    return variables
+
 def acs_label_to_dimensions(labelSeries, dimensionNames=None):
     """
     acs_label_to_dimensions(labelSeries, dimensionNames=None)

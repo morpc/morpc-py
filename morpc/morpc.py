@@ -1200,7 +1200,36 @@ def load_tabular_data(sourcePath, sheetName=None, fileType=None, archiveDir=None
 # that has not yet been implemented, please contact Adam Porr (or implement it yourself).
 def assign_geo_identifiers(points, geographies):
     """
-    TODO: add docstring
+    Assign geographic identifiers
+    Sometimes we have a set of locations and we would like to know what geography (county, zipcode, etc.) they fall in. The
+    `assign_geo_identifiers()` function takes a set of georeference points and a list of geography levels and determines for each
+    level which area each point falls in
+
+    Parameters
+    ----------
+    points : geopandas.GeoDataFrame
+        a GeoPandas GeoDataFrame consisting of the points of interest
+    geographies : list of str
+        A Python list of one or more strings in which each element corresponds to a geography level. You can specify as
+        many levels as you want from the following list, however note that the function must download the polygons and perform the analysis
+        for each level so if you specify many levels it may take a long time.
+        - "county" - County (Census TIGER)
+        - "tract" - *Not currently implemented*
+        - "blockgroup" - *Not currently implemented*
+        - "block" - *Not currently implemented*
+        - "zcta" - Census ZCTA (tl_2024_us_zcta520)
+        - "place" - Census place (Census TIGER)
+        - "placecombo" - *Not currently implemented*
+        - "juris" - *Not currently implemented*
+        - "region15County" - *Not currently implemented*
+        - "region10County" - *Not currently implemented*
+        - "regionCORPO" - *Not currently implemented*
+        - "regionMPO" - *Not currently implemented*
+
+    Returns
+    -------
+    geopandas.GeoDataFrame
+        A geodataframe with column name id_{geographies} representing the id from the geographies passed
     """
     import geopandas as gpd
     import pyogrio
@@ -1235,8 +1264,10 @@ def assign_geo_identifiers(points, geographies):
             print("ERROR: Geography is currently unsupported: {}".format(geography))
             raise RuntimeError
         elif(geography == "zcta"):
-            print("ERROR: Geography is currently unsupported: {}".format(geography))
-            raise RuntimeError
+            filePath = "https://www2.census.gov/geo/tiger/TIGER2024/ZCTA520/tl_2024_us_zcta520.zip"
+            layerName = None
+            driverName = "Census Shapefile"
+            polyIdField = ""
         elif(geography == "place"):
             filePath = "https://www2.census.gov/geo/tiger/TIGER2020/PLACE/tl_2020_39_place.zip"
             layerName = None
