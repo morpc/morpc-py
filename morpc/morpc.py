@@ -486,6 +486,7 @@ SUMLEVEL_LOOKUP = {value["hierarchy_string"]:key for key, value in zip(SUMLEVEL_
 # SUMLEVEL_DESCRIPTIONS) For example, HIERARCHY_STRING_LOOKUP["310"] = "CBSA".
 HIERARCHY_STRING_LOOKUP = {key:value["hierarchy_string"] for key, value in zip(SUMLEVEL_DESCRIPTIONS.keys(), SUMLEVEL_DESCRIPTIONS.values())}
 
+HIERARCHY_STRING_FROM_SINGULAR = {name['singular']:hierarchy["hierarchy_string"] for name, hierarchy in zip(SUMLEVEL_DESCRIPTIONS.values(), SUMLEVEL_DESCRIPTIONS.values())}
 
 # County lookup object
 # Upon instantiation, this object is pre-loaded with a dataframe describing a set of counties whose scope is specified by the user.

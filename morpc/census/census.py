@@ -260,6 +260,184 @@ def api_get(url, params, varBatchSize=20, verbose=True):
 
     return censusData
 
+class acs_data:
+    def __init__(self, group, year, survey):
+        """
+        Class for working with ACS Survey Data. 
+
+        Parameters
+        ----------
+        group : str
+            string representing the variable group
+
+        year : str
+            The year of the survey. For 5 year survey it is the ending year
+
+        survey : str
+            1 or 5
+
+        geography : str
+            The geography sumlevel in the form of the singular name. ie. county subdivision
+        """
+        self.GROUP = group
+        self.YEAR = year
+        self.SURVEY = survey
+        self.VARS = self.define_vars()
+
+    def define_sumlevel(self):
+        import morpc
+        for sumlevel in morpc.SUMLEVEL_DESCRIPTIONS:
+            if morpc.SUMLEVEL_DESCRIPTIONS[sumlevel]['singular'] == self.GEO:
+                return morpc.SUMLEVEL_DESCRIPTIONS[sumlevel]
+
+    def define_vars(self):
+        import requests
+
+        self.varlist_url = f"https://api.census.gov/data/{self.YEAR}/acs/acs{self.SURVEY}/variables.json"
+        r = requests.get(self.varlist_url)
+        json = r.json()
+        variables = {}
+        for variable in json['variables']:
+            if json['variables'][variable]['group'] == self.GROUP:
+                variables[variable] = json['variables'][variable]
+
+        return variables
+
+    def query(self, for_param, in_param=None):
+        import morpc
+
+        self.GEO = for_param.split(":")[0]
+        self.SUMLEVEL = self.define_sumlevel()
+        self.SCHEMA = self.define_schema()
+        self.NAME = f"morpc-acs{self.SURVEY}-{self.YEAR}-{self.GROUP}-{self.SUMLEVEL['hierarchy_string']}".lower()
+
+        self.API_URL = f"https://api.census.gov/data/{self.YEAR}/acs/acs{self.SURVEY}"
+        if in_param is None:
+            self.API_PARAMS = {
+                "get": ",".join(self.SCHEMA.field_names),
+                "for": for_param
+            }
+        else:
+            self.API_PARAMS = {
+                "get": ",".join(self.SCHEMA.field_names),
+                "for": for_param,
+                "in": in_param
+            }
+
+        self.DATA = morpc.census.api_get(self.API_URL, self.API_PARAMS)
+
+    def define_schema(self):
+        import frictionless
+        import morpc
+
+        allFields = []
+
+        for field in ACS_ID_FIELDS[self.GEO]:
+            allFields.append(field)
+
+        acsVarDict = self.VARS
+        for var in [x for x in acsVarDict.keys()]:
+            field = {}
+            field["name"] = var
+            field["type"] = acsVarDict[var]['predicateType']
+            if(field["type"] == "int"):
+                field["type"] = "integer"
+            elif(field["type"] == "float"):
+                field["type"] = "number"
+            field["description"] = f"{acsVarDict[var]['label']} | {acsVarDict[var]['concept']} | Estimate"
+            allFields.append(field)
+
+            field = {}
+            field["name"] = var[:-1] + "M"
+            field["type"] = acsVarDict[var]['predicateType']
+            if(field["type"] == "int"):
+                field["type"] = "integer"
+            elif(field["type"] == "float"):
+                field["type"] = "number"
+            field["description"] = f"{acsVarDict[var]['label']} | {acsVarDict[var]['concept']} | MOE"
+            allFields.append(field)
+    
+        acsSchema = {
+          "fields": allFields,
+          "missingValues": morpc.census.ACS_MISSING_VALUES,
+          "primaryKey": morpc.census.ACS_PRIMARY_KEY
+        }
+    
+        results = frictionless.Schema.validate_descriptor(acsSchema)
+        if(results.valid == True):
+            print(f"acs{self.SURVEY}-{self.YEAR}-{self.GROUP}-{self.SUMLEVEL['hierarchy_string']} schema is valid")
+        else:
+            print("ERROR: Schema is NOT valid. Errors follow.")
+            print(results)
+            raise RuntimeError
+    
+        schema = frictionless.Schema.from_descriptor(acsSchema)
+    
+        return schema
+
+    def save(self, output_dir):
+        import os
+        import frictionless
+        
+        self.DATA_FILENAME = f"{self.NAME}.csv"
+        self.DATA_PATH = os.path.join(output_dir, self.DATA_FILENAME)
+        self.DATA.to_csv(self.DATA_PATH)
+        
+        self.SCHEMA_FILENAME = f"{self.NAME}.schema.yaml"
+        self.SCHEMA_PATH = os.path.join(output_dir, self.SCHEMA_FILENAME)
+
+        dummy = self.SCHEMA.to_yaml(self.SCHEMA_PATH)
+
+        self.RESOURCE_FILENAME = f"{self.NAME}.resource.yaml"
+        self.RESOURCE_PATH = os.path.join(output_dir, self.RESOURCE_FILENAME)
+
+        cwd = os.getcwd()
+        os.chdir(output_dir)
+        
+        self.RESOURCE = self.define_resource()
+        dummy = self.RESOURCE.to_yaml(self.RESOURCE_FILENAME)
+        validation = frictionless.Resource(self.RESOURCE_FILENAME).validate()
+
+        os.chdir(cwd)
+        
+        if validation.valid == True:
+            print("Resource is valid.")
+        else:
+            print('ERROR: invalid resource file.')
+            print(validation)
+            raise RuntimeError
+        
+
+
+    def define_resource(self):
+        import frictionless
+        import morpc
+        import datetime
+        import os
+
+        acsResource = {
+          "profile": "tabular-data-resource",
+          "name": self.NAME,
+          "path": self.DATA_FILENAME,
+          "title": f"{self.YEAR} American Community Survey {self.SURVEY}-Year Estimates MORPC {self.GEO}-level extract",
+          "description": f"Selected variables from {self.YEAR} ACS {self.SURVEY}-Year estimates for {self.SUMLEVEL['plural']}. Data was retrieved {datetime.datetime.today().strftime('%Y-%m-%d')}",
+          "format": "csv",
+          "mediatype": "text/csv",
+          "encoding": "utf-8",
+          "bytes": os.path.getsize(self.DATA_FILENAME),
+          "hash": morpc.md5(self.DATA_FILENAME),
+          "rows": self.DATA.shape[0],
+          "columns": self.DATA.shape[1],    
+          "schema": self.SCHEMA_FILENAME,
+          "sources": [{
+              "title": f"{self.YEAR} American Community Survey {self.SURVEY}-Year Estimates, U.S. Census Bureau",
+              "path": self.API_URL
+          }]
+        }
+    
+        resource = frictionless.Resource(acsResource)
+        return resource
+
 # acs_label_to_dimensions obtains the data dimensions associated with a particular variable by decomposing the "Label" column as described in the 
 # Census API variable list, e.g. https://api.census.gov/data/2022/acs/acs5/variables.html. There is a label associated with each variable provided 
 # by the API. For example, one label (for B25127_004E) looks like this:
@@ -285,37 +463,69 @@ def api_get(url, params, varBatchSize=20, verbose=True):
 #         | B25127_004E  | Owner occupied | Built 2020 or later | 1, detached or attached |
 #
 
-def acs_variables_by_group(groupNumber, acsYear, acsSurvey):
-    """
-    Get a list of all variables that are in a census variable group.
 
-    Parameters
-    ----------
-    groupNumber : str
-        The group number to search for within the variables table. ie. B11001
 
-    acsYear : str
-        The year of the survey. ie. 2023
+def acs_schema(ACS_GROUP, ACS_YEAR, ACS_SURVEY, GEO_SUMLEVEL, OUTPUT_DIR):
+    import frictionless
+    import morpc
+    
+    allFields = []
 
-    acsSurvey : str
-        The acs survey to get variables for. ie. 1 or 5
+    for field in ACS_ID_FIELDS[GEO_SUMLEVEL]:
+        allFields.append(field)
 
-    Returns
-    -------
-    dict
-        A dict of the variables in the group and related fields.
-    """
-    import requests
-    import json
+    acsVarDict = acs_variables_by_group(ACS_GROUP, ACS_YEAR, ACS_SURVEY)
+    for var in [x for x in acsVarDict.keys()]:
+        field = {}
+        field["name"] = var
+        field["type"] = acsVarDict[var]['predicateType']
+        if(field["type"] == "int"):
+            field["type"] = "integer"
+        elif(field["type"] == "float"):
+            field["type"] = "number"
+        field["description"] = f"{acsVarDict[var]['label']} | {acsVarDict[var]['concept']} | Estimate"
+        allFields.append(field)
 
-    r = requests.get(f'https://api.census.gov/data/{acsYear}/acs/acs{acsSurvey}/variables.json')
-    json = r.json()
+        field = {}
+        field["name"] = var[:-1] + "M"
+        field["type"] = acsVarDict[var]['predicateType']
+        if(field["type"] == "int"):
+            field["type"] = "integer"
+        elif(field["type"] == "float"):
+            field["type"] = "number"
+        field["description"] = f"{acsVarDict[var]['label']} | {acsVarDict[var]['concept']} | MOE"
+        allFields.append(field)
 
-    variables = {}
-    for variable in json['variables']:
-        if json['variables'][variable]['group'] == groupNumber:
-            variables[variable] = json['variables'][variable]
-    return variables
+    acsSchema = {
+      "fields": allFields,
+      "missingValues": ACS_MISSING_VALUES,
+      "primaryKey": ACS_PRIMARY_KEY
+    }
+
+    results = frictionless.Schema.validate_descriptor(acsSchema)
+    if(results.valid == True):
+        print(f"acs{ACS_SURVEY}-{ACS_YEAR}-{ACS_GROUP}-{morpc.HIERARCHY_STRING_FROM_SINGULAR[GEO_SUMLEVEL]} schema is valid")
+    else:
+        print("ERROR: Schema is NOT valid. Errors follow.")
+        print(results)
+        raise RuntimeError
+
+    schema = frictionless.Schema.from_descriptor(acsSchema)
+    
+    GEO_HIER = morpc.HIERARCHY_STRING_FROM_SINGULAR[GEO_SUMLEVEL]
+    ACS_SCHEMA_FILENAME = f"morpc-acs{ACS_SURVEY}-{ACS_YEAR}-{ACS_GROUP}-{GEO_HIER}.schema.yaml"
+    ACS_SCHEMA_PATH = os.path.join(OUTPUT_DIR, ACS_SCHEMA_FILENAME)
+    
+    schema.to_yaml(ACS_SCHEMA_PATH)
+    return schema
+
+def acs_resource(ACS_GROUP, ACS_YEAR, ACS_SURVEY, GEO_SUMLEVEL):
+
+    for sumlevel in morpc.SUMLEVEL_DESCRIPTIONS:
+        if sumlevel['singular'] == GEO_SUMLEVEL:
+            geoDescription = sumlevel
+
+    
 
 def acs_label_to_dimensions(labelSeries, dimensionNames=None):
     """
@@ -343,11 +553,11 @@ def acs_label_to_dimensions(labelSeries, dimensionNames=None):
     labelSeries = labelSeries \
         .apply(lambda x:x.split("|")[0]) \
         .str.strip() \
-        .str.replace("!!","") \
-        .apply(lambda x:x.split(":"))    
+        .str.replace("!!",":") \
+        .apply(lambda x:x.split(":"))
     df = labelSeries \
         .apply(pd.Series) \
-        .drop(columns=0) \
+        .drop(columns=[0, 1]) \
         .replace("", np.nan)
     if(type(dimensionNames) == list):
         df.columns = dimensionNames
