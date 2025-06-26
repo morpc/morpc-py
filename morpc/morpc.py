@@ -173,7 +173,8 @@ SUMLEVEL_DESCRIPTIONS = {
         "hierarchy_string":"US",
         "authority":"census",
         "idField":"NATIONID",
-        "nameField":"NATION"
+        "nameField":"NATION",
+        "censusQueryName": "us"
     },
     '020': {
         "singular":"Census region",
@@ -181,7 +182,8 @@ SUMLEVEL_DESCRIPTIONS = {
         "hierarchy_string":"CENSUSREGION",
         "authority":"census",
         "idField":"REGIONID",
-        "nameField":"REGION"
+        "nameField":"REGION",
+        "censusQueryName": "region"
     },
     '030': {
         "singular":"division",
@@ -189,7 +191,8 @@ SUMLEVEL_DESCRIPTIONS = {
         "hierarchy_string":"DIVISION",
         "authority":"census",
         "idField":"DIVISONID",
-        "nameField":"DIVISION"
+        "nameField":"DIVISION",
+        "censusQueryName": "division"
     },
     '040': {
         "singular":"state",
@@ -197,7 +200,8 @@ SUMLEVEL_DESCRIPTIONS = {
         "hierarchy_string":"STATE",
         "authority":"census",
         "idField":"STATEFP",
-        "nameField":"STATE"
+        "nameField":"STATE",
+        "censusQueryName": "state"
     },
     '050': {
         "singular":"county",
@@ -205,7 +209,8 @@ SUMLEVEL_DESCRIPTIONS = {
         "hierarchy_string":"COUNTY",
         "authority":"census",
         "idField":"COUNTYFP",
-        "nameField":"COUNTY"
+        "nameField":"COUNTY",
+        "censusQueryName": "county"
     },
     '060': {
         "singular":"county subdivision",
@@ -213,7 +218,8 @@ SUMLEVEL_DESCRIPTIONS = {
         "hierarchy_string":"COUNTY-COUSUB",
         "authority":"census",
         "idField":"COUSUBFP",
-        "nameField":"COUSUB"
+        "nameField":"COUSUB",
+        "censusQueryName": "county subdivision"
     },
     '070': {
         "singular":"county subdivision part/remainder",
@@ -221,7 +227,8 @@ SUMLEVEL_DESCRIPTIONS = {
         "hierarchy_string":"COUNTY-TOWNSHIP-REMAINDER",
         "authority":"census",
         "idField":"COUSUBPARTID",
-        "nameField":"COUSUBPART"
+        "nameField":"COUSUBPART",
+        "censusQueryName": "place/remainder (or part)"
     },
     # NOTE: Some references use SUMLEVEL 750 for block in the PL94 data, but the API
     # uses SUMLEVEL 100
@@ -231,15 +238,17 @@ SUMLEVEL_DESCRIPTIONS = {
         "hierarchy_string":"COUNTY-TRACT-BG-BLOCK",
         "authority":"census",
         "idField":"BLOCKCE",
-        "nameField":None
-    },    
+        "nameField":None,
+        "censusQueryName": None
+    },
     '140': {
         "singular":"tract",
         "plural":"tracts",
         "hierarchy_string":"COUNTY-TRACT",
         "authority":"census",
         "idField":"TRACTCE",
-        "nameField":None
+        "nameField":None,
+        "censusQueryName": "tract"
     },
     '150': {
         "singular":"block group",
@@ -247,7 +256,8 @@ SUMLEVEL_DESCRIPTIONS = {
         "hierarchy_string":"COUNTY-TRACT-BG",
         "authority":"census",
         "idField":"BLKGRPCE",
-        "nameField":None
+        "nameField":None,
+        "censusQueryName": "block group"
     },
     '155': {
         "singular":"place county part",
@@ -255,7 +265,8 @@ SUMLEVEL_DESCRIPTIONS = {
         "hierarchy_string":"PLACE-COUNTY",
         "authority":"census",
         "idField":"PLACEPARTID",
-        "nameField":"PLACEPART"
+        "nameField":"PLACEPART",
+        "censusQueryName": "place (or part)"
     },
     '160': {
         "singular":"place",
@@ -263,15 +274,26 @@ SUMLEVEL_DESCRIPTIONS = {
         "hierarchy_string":"PLACE",
         "authority":"census",
         "idField":"PLACEFP",
-        "nameField":"PLACE"
+        "nameField":"PLACE",
+        "censusQueryName": "place"
     },
     '310': {
-        "singular":"metro area",
-        "plural":"metro areas",
+        "singular":"core-based statistical area",
+        "plural":"core-based statistical areas",
         "hierarchy_string":"CBSA",
         "authority":"census",
-        "idField":"CBSAFP",
-        "nameField":"CBSA"
+        "idField":"CBAFP",
+        "nameField":"CBSA",
+        "censusQueryName": "metropolitan statistical area/micropolitan statistical area"
+    },
+    '330': {
+        "singular":"combined statistical area",
+        "plural":"combined statistical areas",
+        "hierarchy_string":"CSA",
+        "authority":"census",
+        "idField":"CSAFP",
+        "nameField":"CSA",
+        "censusQueryName": "combined statistical area"
     },
     '400': {
         "singular":"urban area",
@@ -279,7 +301,8 @@ SUMLEVEL_DESCRIPTIONS = {
         "hierarchy_string":"URBANAREA",
         "authority":"census",
         "idField":"UACE",
-        "nameField":"URBANAREA"
+        "nameField":"URBANAREA",
+        "censusQueryName": "urban area"
     },
     '500': {
         "singular":"congressional district",
@@ -287,7 +310,8 @@ SUMLEVEL_DESCRIPTIONS = {
         "hierarchy_string":"CONGRESS",
         "authority":"census",
         "idField":"CDFP",  # Census uses CDNNNFP where NNN is the congressional session number
-        "nameField":"CONGRESS"
+        "nameField":"CONGRESS",
+        "censusQueryName": "congressional district"
     },
     '610': {
         "singular":"state senate district",
@@ -295,7 +319,8 @@ SUMLEVEL_DESCRIPTIONS = {
         "hierarchy_string":"STATESENATE",
         "authority":"census",
         "idField":"SLDUST",
-        "nameField":None
+        "nameField":None,
+        "censusQueryName": "state legislative district (upper chamber)"
     },
     '620': {
         "singular":"state house district",
@@ -303,7 +328,8 @@ SUMLEVEL_DESCRIPTIONS = {
         "hierarchy_string":"STATEHOUSE",
         "authority":"census",
         "idField":"SLDLST",
-        "nameField":None
+        "nameField":None,
+        "censusQueryName": "state legislative district (lower chamber)"
     },
     '795': {
         "singular":"public use microdata area",
@@ -311,7 +337,8 @@ SUMLEVEL_DESCRIPTIONS = {
         "hierarchy_string":"PUMA",
         "authority":"census",
         "idField":"PUMACE",
-        "nameField":"PUMA"
+        "nameField":"PUMA",
+        "censusQueryName": "public use microdata area"
     },
     '850': {
         "singular":"zip code tabulation area",
@@ -319,7 +346,8 @@ SUMLEVEL_DESCRIPTIONS = {
         "hierarchy_string":"ZCTA3",
         "authority":"census",
         "idField":"ZCTA3CE",
-        "nameField":None
+        "nameField":None,
+        "censusQueryName": None
     },
     '860': {
         "singular":"zip code tabulation area",
@@ -327,7 +355,8 @@ SUMLEVEL_DESCRIPTIONS = {
         "hierarchy_string":"ZCTA5",
         "authority":"census",
         "idField":"ZCTA5CE",
-        "nameField":None
+        "nameField":None,
+        "censusQueryName": "zip code tabulation area"
     },
     '930': {
         "singular":"MPO region",
@@ -335,7 +364,8 @@ SUMLEVEL_DESCRIPTIONS = {
         "hierarchy_string":"CENSUSMPOREGION",
         "authority":"census",
         "idField":"MPOREGIONID",
-        "nameField":"MPOREGION"
+        "nameField":"MPOREGION",
+        "censusQueryName": None
     },
     '950': {
         "singular":"elementary school district",
@@ -343,7 +373,8 @@ SUMLEVEL_DESCRIPTIONS = {
         "hierarchy_string":"ELSD",
         "authority":"census",
         "idField":"ELSDLEA",
-        "nameField":"SCHOOLDELEM"
+        "nameField":"SCHOOLDELEM",
+        "censusQueryName": "school district (elementry)"
     },
     '960': {
         "singular":"high school district",
@@ -351,7 +382,8 @@ SUMLEVEL_DESCRIPTIONS = {
         "hierarchy_string":"SCSD",
         "authority":"census",
         "idField":"SCSDLEA",
-        "nameField":"SCHOOLDHIGH"
+        "nameField":"SCHOOLDHIGH",
+        "censusQueryName": "school district (secondary)"
     },
     '970': {
         "singular":"unified school district",
@@ -359,7 +391,8 @@ SUMLEVEL_DESCRIPTIONS = {
         "hierarchy_string":"UNSD",
         "authority":"census",
         "idField":"UNSDLEA",
-        "nameField":"SCHOOLD"
+        "nameField":"SCHOOLD",
+        "censusQueryName": "school district (unified)"
     },
     'M01': {
         "singular":"MORPC 15-county region",
@@ -367,7 +400,8 @@ SUMLEVEL_DESCRIPTIONS = {
         "hierarchy_string":"REGION15",
         "authority":"morpc",
         "idField":"REGION15ID",
-        "nameField":"REGION15"
+        "nameField":"REGION15",
+        "censusQueryName": None
     },
     'M02': {
         "singular":"MORPC 10-county region",
@@ -375,7 +409,8 @@ SUMLEVEL_DESCRIPTIONS = {
         "hierarchy_string":"REGION10",
         "authority":"morpc",
         "idField":"REGION10ID",
-        "nameField":"REGION10"
+        "nameField":"REGION10",
+        "censusQueryName": None
     },
     'M03': {
         "singular":"MORPC 7-county region",
@@ -383,7 +418,8 @@ SUMLEVEL_DESCRIPTIONS = {
         "hierarchy_string":"REGION7",
         "authority":"morpc",
         "idField":"REGION7ID",
-        "nameField":"REGION7"
+        "nameField":"REGION7",
+        "censusQueryName": None
     },
     'M04': {
         "singular":"MORPC CORPO region",
@@ -391,7 +427,8 @@ SUMLEVEL_DESCRIPTIONS = {
         "hierarchy_string":"REGIONCORPO",
         "authority":"morpc",
         "idField":"REGIONCORPOID",
-        "nameField":"REGIONCORPO"
+        "nameField":"REGIONCORPO",
+        "censusQueryName": None
     },
     'M05': {
         "singular":"MORPC CEDS region",
@@ -399,7 +436,8 @@ SUMLEVEL_DESCRIPTIONS = {
         "hierarchy_string":"REGIONCEDS",
         "authority":"morpc",
         "idField":"REGIONCEDSID",
-        "nameField":"REGIONCEDS"
+        "nameField":"REGIONCEDS",
+        "censusQueryName": None
     },
     'M06': {
         "singular":"MORPC MPO region",
@@ -407,7 +445,8 @@ SUMLEVEL_DESCRIPTIONS = {
         "hierarchy_string":"REGIONMPO",
         "authority":"morpc",
         "idField":"REGIONMPOID",
-        "nameField":"REGIONMPO"
+        "nameField":"REGIONMPO",
+        "censusQueryName": None
     },
     'M07': {
         "singular":"MORPC TDM region",
@@ -415,7 +454,8 @@ SUMLEVEL_DESCRIPTIONS = {
         "hierarchy_string":"REGIONTDM",
         "authority":"morpc",
         "idField":"REGIONTDMID",
-        "nameField":"REGIONTDM"
+        "nameField":"REGIONTDM",
+        "censusQueryName": None
     },
     'M08': {
         "singular":"OneColumbus region",
@@ -423,7 +463,8 @@ SUMLEVEL_DESCRIPTIONS = {
         "hierarchy_string":"REGIONONECBUS",
         "authority":"morpc",
         "idField":"REGIONONECBUSID",
-        "nameField":"REGIONONECBUS"
+        "nameField":"REGIONONECBUS",
+        "censusQueryName": None
     },
     'M10': {
         "singular":"Jurisdiction",
@@ -431,7 +472,8 @@ SUMLEVEL_DESCRIPTIONS = {
         "hierarchy_string":"JURIS",
         "authority":"morpc",
         "idField":"JURISID",
-        "nameField":"JURIS"
+        "nameField":"JURIS",
+        "censusQueryName": None
     },
     'M11': {
         "singular":"Jurisdiction county part",
@@ -439,7 +481,8 @@ SUMLEVEL_DESCRIPTIONS = {
         "hierarchy_string":"JURIS-COUNTY",
         "authority":"morpc",
         "idField":"JURISPARTID",
-        "nameField":"JURISPART"
+        "nameField":"JURISPART",
+        "censusQueryName": None
     },
     'M20': {
         "singular":"Traffic analysis zone",
@@ -447,7 +490,8 @@ SUMLEVEL_DESCRIPTIONS = {
         "hierarchy_string":"COUNTY-TAZ",
         "authority":"morpc",
         "idField":"TAZ2020",
-        "nameField":None
+        "nameField":None,
+        "censusQueryName": None
     },
     'M21': {
         "singular":"Micro analysis zone",
@@ -455,7 +499,8 @@ SUMLEVEL_DESCRIPTIONS = {
         "hierarchy_string":"COUNTY-TAZ-MAZ",
         "authority":"morpc",
         "idField":"MAZ2020",
-        "nameField":None
+        "nameField":None,
+        "censusQueryName": None
     },
     'M22': {
         "singular":"GridMAZ zone",
@@ -463,7 +508,8 @@ SUMLEVEL_DESCRIPTIONS = {
         "hierarchy_string":"COUNTY-TAZ-MAZ-GRIDMAZ",
         "authority":"morpc",
         "idField":"GridMAZ20",
-        "nameField":None
+        "nameField":None,
+        "censusQueryName": None
     },
 }
 
