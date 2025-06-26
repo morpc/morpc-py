@@ -5,7 +5,7 @@ ACS_MISSING_VALUES = ["","-222222222","-333333333","-555555555","-666666666","-8
 ACS_PRIMARY_KEY = "GEO_ID"
 
 ACS_ID_FIELDS = {
-    "blockgroup": [
+    "block group": [
         {"name":"GEO_ID", "type":"string", "description":"Unique identifier for geography"},
         {"name":"SUMLEVEL", "type":"string", "description":"Code representing the geographic summary level for the data"},
         {"name":"STATE","type":"string","description":"Unique identifier for state in which geography is located"},
@@ -29,7 +29,7 @@ ACS_ID_FIELDS = {
         {"name":"SUMLEVEL", "type":"string", "description":"Code representing the geographic summary level for the data"},
         {"name":"NAME", "type":"string", "description":"Name by which geography is known"},
         {"name":"STATE","type":"string","description":"Unique identifier for state in which geography is located"},
-        {"name":"COUNTY","type":"string","description":"Unique identifier for county in which geography is located"},    
+        {"name":"COUNTY","type":"string","description":"Unique identifier for county in which geography is located"},
     ],
     "state": [
         {"name":"GEO_ID", "type":"string", "description":"Unique identifier for geography"},
@@ -37,7 +37,7 @@ ACS_ID_FIELDS = {
         {"name":"NAME", "type":"string", "description":"Name by which geography is known"},
         {"name":"STATE","type":"string","description":"Unique identifier for state in which geography is located"},
     ],
-    "msa": [
+    "metropolitan statistical area/micropolitan statistical area": [
         {"name":"GEO_ID", "type":"string", "description":"Unique identifier for geography"},
         {"name":"SUMLEVEL", "type":"string", "description":"Code representing the geographic summary level for the data"},
         {"name":"NAME", "type":"string", "description":"Name by which geography is known"}
@@ -263,7 +263,7 @@ def api_get(url, params, varBatchSize=20, verbose=True):
 class acs_data:
     def __init__(self, group, year, survey):
         """
-        Class for working with ACS Survey Data. 
+        Class for working with ACS Survey Data. Creates an object representing data for a variable by year by survey. Use .query() method to retrive data for a specific geography.
 
         Parameters
         ----------
@@ -274,57 +274,104 @@ class acs_data:
             The year of the survey. For 5 year survey it is the ending year
 
         survey : str
-            1 or 5
-
-        geography : str
-            The geography sumlevel in the form of the singular name. ie. county subdivision
+            Number of years represnting the ACS Survey, "1" or "5"
         """
         self.GROUP = group
         self.YEAR = year
         self.SURVEY = survey
         self.VARS = self.define_vars()
 
-    def define_sumlevel(self):
-        import morpc
-        for sumlevel in morpc.SUMLEVEL_DESCRIPTIONS:
-            if morpc.SUMLEVEL_DESCRIPTIONS[sumlevel]['singular'] == self.GEO:
-                return morpc.SUMLEVEL_DESCRIPTIONS[sumlevel]
-
-    def define_vars(self):
-        import requests
-
-        self.varlist_url = f"https://api.census.gov/data/{self.YEAR}/acs/acs{self.SURVEY}/variables.json"
-        r = requests.get(self.varlist_url)
-        json = r.json()
-        variables = {}
-        for variable in json['variables']:
-            if json['variables'][variable]['group'] == self.GROUP:
-                variables[variable] = json['variables'][variable]
-
-        return variables
-
     def query(self, for_param, in_param=None):
+        """
+        Method for retrieving data. Relies on morpc.census.api_get(). 
+
+        Parameters
+        ----------
+        for_param : str
+            The parameters for the "for" parameter for the api_get() call. Typically, the ACS geographic sumlevel name and an astrick. ex. "county subivision:*"
+
+        in_param : str or list (optional)
+            The parameters for the "in" parameter for the api_get() call. Typically, a parameter to filter the for_param with. ex. "state:39" for all the for geographies in the state of Ohio. For for all geographies in Franklin County pass ["state:39", "county:045"]
+        """
+        
         import morpc
 
         self.GEO = for_param.split(":")[0]
         self.SUMLEVEL = self.define_sumlevel()
+        self.NAME = f"morpc-acs{self.SURVEY}-{self.YEAR}-{[x for x in self.SUMLEVEL.values()][0]['hierarchy_string']}-{self.GROUP}".lower()
         self.SCHEMA = self.define_schema()
-        self.NAME = f"morpc-acs{self.SURVEY}-{self.YEAR}-{self.GROUP}-{self.SUMLEVEL['hierarchy_string']}".lower()
 
+        getFields = [x for x in self.SCHEMA.field_names if x != 'SUMLEVEL']
         self.API_URL = f"https://api.census.gov/data/{self.YEAR}/acs/acs{self.SURVEY}"
         if in_param is None:
             self.API_PARAMS = {
-                "get": ",".join(self.SCHEMA.field_names),
+                "get": ",".join(getFields),
                 "for": for_param
             }
         else:
             self.API_PARAMS = {
-                "get": ",".join(self.SCHEMA.field_names),
+                "get": ",".join(getFields),
                 "for": for_param,
                 "in": in_param
             }
 
         self.DATA = morpc.census.api_get(self.API_URL, self.API_PARAMS)
+        self.DATA['SUMLEVEL'] = [x for x in self.SUMLEVEL.keys()][0]
+
+        self.DATA = morpc.cast_field_types(self.DATA.reset_index(), self.SCHEMA, verbose=False)
+        self.DATA = self.DATA.filter(items=self.SCHEMA.field_names, axis='columns')
+
+    def save(self, output_dir="./output_data"):
+        """
+        Saves data in an output directory as a fricitonless resource and validates the resource.
+
+        Parameters
+        ----------
+        output_dir : str or pathlike
+            The directory where to save the resource. default = "./output_data
+        """
+        
+        import os
+        import frictionless
+
+        if not os.path.exists(output_dir):
+            os.mkdir(output_dir)
+
+        self.DATA_FILENAME = f"{self.NAME}.csv"
+        self.DATA_PATH = os.path.join(output_dir, self.DATA_FILENAME)
+        self.DATA.to_csv(self.DATA_PATH, index=False)
+
+        self.SCHEMA_FILENAME = f"{self.NAME}.schema.yaml"
+        self.SCHEMA_PATH = os.path.join(output_dir, self.SCHEMA_FILENAME)
+
+        dummy = self.SCHEMA.to_yaml(self.SCHEMA_PATH)
+
+        self.RESOURCE_FILENAME = f"{self.NAME}.resource.yaml"
+        self.RESOURCE_PATH = os.path.join(output_dir, self.RESOURCE_FILENAME)
+
+        cwd = os.getcwd()
+        os.chdir(output_dir)
+
+        self.RESOURCE = self.define_resource()
+        dummy = self.RESOURCE.to_yaml(self.RESOURCE_FILENAME)
+        validation = frictionless.Resource(self.RESOURCE_FILENAME).validate()
+
+        os.chdir(cwd)
+
+        if validation.valid == True:
+            print("Resource is valid.")
+        else:
+            print('ERROR: invalid resource file.')
+            print(validation)
+            raise RuntimeError
+
+    def define_sumlevel(self):
+        import morpc
+        sumlevel_dict={}
+        for sumlevel in morpc.SUMLEVEL_DESCRIPTIONS:
+            if morpc.SUMLEVEL_DESCRIPTIONS[sumlevel]['censusQueryName'] == self.GEO:
+                sumlevel_dict[sumlevel] = morpc.SUMLEVEL_DESCRIPTIONS[sumlevel]
+                return sumlevel_dict
 
     def define_schema(self):
         import frictionless
@@ -365,7 +412,7 @@ class acs_data:
     
         results = frictionless.Schema.validate_descriptor(acsSchema)
         if(results.valid == True):
-            print(f"acs{self.SURVEY}-{self.YEAR}-{self.GROUP}-{self.SUMLEVEL['hierarchy_string']} schema is valid")
+            print(f"{self.NAME} schema is valid")
         else:
             print("ERROR: Schema is NOT valid. Errors follow.")
             print(results)
@@ -375,39 +422,22 @@ class acs_data:
     
         return schema
 
-    def save(self, output_dir):
-        import os
-        import frictionless
-        
-        self.DATA_FILENAME = f"{self.NAME}.csv"
-        self.DATA_PATH = os.path.join(output_dir, self.DATA_FILENAME)
-        self.DATA.to_csv(self.DATA_PATH)
-        
-        self.SCHEMA_FILENAME = f"{self.NAME}.schema.yaml"
-        self.SCHEMA_PATH = os.path.join(output_dir, self.SCHEMA_FILENAME)
+    
+    def define_vars(self):
+        """
+        Retrieves a dictionary of variables from acs variable metadata table.
+        """
+        import requests
 
-        dummy = self.SCHEMA.to_yaml(self.SCHEMA_PATH)
+        self.varlist_url = f"https://api.census.gov/data/{self.YEAR}/acs/acs{self.SURVEY}/variables.json"
+        r = requests.get(self.varlist_url)
+        json = r.json()
+        variables = {}
+        for variable in json['variables']:
+            if json['variables'][variable]['group'] == self.GROUP:
+                variables[variable] = json['variables'][variable]
 
-        self.RESOURCE_FILENAME = f"{self.NAME}.resource.yaml"
-        self.RESOURCE_PATH = os.path.join(output_dir, self.RESOURCE_FILENAME)
-
-        cwd = os.getcwd()
-        os.chdir(output_dir)
-        
-        self.RESOURCE = self.define_resource()
-        dummy = self.RESOURCE.to_yaml(self.RESOURCE_FILENAME)
-        validation = frictionless.Resource(self.RESOURCE_FILENAME).validate()
-
-        os.chdir(cwd)
-        
-        if validation.valid == True:
-            print("Resource is valid.")
-        else:
-            print('ERROR: invalid resource file.')
-            print(validation)
-            raise RuntimeError
-        
-
+        return variables
 
     def define_resource(self):
         import frictionless
@@ -420,7 +450,7 @@ class acs_data:
           "name": self.NAME,
           "path": self.DATA_FILENAME,
           "title": f"{self.YEAR} American Community Survey {self.SURVEY}-Year Estimates MORPC {self.GEO}-level extract",
-          "description": f"Selected variables from {self.YEAR} ACS {self.SURVEY}-Year estimates for {self.SUMLEVEL['plural']}. Data was retrieved {datetime.datetime.today().strftime('%Y-%m-%d')}",
+          "description": f"Selected variables from {self.YEAR} ACS {self.SURVEY}-Year estimates for {[x for x in self.SUMLEVEL.values()][0]['plural']}. Data was retrieved {datetime.datetime.today().strftime('%Y-%m-%d')}",
           "format": "csv",
           "mediatype": "text/csv",
           "encoding": "utf-8",
