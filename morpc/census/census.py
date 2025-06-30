@@ -433,7 +433,7 @@ class acs_data:
         r = requests.get(self.varlist_url)
         json = r.json()
         variables = {}
-        for variable in json['variables']:
+        for variable in sorted(json['variables']):
             if json['variables'][variable]['group'] == self.GROUP:
                 variables[variable] = json['variables'][variable]
 
