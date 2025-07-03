@@ -1,11 +1,34 @@
 import json
+import morpc
+
+SCOPES = {
+    "us-states": {"desc": "all states in the United States",
+                  "for": "state:*",
+                  "in": "us:*"},
+    "ohio": {"desc": "the State of Ohio",
+             "for": "state:39"},
+    "ohio-counties": {"desc": "all counties in the State of Ohio",
+                      "for": "county:*",
+                     "in": "state:39"},
+    "ohio-tracts": {"desc": "all Census tracts in the State of Ohio",
+                    "for": "tracts:*",
+                   "in": "state:39"},
+    "region15-counties": {"desc": "all counties in the MORPC 15-county region",
+                          "for": f"county:{",".join([morpc.CONST_COUNTY_NAME_TO_ID[x][2:6] for x in morpc.CONST_REGIONS['15-County Region']])}",
+                         "in": "state:39"},
+    "region15-tracts": {"desc": "all Census tracts in the MORPC 10-county region",
+                        "for": "tracts:*",
+                        "in": ["state:39", f"county:{",".join([morpc.CONST_COUNTY_NAME_TO_ID[x][2:6] for x in morpc.CONST_REGIONS['15-County Region']])}"]},
+    "regionmpo-parts": {"desc": "all Census township parts and place parts that are MORPC MPO members",
+                        "ucgid": "1550000US3902582041,0700000US390410577499999,0700000US390410578899999,0700000US390410942899999,1550000US3918000041,0700000US390411814099999,1550000US3921434041,0700000US390412144899999,1550000US3922694041,1550000US3929148041,0700000US390412969499999,0700000US390413351699999,0700000US390414036299999,0700000US390414310699999,0700000US390414790899999,0700000US390415861899999,1550000US3958940041,0700000US390415926299999,0700000US390416417899999,1550000US3964486041,0700000US390416531299999,0700000US390417084299999,1550000US3971976041,1550000US3975602041,0700000US390417661799999,0700000US390417733699999,0700000US390417756099999,1550000US3983342041,0700000US390450695099999,1550000US3911332045,1550000US3918000045,1550000US3944086045,1550000US3962498045,1550000US3966390045,0700000US390458020699999,1550000US3906278049,0700000US390490692299999,1550000US3908532049,0700000US390490944299999,1550000US3911332049,0700000US390491611299999,1550000US3918000049,1550000US3922694049,0700000US390492828099999,1550000US3929106049,1550000US3931304049,1550000US3932592049,1550000US3932606049,0700000US390493302699999,1550000US3933740049,1550000US3935476049,0700000US390493777299999,0700000US390493861299999,1550000US3944086049,1550000US3944310049,0700000US390494641099999,1550000US3947474049,0700000US390495006499999,1550000US3950862049,1550000US3953970049,0700000US390495734499999,1550000US3957862049,0700000US390496184099999,1550000US3962498049,0700000US390496297499999,0700000US390496325499999,0700000US390496457099999,1550000US3966390049,1550000US3967440049,0700000US390497178799999,0700000US390497771499999,1550000US3979002049,1550000US3979100049,1550000US3979282049,0700000US390498124299999,1550000US3983342049,1550000US3984742049,1550000US3986604049,0700000US390892569099999,1550000US3939340089,1550000US3953970089,1550000US3961112089,1550000US3966390089,1550000US3963030097,1550000US3922694159,0700000US391593904699999,1550000US3963030159"}
+}
 
 ACS_MISSING_VALUES = ["","-222222222","-333333333","-555555555","-666666666","-888888888","-999999999"]
 
 ACS_PRIMARY_KEY = "GEO_ID"
 
 ACS_ID_FIELDS = {
-    "blockgroup": [
+    "block group": [
         {"name":"GEO_ID", "type":"string", "description":"Unique identifier for geography"},
         {"name":"SUMLEVEL", "type":"string", "description":"Code representing the geographic summary level for the data"},
         {"name":"STATE","type":"string","description":"Unique identifier for state in which geography is located"},
@@ -29,7 +52,7 @@ ACS_ID_FIELDS = {
         {"name":"SUMLEVEL", "type":"string", "description":"Code representing the geographic summary level for the data"},
         {"name":"NAME", "type":"string", "description":"Name by which geography is known"},
         {"name":"STATE","type":"string","description":"Unique identifier for state in which geography is located"},
-        {"name":"COUNTY","type":"string","description":"Unique identifier for county in which geography is located"},    
+        {"name":"COUNTY","type":"string","description":"Unique identifier for county in which geography is located"},
     ],
     "state": [
         {"name":"GEO_ID", "type":"string", "description":"Unique identifier for geography"},
@@ -37,7 +60,7 @@ ACS_ID_FIELDS = {
         {"name":"NAME", "type":"string", "description":"Name by which geography is known"},
         {"name":"STATE","type":"string","description":"Unique identifier for state in which geography is located"},
     ],
-    "msa": [
+    "metropolitan statistical area/micropolitan statistical area": [
         {"name":"GEO_ID", "type":"string", "description":"Unique identifier for geography"},
         {"name":"SUMLEVEL", "type":"string", "description":"Code representing the geographic summary level for the data"},
         {"name":"NAME", "type":"string", "description":"Name by which geography is known"}
@@ -260,6 +283,251 @@ def api_get(url, params, varBatchSize=20, verbose=True):
 
     return censusData
 
+class acs_data:
+    def __init__(self, group, year, survey):
+        """
+        Class for working with ACS Survey Data. Creates an object representing data for a variable by year by survey. Use .query() method to retrive data for a specific geography.
+
+        Parameters
+        ----------
+        group : str
+            string representing the variable group
+
+        year : str
+            The year of the survey. For 5 year survey it is the ending year
+
+        survey : str
+            Number of years represnting the ACS Survey, "1" or "5"
+        """
+        self.GROUP = group
+        self.YEAR = year
+        self.SURVEY = survey
+        self.VARS = self.define_vars()
+
+    def query(self, for_param=None, in_param=None, get_param=None, ucgid_param = None, scope=None):
+        """
+        Method for retrieving data. Relies on morpc.census.api_get().
+
+        Parameters
+        ----------
+        for_param : str
+            The parameters for the "for" parameter for the api_get() call. Typically, the ACS geographic sumlevel name and an astrick. ex. "county subivision:*"
+
+        in_param : list (optional)
+            The parameters for the "in" parameter for the api_get() call. Typically, a parameter to filter the for_param with. ex. "state:39" for all the for geographies in the state of Ohio. For for all geographies in Franklin County pass ["state:39", "county:049"]
+
+        get_param : list (optional)
+            The field names to retrieve from the Census. Defaults to all availble variables for variable group number.
+
+        scope : str
+            The name of a default scope. See morpc.census.DEFAULT_CENSUS_SCOPES
+        """
+
+        import morpc
+        from datetime import datetime
+        import pandas as pd
+        self.SCOPE = scope
+
+        if scope != None:
+            self.NAME = f"morpc-acs{self.SURVEY}-{self.YEAR}-{scope}-{self.GROUP}".lower()
+            if "for" in morpc.census.SCOPES[scope]:
+                for_param = morpc.census.SCOPES[scope]['for']
+            if "in" in morpc.census.SCOPES[scope]:
+                in_param = morpc.census.SCOPES[scope]['in']
+            if "ucgid" in morpc.census.SCOPES[scope]:
+                ucgid_param = morpc.census.SCOPES[scope]['ucgid']
+
+        if get_param != None:
+            if not isinstance(get_param, list):
+                print('get_param must be a list')
+            temp = {}
+            for VAR in self.VARS:
+                if VAR in get_param:
+                    temp[VAR] = self.VARS[VAR]
+            # TODO: add check to make sure everything passed to get_param is in VARS.
+            self.VARS = temp
+        if scope == None:
+            self.NAME = f"morpc-acs{self.SURVEY}-{self.YEAR}-custom-ucgid-{self.GROUP}-{datetime.now().strftime(format='%Y%m%d-%H%M%S')}".lower()
+        self.SCHEMA = self.define_schema()
+
+
+        getFields = ",".join(self.SCHEMA.field_names)
+        self.API_PARAMS = {}
+        self.API_PARAMS['get'] = getFields
+        if for_param != None:
+            self.API_PARAMS['for'] = for_param
+        if in_param != None:
+            self.API_PARAMS['in'] = in_param
+        if ucgid_param != None:
+            self.API_PARAMS['ucgid'] = ucgid_param
+        self.API_URL = f"https://api.census.gov/data/{self.YEAR}/acs/acs{self.SURVEY}"
+
+        self.DATA = morpc.census.api_get(self.API_URL, self.API_PARAMS)
+
+        self.DATA = morpc.cast_field_types(self.DATA.reset_index(), self.SCHEMA, verbose=False)
+        self.DATA = self.DATA.filter(items=self.SCHEMA.field_names, axis='columns')
+        self.DATA = self.DATA.set_index('GEO_ID')
+
+        self.DIM_TABLE = self.DATA.reset_index().melt(id_vars=['GEO_ID'], value_name="VALUE", var_name='VARIABLE')
+        self.DIM_TABLE['DESC'] = self.DIM_TABLE['VARIABLE'].map(morpc.frictionless.name_to_desc_map(self.SCHEMA))
+        self.DIM_TABLE['VAR_TYPE'] = self.DIM_TABLE['VARIABLE'].apply(lambda x:'Estimate' if x[-1] == 'E' else 'MOE')
+        self.DESC_TABLE = self.DIM_TABLE['DESC'] \
+            .apply(lambda x:x.split("|")[0]) \
+            .str.replace('Estimate!!','') \
+            .str.replace(":","") \
+            .str.strip() \
+            .apply(lambda x:x.split("!!")) \
+            .apply(pd.Series)
+        self.DESC_TABLE.columns = ["TOTAL"]+[f"DIM_{x+1}" for x in range(len(self.DESC_TABLE.columns)-1)]
+        self.DIM_TABLE = self.DIM_TABLE.join(self.DESC_TABLE, how='left').drop(columns=['DESC','TOTAL'])
+        self.DESC_TABLE = self.DESC_TABLE.drop_duplicates()
+
+    def save(self, output_dir="./output_data"):
+        """
+        Saves data in an output directory as a fricitonless resource and validates the resource.
+
+        Parameters
+        ----------
+        output_dir : str or pathlike
+            The directory where to save the resource. default = "./output_data
+        """
+        
+        import os
+        import frictionless
+
+        if not os.path.exists(output_dir):
+            os.mkdir(output_dir)
+
+        self.DATA_FILENAME = f"{self.NAME}.csv"
+        self.DATA_PATH = os.path.join(output_dir, self.DATA_FILENAME)
+        self.DATA.reset_index().to_csv(self.DATA_PATH, index=False)
+
+        self.SCHEMA_FILENAME = f"{self.NAME}.schema.yaml"
+        self.SCHEMA_PATH = os.path.join(output_dir, self.SCHEMA_FILENAME)
+
+        dummy = self.SCHEMA.to_yaml(self.SCHEMA_PATH)
+
+        self.RESOURCE_FILENAME = f"{self.NAME}.resource.yaml"
+        self.RESOURCE_PATH = os.path.join(output_dir, self.RESOURCE_FILENAME)
+
+        cwd = os.getcwd()
+        os.chdir(output_dir)
+
+        self.RESOURCE = self.define_resource()
+        dummy = self.RESOURCE.to_yaml(self.RESOURCE_FILENAME)
+        validation = frictionless.Resource(self.RESOURCE_FILENAME).validate()
+
+        os.chdir(cwd)
+
+        if validation.valid == True:
+            print("Resource is valid.")
+        else:
+            print('ERROR: invalid resource file.')
+            print(validation)
+            raise RuntimeError
+
+    def define_sumlevel(self):
+        import morpc
+        sumlevel_dict={}
+        for sumlevel in morpc.SUMLEVEL_DESCRIPTIONS:
+            if morpc.SUMLEVEL_DESCRIPTIONS[sumlevel]['censusQueryName'] == self.GEO:
+                sumlevel_dict[sumlevel] = morpc.SUMLEVEL_DESCRIPTIONS[sumlevel]
+                return sumlevel_dict
+
+    def define_schema(self):
+        import frictionless
+        import morpc
+
+        allFields = []
+        allFields.append({"name":"GEO_ID", "type":"string", "description":"Unique identifier for geography"})
+
+        acsVarDict = self.VARS
+        for var in [x for x in acsVarDict.keys()]:
+            field = {}
+            field["name"] = var
+            field["type"] = acsVarDict[var]['predicateType']
+            if(field["type"] == "int"):
+                field["type"] = "integer"
+            elif(field["type"] == "float"):
+                field["type"] = "number"
+            field["description"] = f"{acsVarDict[var]['label']} | {acsVarDict[var]['concept']} | Estimate"
+            allFields.append(field)
+
+            field = {}
+            field["name"] = var[:-1] + "M"
+            field["type"] = acsVarDict[var]['predicateType']
+            if(field["type"] == "int"):
+                field["type"] = "integer"
+            elif(field["type"] == "float"):
+                field["type"] = "number"
+            field["description"] = f"{acsVarDict[var]['label']} | {acsVarDict[var]['concept']} | MOE"
+            allFields.append(field)
+    
+        acsSchema = {
+          "fields": allFields,
+          "missingValues": morpc.census.ACS_MISSING_VALUES,
+          "primaryKey": morpc.census.ACS_PRIMARY_KEY
+        }
+    
+        results = frictionless.Schema.validate_descriptor(acsSchema)
+        if(results.valid == True):
+            print(f"{self.NAME} schema is valid")
+        else:
+            print("ERROR: Schema is NOT valid. Errors follow.")
+            print(results)
+            raise RuntimeError
+    
+        schema = frictionless.Schema.from_descriptor(acsSchema)
+    
+        return schema
+
+    
+    def define_vars(self):
+        """
+        Retrieves a dictionary of variables from acs variable metadata table.
+        """
+        import requests
+
+        self.varlist_url = f"https://api.census.gov/data/{self.YEAR}/acs/acs{self.SURVEY}/variables.json"
+        r = requests.get(self.varlist_url)
+        json = r.json()
+        variables = {}
+        for variable in sorted(json['variables']):
+            if json['variables'][variable]['group'] == self.GROUP:
+                variables[variable] = json['variables'][variable]
+
+        return variables
+
+    def define_resource(self):
+        import frictionless
+        import morpc
+        import datetime
+        import os
+
+        acsResource = {
+          "profile": "tabular-data-resource",
+          "name": self.NAME,
+          "path": self.DATA_FILENAME,
+          "title": f"{self.YEAR} American Community Survey {self.SURVEY}-Year Estimates for {"Custom Geography" if self.SCOPE == None else SCOPES[self.SCOPE]['desc']}.",
+          "description": f"Selected variables from {self.YEAR} ACS {self.SURVEY}-Year estimates for {"custom geography (see sources._params)" if self.SCOPE == None else SCOPES[self.SCOPE]['desc']}. Data was retrieved {datetime.datetime.today().strftime('%Y-%m-%d')}",
+          "format": "csv",
+          "mediatype": "text/csv",
+          "encoding": "utf-8",
+          "bytes": os.path.getsize(self.DATA_FILENAME),
+          "hash": morpc.md5(self.DATA_FILENAME),
+          "rows": self.DATA.shape[0],
+          "columns": self.DATA.shape[1],
+          "schema": self.SCHEMA_FILENAME,
+          "sources": [{
+              "title": f"{self.YEAR} American Community Survey {self.SURVEY}-Year Estimates, U.S. Census Bureau",
+              "path": self.API_URL,
+              "_params": self.API_PARAMS
+          }]
+        }
+    
+        resource = frictionless.Resource(acsResource)
+        return resource
+
 # acs_label_to_dimensions obtains the data dimensions associated with a particular variable by decomposing the "Label" column as described in the 
 # Census API variable list, e.g. https://api.census.gov/data/2022/acs/acs5/variables.html. There is a label associated with each variable provided 
 # by the API. For example, one label (for B25127_004E) looks like this:
@@ -285,37 +553,69 @@ def api_get(url, params, varBatchSize=20, verbose=True):
 #         | B25127_004E  | Owner occupied | Built 2020 or later | 1, detached or attached |
 #
 
-def acs_variables_by_group(groupNumber, acsYear, acsSurvey):
-    """
-    Get a list of all variables that are in a census variable group.
 
-    Parameters
-    ----------
-    groupNumber : str
-        The group number to search for within the variables table. ie. B11001
 
-    acsYear : str
-        The year of the survey. ie. 2023
+def acs_schema(ACS_GROUP, ACS_YEAR, ACS_SURVEY, GEO_SUMLEVEL, OUTPUT_DIR):
+    import frictionless
+    import morpc
+    
+    allFields = []
 
-    acsSurvey : str
-        The acs survey to get variables for. ie. 1 or 5
+    for field in ACS_ID_FIELDS[GEO_SUMLEVEL]:
+        allFields.append(field)
 
-    Returns
-    -------
-    dict
-        A dict of the variables in the group and related fields.
-    """
-    import requests
-    import json
+    acsVarDict = acs_variables_by_group(ACS_GROUP, ACS_YEAR, ACS_SURVEY)
+    for var in [x for x in acsVarDict.keys()]:
+        field = {}
+        field["name"] = var
+        field["type"] = acsVarDict[var]['predicateType']
+        if(field["type"] == "int"):
+            field["type"] = "integer"
+        elif(field["type"] == "float"):
+            field["type"] = "number"
+        field["description"] = f"{acsVarDict[var]['label']} | {acsVarDict[var]['concept']} | Estimate"
+        allFields.append(field)
 
-    r = requests.get(f'https://api.census.gov/data/{acsYear}/acs/acs{acsSurvey}/variables.json')
-    json = r.json()
+        field = {}
+        field["name"] = var[:-1] + "M"
+        field["type"] = acsVarDict[var]['predicateType']
+        if(field["type"] == "int"):
+            field["type"] = "integer"
+        elif(field["type"] == "float"):
+            field["type"] = "number"
+        field["description"] = f"{acsVarDict[var]['label']} | {acsVarDict[var]['concept']} | MOE"
+        allFields.append(field)
 
-    variables = {}
-    for variable in json['variables']:
-        if json['variables'][variable]['group'] == groupNumber:
-            variables[variable] = json['variables'][variable]
-    return variables
+    acsSchema = {
+      "fields": allFields,
+      "missingValues": ACS_MISSING_VALUES,
+      "primaryKey": ACS_PRIMARY_KEY
+    }
+
+    results = frictionless.Schema.validate_descriptor(acsSchema)
+    if(results.valid == True):
+        print(f"acs{ACS_SURVEY}-{ACS_YEAR}-{ACS_GROUP}-{morpc.HIERARCHY_STRING_FROM_SINGULAR[GEO_SUMLEVEL]} schema is valid")
+    else:
+        print("ERROR: Schema is NOT valid. Errors follow.")
+        print(results)
+        raise RuntimeError
+
+    schema = frictionless.Schema.from_descriptor(acsSchema)
+    
+    GEO_HIER = morpc.HIERARCHY_STRING_FROM_SINGULAR[GEO_SUMLEVEL]
+    ACS_SCHEMA_FILENAME = f"morpc-acs{ACS_SURVEY}-{ACS_YEAR}-{ACS_GROUP}-{GEO_HIER}.schema.yaml"
+    ACS_SCHEMA_PATH = os.path.join(OUTPUT_DIR, ACS_SCHEMA_FILENAME)
+    
+    schema.to_yaml(ACS_SCHEMA_PATH)
+    return schema
+
+def acs_resource(ACS_GROUP, ACS_YEAR, ACS_SURVEY, GEO_SUMLEVEL):
+
+    for sumlevel in morpc.SUMLEVEL_DESCRIPTIONS:
+        if sumlevel['singular'] == GEO_SUMLEVEL:
+            geoDescription = sumlevel
+
+    
 
 def acs_label_to_dimensions(labelSeries, dimensionNames=None):
     """
@@ -343,11 +643,11 @@ def acs_label_to_dimensions(labelSeries, dimensionNames=None):
     labelSeries = labelSeries \
         .apply(lambda x:x.split("|")[0]) \
         .str.strip() \
-        .str.replace("!!","") \
-        .apply(lambda x:x.split(":"))    
+        .str.replace("Estimate!!","") \
+        .apply(lambda x:x.split(":"))
     df = labelSeries \
         .apply(pd.Series) \
-        .drop(columns=0) \
+        .drop(columns=[0, 1]) \
         .replace("", np.nan)
     if(type(dimensionNames) == list):
         df.columns = dimensionNames
@@ -403,7 +703,7 @@ def acs_generate_dimension_table(acsDataRaw, schema, idFields, dimensionNames):
     # Split the description string into dimensions and drop the description.  Add a field annotating whether the variable is a margin of error or an estimate.  
     # Show example results for Franklin County so it is possible to get a sense of the dimensions.
     dimensionTable = dimensionTable \
-        .join(morpc.census.acs_label_to_dimensions(dimensionTable['description'], dimensionNames=dimensionNames), how="left") \
+        .join(acs_label_to_dimensions(dimensionTable['description'], dimensionNames=dimensionNames), how="left") \
         .drop(columns=["description"])
     dimensionTable["Variable type"] = dimensionTable["Variable"].apply(lambda x:("Estimate" if x[-1]=="E" else "MOE"))
 
