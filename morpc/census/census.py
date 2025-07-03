@@ -382,6 +382,8 @@ class acs_data:
         self.DIM_TABLE = self.DIM_TABLE.join(self.DESC_TABLE, how='left').drop(columns=['DESC','TOTAL'])
         self.DESC_TABLE = self.DESC_TABLE.drop_duplicates()
 
+        return self
+
     def save(self, output_dir="./output_data"):
         """
         Saves data in an output directory as a fricitonless resource and validates the resource.
