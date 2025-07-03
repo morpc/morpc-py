@@ -89,7 +89,7 @@ def cast_field_types(df, schema, forceInteger=False, forceInt64=False, handleMis
                         raise RuntimeError           
         elif(fieldType == "number"):
             outDF[fieldName] = outDF[fieldName].astype("float")
-        elif(fieldType == "date"):
+        elif(fieldType == "date" or fieldType == "datetime"):
             outDF[fieldName] = pd.to_datetime(outDF[fieldName])
         elif(fieldType == "geojson"):
             try:
