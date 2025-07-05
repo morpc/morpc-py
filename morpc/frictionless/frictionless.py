@@ -456,7 +456,7 @@ def validate_resource(resourcePath, verbose=True):
         os.chdir(os.path.dirname(resourcePath))    
       
         if(verbose):
-            print("morpc.validate_resource | INFO | Validating resource on disk (including data and schema). This may take some time.")
+            print("morpc.validate_resource | INFO | Validating resource on disk including data and schema (if applicable). This may take some time.")
         resourceOnDisk = frictionless.Resource(os.path.basename(resourcePath))
         results = resourceOnDisk.validate()
 
@@ -477,7 +477,7 @@ def validate_resource(resourcePath, verbose=True):
             print(results)
         return False
 
-def load_data(resourcePath, archiveDir=None, validate=False, forceInteger=False, forceInt64=False, verbose=True):
+def load_data(resourcePath, archiveDir=None, validate=False, forceInteger=False, forceInt64=False, useSchema="default", sheetName=None, layerName=None, driverName=None, verbose=True):
     """Often we want to make a copy of some input data and work with the copy, for example to protect 
     the original data or to create an archival copy of it so that we can replicate the process later.  
     The `load_data()` function simplifies the process of reading the data and 
@@ -500,82 +500,132 @@ def load_data(resourcePath, archiveDir=None, validate=False, forceInteger=False,
     forceInt64 : bool
         Optional. If True, then cast all integer fields as Int64 regardless of whether this is necessary.  This is useful
         when trying to merge dataframes which would otherwise have mixed int32 and Int64 fields. Defaults to False.
+    useSchema : str
+        Optional. If "default", use the schema specified in the resource file.  If any other string, treat that string as a path
+        to a Frictionless schema file in YAML format.  If None, do not attempt to load the schema.  Note that Frictionless does
+        have an option to ignore the schema specified in the resource file, so if one is specified there it will be included during validation 
+        if validate == True
+    sheetName : str
+        The name of the desired sheet in an Excel file.  Required when reading an Excel workbook that contains multiple sheets.        
+    layerName : str
+        The name of the desired layer in the spatial data file. Required when reading as spatial data file that contains multiple layers, such
+        as a GeoPackage.
+    driverName : str
+        The driver to use to load spatial data. Typically the driver can be inferred from the file extension, but must be specified
+        in some situations including when the data is zipped. See morpc.load_spatial_data for more details.
     verbose : bool
         Optional.  If False, then most output will be suppressed.  Defaults to True.
 
     Returns
     -------
-    df : pandas.core.frame.DataFrame
-        A GeoPandas GeoDataframe constructed from the data at the location specified by sourcePath and layerName
+    data : pandas.core.frame.DataFrame or geopandas.geodataframe.GeoDataFrame
+        A pandas DataFrame or geopandas GeoDataframe constructed from the data at the location specified by sourcePath and layerName
     resource : frictionless.resources.table.TableResource
         A Frictionless TableResource object which describes the data
     schema : frictionless.schema.schema.Schema
         A Frictionless Schema object which describes the data
     """
 
+    import morpc
     import frictionless
     import pandas as pd
+    import geopandas as gpd
     import os
     import json
     import shutil
 
     myResourcePath = os.path.normpath(resourcePath)
 
-    print("morpc.load_data | INFO | Loading Frictionless Resource file at location {}".format(myResourcePath))    
+    print("morpc.frictionless.load_data | INFO | Loading Frictionless Resource file at location {}".format(myResourcePath))    
     
     resource = load_resource(myResourcePath)
     
     sourceDir = os.path.dirname(myResourcePath)
     resourceFilename = os.path.basename(myResourcePath)
     dataFileExtension = os.path.splitext(resource.path)[1]
-        
+    
+    # Surely there is a more convenient way to get the schema path from the Resource object?
+    if(useSchema == None):
+        print("morpc.frictionless.load_data | INFO | Ignoring schema as directed by useSchema parameter.")
+        schemaFilename = None
+        schemaSourcePath = None
+        schema = None
+    elif(useSchema == "default"):
+        print("morpc.frictionless.load_data | INFO | Using schema path specified in resource file.")
+        try:
+            schemaFilename = json.loads(resource.to_json())["schema"]
+        except:
+            print("morpc.frictionless.load_data | ERROR | Schema path not present in resource file. Specify the schema path in useSchema or set useSchema=None to ignore schema.")
+
+        schemaSourcePath = os.path.join(sourceDir, schemaFilename)
+        schema = resource.schema
+    else:
+        print("morpc.frictionless.load_data | INFO | Using schema path specified in useSchema parameter: {}".format(useSchema))
+        schemaFilename = os.path.basename(useSchema)
+        schemaSourcePath = useSchema
+        schema = morpc.frictionless.load_schema(useSchema)
+    
     if(archiveDir != None):
 
         targetResource = os.path.join(archiveDir, resourceFilename)
         targetData = os.path.join(archiveDir, resource.path)
-        # Surely there is a more convenient way to get the schema path from the Resource object?
-        targetSchema = os.path.join(archiveDir, json.loads(resource.to_json())["schema"])
-        
+        if(schemaFilename != None):
+            targetSchema = os.path.join(archiveDir, schemaFilename)
+        else:
+            targetSchema = None
+
         try:
-            print("morpc.load_data | INFO | Copying data, resource file, and schema to directory {}".format(archiveDir))    
+            print("morpc.frictionless.load_data | INFO | Copying data, resource file, and schema (if applicable) to directory {}".format(archiveDir))    
 
             shutil.copyfile(os.path.join(sourceDir, resourceFilename), targetResource)
             shutil.copyfile(os.path.join(sourceDir, resource.path), targetData)
-            shutil.copyfile(os.path.join(sourceDir, json.loads(resource.to_json())["schema"]), targetSchema)
+            if(targetSchema != None):
+                shutil.copyfile(schemaSourcePath, targetSchema)
         except Exception as e:
-            print("morpc.load_data | ERROR | Unhandled exception when trying to copy data and associated Frictionless files: {}".format(e))
+            print("morpc.frictionless.load_data | ERROR | Unhandled exception when trying to copy data and associated Frictionless files: {}".format(e))
             raise RuntimeError
     
     else:           
         targetResource = os.path.join(sourceDir, resourceFilename)
         targetData = os.path.join(sourceDir, resource.path)
-        targetSchema = os.path.join(sourceDir, json.loads(resource.to_json())["schema"])
+        if(schemaFilename != None):
+            targetSchema = schemaSourcePath
+        else:
+            targetSchema = None
 
-        print("morpc.load_data | INFO | Loading data, resource file, and schema from their source locations")    
+        print("morpc.frictionless.load_data | INFO | Loading data, resource file, and schema (if applicable) from their source locations")    
 
-    print("morpc.load_data | INFO | --> Data file: {}".format(targetData))    
-    print("morpc.load_data | INFO | --> Resource file: {}".format(targetResource))    
-    print("morpc.load_data | INFO | --> Schema file: {}".format(targetSchema))    
+    print("morpc.frictionless.load_data | INFO | --> Data file: {}".format(targetData))    
+    print("morpc.frictionless.load_data | INFO | --> Resource file: {}".format(targetResource))   
+    if(targetSchema == None):
+        print("morpc.frictionless.load_data | INFO | --> Schema file: Not available. Ignoring schema.")
+    else:
+        print("morpc.frictionless.load_data | INFO | --> Schema file: {}".format(targetSchema))
     
     if(validate):
-        print("morpc.load_data | INFO | Validating resource including data and schema.")    
+        print("morpc.frictionless.load_data | INFO | Validating resource including data and schema (if applicable).")    
         resourceValid = validate_resource(targetResource)
         if(not resourceValid):
-            print("morpc.load_data | ERROR | Validation failed. Errors should be described above.")    
+            print("morpc.frictionless.load_data | ERROR | Validation failed. Errors should be described above.")    
             raise RuntimeError
       
-    print("morpc.load_data | INFO | Loading data.")          
+    print("morpc.frictionless.load_data | INFO | Loading data.")          
     if(dataFileExtension == ".csv"):
-        df = pd.read_csv(targetData, dtype="string")
+        data = pd.read_csv(targetData, dtype="string")
     elif(dataFileExtension == ".xlsx"):
-        df = pd.read_excel(targetData)
+        data = pd.read_excel(targetData, sheet_name=sheetName)
+    elif(dataFileExtension in [".gpkg",".shp",".geojson",".gdb"]):
+        data = morpc.load_spatial_data(targetData, layerName=layerName, driverName=driverName, verbose=verbose)
     else:
-        print("morpc.load_data | ERROR | Unknown data file extension: {}".format(dataFileExtension))
+        print("morpc.frictionless.load_data | ERROR | Unknown data file extension: {}".format(dataFileExtension))
         raise RuntimeError
 
-    df = cast_field_types(df, resource.schema, forceInteger=forceInteger, forceInt64=forceInt64, verbose=verbose)
+    if(useSchema == None):
+        print("morpc.frictionless.load_data | INFO | Skipping casting of field types since we are ignoring schema.")
+    else:
+        data = cast_field_types(data, schema, forceInteger=forceInteger, forceInt64=forceInt64, verbose=verbose)
     
-    return df, resource, resource.schema
+    return data, resource, schema
 
 
 # Given the path to a schema document in Avro format, load the Avro schema and reformat it as a
