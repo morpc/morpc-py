@@ -2571,10 +2571,14 @@ def reapportion_by_area(targetGeos, overlayGeos, apportionColumns=None, roundPre
     # Store the name of the indexes used for the target geos and overlay geos and then reset the index for each dataframe
     # to bring the identifiers out into a series. Standardize the names of the identifier fields.  This will preserve the identifiers
     # to summarize the reapportioned variables. The target geos index will be restored in the output.
-    targetGeosIndexName = targetGeos.index.name
+    if(targetGeosUpdated.index.name is None):
+        targetGeosUpdated.index.name = "None"
+    targetGeosIndexName = targetGeosUpdated.index.name
     targetGeosUpdated = targetGeosUpdated.reset_index()
     targetGeosUpdated = targetGeosUpdated.rename(columns={targetGeosIndexName:"targetIndex"})
-    overlayGeosIndexName = targetGeos.index.name
+    if(myOverlayGeos.index.name is None):
+        myOverlayGeos.index.name = "None"
+    overlayGeosIndexName = myOverlayGeos.index.name
     myOverlayGeos = myOverlayGeos.reset_index()
     myOverlayGeos = myOverlayGeos.rename(columns={overlayGeosIndexName:"overlayIndex"})
 
@@ -2617,6 +2621,8 @@ def reapportion_by_area(targetGeos, overlayGeos, apportionColumns=None, roundPre
 
     # Recombine the target geometries with their attributes and add the reapportioned variables
     targetGeosUpdated = targetGeosUpdated.rename(columns={"targetIndex":targetGeosIndexName}).set_index(targetGeosIndexName).join(myTargetGeosAttr).join(targetGeosUpdate)
+    if(targetGeosUpdated.index.name == "None"):
+        targetGeosUpdated.index.name = None
 
     # Reorder the target geos columns as they were originally and append the reapportioned variables
     # to the end.
