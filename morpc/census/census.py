@@ -1,5 +1,12 @@
 import json
 import morpc
+from importlib.resources import files
+
+try:
+    with files('morpc').joinpath('census', 'acs_variable_groups.json').open('r') as file:
+        ACS_VAR_GROUPS = json.load(file)
+except ValueError as e:
+    print(e)
 
 SCOPES = {
     "us-states": {"desc": "all states in the United States",
@@ -379,7 +386,7 @@ class acs_data:
             .apply(lambda x:x.split("!!")) \
             .apply(pd.Series)
         self.DESC_TABLE.columns = ["TOTAL"]+[f"DIM_{x+1}" for x in range(len(self.DESC_TABLE.columns)-1)]
-        self.DIM_TABLE = self.DIM_TABLE.join(self.DESC_TABLE, how='left').drop(columns=['DESC','TOTAL'])
+        self.DIM_TABLE = self.DIM_TABLE.join(self.DESC_TABLE, how='left').drop(columns=['DESC', 'TOTAL'])
         self.DESC_TABLE = self.DESC_TABLE.drop_duplicates()
 
         return self
