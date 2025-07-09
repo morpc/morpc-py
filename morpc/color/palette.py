@@ -53,8 +53,10 @@ for color in ['lightgreen', 'darkblue', 'bluegreen', 'darkgreen', 'red', 'blue',
     key = get_colors().morpc_colors[color]['key']['position'] - 1
     if  7 < key > 5:
         dark = key+2
-    if key >= 7:
+    if key == 7:
         dark = key+2
+    if key >= 8:
+        dark = key+1
     else:
         dark = key+3
     QUAL['dark'].append(get_colors().morpc_colors[color]['gradient']['hex'][dark])
