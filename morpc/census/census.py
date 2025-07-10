@@ -1,5 +1,46 @@
 import json
 import morpc
+from importlib.resources import files
+
+try:
+    with files('morpc').joinpath('census', 'acs_variable_groups.json').open('r') as file:
+        ACS_VAR_GROUPS = json.load(file)
+except ValueError as e:
+    print(e)
+
+ACS_HIGHLEVEL_GROUP_DESC = {
+    "01": "Sex, Age, and Population",
+    "02": "Race",
+    "03": "Ethnicity",
+    "04": "Ancestry",
+    "05": "Nativity and Citizenship",
+    "06": "Place of Birth",
+    "07": "Geographic Mobility",
+    "08": "Transportation to Work",
+    "09": "Children",
+    "10": "Grandparents and Grandchildren",
+    "11": "Household Type",
+    "12": "Marriage and Marital Status",
+    "13": "Mothers and Births",
+    "14": "School Enrollement",
+    "15": "Educational Attainment",
+    "16": "Language Spoken at Home",
+    "17": "Poverty",
+    "18": "Disability",
+    "19": "Household Income",
+    "20": "Earnings",
+    "21": "Veterns",
+    "22": "Food Stamps/SNAP",
+    "23": "Workers and Employment Status",
+    "24": "Occupation, Industry, Class",
+    "25": "Housing Units, Tenure, Housing Costs",
+    "26": "Group Quarters",
+    "27": "Health Insurance",
+    "28": "Computers and Internet",
+    "29": "Voting-Age",
+    "98": "Coverage Rates and Allocation Rates",
+    "99": "Allocations",
+}
 
 SCOPES = {
     "us-states": {"desc": "all states in the United States",
@@ -283,6 +324,7 @@ def api_get(url, params, varBatchSize=20, verbose=True):
 
     return censusData
 
+
 class acs_data:
     def __init__(self, group, year, survey):
         """
@@ -303,6 +345,7 @@ class acs_data:
         self.YEAR = year
         self.SURVEY = survey
         self.VARS = self.define_vars()
+        self.DIMENSIONS = ACS_VAR_GROUPS[self.GROUP]['dimensions']
 
     def query(self, for_param=None, in_param=None, get_param=None, ucgid_param = None, scope=None):
         """
@@ -350,7 +393,6 @@ class acs_data:
             self.NAME = f"morpc-acs{self.SURVEY}-{self.YEAR}-custom-ucgid-{self.GROUP}-{datetime.now().strftime(format='%Y%m%d-%H%M%S')}".lower()
         self.SCHEMA = self.define_schema()
 
-
         getFields = ",".join(self.SCHEMA.field_names)
         self.API_PARAMS = {}
         self.API_PARAMS['get'] = getFields
@@ -378,8 +420,8 @@ class acs_data:
             .str.strip() \
             .apply(lambda x:x.split("!!")) \
             .apply(pd.Series)
-        self.DESC_TABLE.columns = ["TOTAL"]+[f"DIM_{x+1}" for x in range(len(self.DESC_TABLE.columns)-1)]
-        self.DIM_TABLE = self.DIM_TABLE.join(self.DESC_TABLE, how='left').drop(columns=['DESC','TOTAL'])
+        self.DESC_TABLE.columns = self.DIMENSIONS[0:len(self.DESC_TABLE.columns)]
+        self.DIM_TABLE = self.DIM_TABLE.join(self.DESC_TABLE, how='left').drop(columns=['DESC'])
         self.DESC_TABLE = self.DESC_TABLE.drop_duplicates()
 
         return self
