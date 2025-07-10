@@ -1481,23 +1481,25 @@ def round_preserve_sum(inputValues, digits=0, verbose=False):
     return(outputValues)
 
 
-# Given a pandas DataFrame, append a new column "GROUP_SUM" containing the sum of 
-# the values in a specified column. Optionally, populate "GROUP_SUM" with subtotals 
-# for groups using group names from a specified column.
-#
-# Parameters:
-#
-# inputDf is a pandas DataFrame with a column containing the values and (optionally) 
-# a column containing the group labels
-#
-# valueField is the name of the column of inputDf that contains the values. This may 
-# be omitted if the DataFrame contains only one column.
-#
-# Optional: groupbyField is the name of the column of inputDf that contains the group 
-# labels.
 def compute_group_sum(inputDf, valueField=None, groupbyField=None):
     """
-    TODO: add docstring
+    Given a pandas DataFrame, append a new column "GROUP_SUM" containing the sum of the values in a specified column. Optionally, 
+    populate "GROUP_SUM" with subtotals for groups using group names from a specified column.
+    
+    Parameters
+    ----------
+    inputDf : pandas.core.frame.DataFrame
+        a pandas DataFrame with a column containing the values and (optionally) a column containing the group labels
+    valueField : str
+        the name of the column of inputDf that contains the values. This may be omitted if the DataFrame contains only one column.
+    groupbyField : str
+        Optional. the name of the column of inputDf that contains the group labels.
+
+    Returns
+    -------
+    df : pandas.core.frame.DataFrame 
+        A copy of inputDf to which a new column "GROUP_SUM" has been added which contains the sum of the values in the specified column 
+        or the sums of the values for each group.
     """
     import pandas as pd
 
@@ -1551,23 +1553,25 @@ def compute_group_sum(inputDf, valueField=None, groupbyField=None):
         
     return df
 
-# Given a pandas DataFrame with a column containing a set of values and another 
-# column containing a set of sums representing the total of a group to which the 
-# value belongs, append a new column "GROUP_SHARE" which contains the share of the 
-# group total represented by each value.
-#
-# Parameters:
-# 
-# inputDf is a pandas DataFrame with a column containing the values and and a column 
-# containing the group sums
-# 
-# valueField is the name of the column of inputDf that contains the values.
-#
-# Optional: groupSumField is the name of the column of inputDf that contains the group 
-# sums. If this is not specified, the column "GROUP_SUM" will be used.
 def compute_group_share(inputDf, valueField, groupSumField="GROUP_SUM"):
     """
-    TODO: add docstring
+    Given a pandas DataFrame with a column containing a set of values and another column containing a set of sums representing the 
+    total of a group to which the value belongs, append a new column "GROUP_SHARE" which contains the share of the group total represented 
+    by each value.
+    
+    Parameters
+    ----------
+    inputDf : pandas.core.frame.DataFrame
+        A pandas DataFrame with a column containing the values and and a column containing the group sums
+    valueField : str
+        The name of the column of inputDf that contains the values.
+    groupSumField : str
+        Optional. The name of the column of inputDf that contains the group sums. If this is not specified, the column "GROUP_SUM" will be used.
+
+    Returns
+    -------
+    df : pandas.core.frame.DataFrame 
+        A copy of inputDf to which a new column "GROUP_SHARE" has been added which contains the share of the group total represented by each value.
     """
     import pandas as pd
 
@@ -2620,7 +2624,8 @@ def write_table(df, path, format=None, index=None):
 
 
 def reapportion_by_area(targetGeos, overlayGeos, apportionColumns=None, roundPreserveSum=None, overlayShareTolerance=6):
-    """Given you have some variable(s) summarized at one geography level, reapportion those variables to other geographies in proportion to the area of overlap of the target 
+    """
+    Given you have some variable(s) summarized at one geography level, reapportion those variables to other geographies in proportion to the area of overlap of the target 
     geographies with the overlay (source) geographies.  This is accomplished by intersecting the target geographies with the overlay geographies, then summarizing the variable(s)
     by the target geography index.
     
@@ -2651,7 +2656,6 @@ def reapportion_by_area(targetGeos, overlayGeos, apportionColumns=None, roundPre
     -------
     targetGeosUpdated :  geopandas.geodataframe.GeoDataFrame with polygon geometry type
         An updated version of targetGeos that includes the reapportioned variables.
-    
     """
 
     import pandas as pd
@@ -2680,10 +2684,14 @@ def reapportion_by_area(targetGeos, overlayGeos, apportionColumns=None, roundPre
     # Store the name of the indexes used for the target geos and overlay geos and then reset the index for each dataframe
     # to bring the identifiers out into a series. Standardize the names of the identifier fields.  This will preserve the identifiers
     # to summarize the reapportioned variables. The target geos index will be restored in the output.
-    targetGeosIndexName = targetGeos.index.name
+    if(targetGeosUpdated.index.name is None):
+        targetGeosUpdated.index.name = "None"
+    targetGeosIndexName = targetGeosUpdated.index.name
     targetGeosUpdated = targetGeosUpdated.reset_index()
     targetGeosUpdated = targetGeosUpdated.rename(columns={targetGeosIndexName:"targetIndex"})
-    overlayGeosIndexName = targetGeos.index.name
+    if(myOverlayGeos.index.name is None):
+        myOverlayGeos.index.name = "None"
+    overlayGeosIndexName = myOverlayGeos.index.name
     myOverlayGeos = myOverlayGeos.reset_index()
     myOverlayGeos = myOverlayGeos.rename(columns={overlayGeosIndexName:"overlayIndex"})
 
@@ -2726,6 +2734,8 @@ def reapportion_by_area(targetGeos, overlayGeos, apportionColumns=None, roundPre
 
     # Recombine the target geometries with their attributes and add the reapportioned variables
     targetGeosUpdated = targetGeosUpdated.rename(columns={"targetIndex":targetGeosIndexName}).set_index(targetGeosIndexName).join(myTargetGeosAttr).join(targetGeosUpdate)
+    if(targetGeosUpdated.index.name == "None"):
+        targetGeosUpdated.index.name = None
 
     # Reorder the target geos columns as they were originally and append the reapportioned variables
     # to the end.
