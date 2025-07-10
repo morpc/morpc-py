@@ -859,7 +859,6 @@
       "concept": "Nativity and Citizenship Status in the United States",
       "dimensions": [
          "TOTAL",
-         "Nativity",
          "Citizenship Status in the United States"
       ],
       "variables": {
@@ -875,9 +874,9 @@
       "concept": "Place of Birth by Nativity and Citizenship Status",
       "dimensions": [
          "TOTAL",
-         "Place of Birth",
          "Nativity",
-         "Citizenship Status"
+         "Citizenship Status",
+         "Place of Birth"
       ],
       "variables": {
          "B05002_001E": "Estimate!!Total:",
@@ -1479,6 +1478,7 @@
       "concept": "Period of Naturalization",
       "dimensions": [
          "TOTAL",
+		 "Naturalized",
          "Period of Naturalization"
       ],
       "variables": {
@@ -5854,7 +5854,6 @@
       "concept": "Grandchildren Under 18 Years Living With a Grandparent Householder by Age of Grandchild",
       "dimensions": [
          "TOTAL",
-         "Grandchildren Under 18 Years Living With a Grandparent Householder",
          "Age of Grandchild"
       ],
       "variables": {
@@ -6123,7 +6122,9 @@
       "concept": "Household Type (Including Living Alone)",
       "dimensions": [
          "TOTAL",
-         "Household Type (Including Living Alone)"
+         "Household Type",
+		 "Living Alone",
+		 "Spouse Present"
       ],
       "variables": {
          "B11001_001E": "Estimate!!Total:",
@@ -26868,6 +26869,7 @@
       "concept": "Detailed Race",
       "dimensions": [
          "TOTAL",
+		 "One or more Races",
          "Detailed Race"
       ],
       "variables": {
