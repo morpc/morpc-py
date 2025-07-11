@@ -362,7 +362,7 @@ class dimension_table:
             .apply(pd.Series)
         DESC_TABLE.columns = dimensions[0:len(DESC_TABLE.columns)]
         self.LONG = self.LONG.join(DESC_TABLE, how='left').drop(columns=['DESC'])
-        self.LONG = self.LONG.fillna("")
+        self.LONG = self.LONG.fillna("Total")
         for dim in DESC_TABLE.columns:
             self.LONG[dim] = pd.Categorical(self.LONG[dim], categories=self.LONG[dim].unique())
         self.LONG['REFERENCE_YEAR'] = year
@@ -371,7 +371,8 @@ class dimension_table:
 
     def define_dim_table_wide(self):
 
-        self.WIDE = self.LONG.loc[self.LONG['VAR_TYPE']=='Estimate'].drop(columns = ['VARIABLE', 'VAR_TYPE']).pivot(columns = ["GEO_ID", "NAME", "REFERENCE_YEAR"], index=self.DIMENSIONS)
+        self.WIDE = self.LONG.loc[self.LONG['VAR_TYPE']=='Estimate'].drop(columns = ['VARIABLE', 'VAR_TYPE']).pivot(columns = ["GEO_ID", "NAME", "REFERENCE_YEAR"], index=self.DIMENSIONS)['VALUE']
+        self.WIDE = self.WIDE.droplevel("TOTAL")
 
 
 class acs_data:
