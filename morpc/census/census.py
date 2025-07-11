@@ -324,6 +324,55 @@ def api_get(url, params, varBatchSize=20, verbose=True):
 
     return censusData
 
+class dimension_table:
+    def __init__(self, data, schema, dimensions, year):
+        """
+        A class for dimension table for census data.
+
+        Parameters:
+        ----------
+        data : pandas.DataFrame
+            The data indexed by GEO_ID and NAME and the columns are variables
+
+        schema : frictionless.Schema
+            The schema for the data
+
+        Returns:
+        --------
+        morpc.census.dimension_table
+        """
+
+        self.DIMENSIONS = dimensions
+        self.define_dim_table(data, schema, dimensions, year)
+        self.define_dim_table_wide()
+
+    def define_dim_table(self, data, schema, dimensions, year):
+        import morpc
+        import pandas as pd
+        
+        self.LONG = data.reset_index().melt(id_vars=['GEO_ID', 'NAME'], value_name="VALUE", var_name='VARIABLE')
+        self.LONG['DESC'] = self.LONG['VARIABLE'].map(morpc.frictionless.name_to_desc_map(schema))
+        self.LONG['VAR_TYPE'] = self.LONG['VARIABLE'].apply(lambda x:'Estimate' if x[-1] == 'E' else 'MOE')
+        DESC_TABLE = self.LONG['DESC'] \
+            .apply(lambda x:x.split("|")[0]) \
+            .str.replace('Estimate!!','') \
+            .str.replace(":","") \
+            .str.strip() \
+            .apply(lambda x:x.split("!!")) \
+            .apply(pd.Series)
+        DESC_TABLE.columns = dimensions[0:len(DESC_TABLE.columns)]
+        self.LONG = self.LONG.join(DESC_TABLE, how='left').drop(columns=['DESC'])
+        self.LONG = self.LONG.fillna("")
+        for dim in DESC_TABLE.columns:
+            self.LONG[dim] = pd.Categorical(self.LONG[dim], categories=self.LONG[dim].unique())
+        self.LONG['REFERENCE_YEAR'] = year
+
+        return self
+
+    def define_dim_table_wide(self):
+
+        self.WIDE = self.LONG.loc[self.LONG['VAR_TYPE']=='Estimate'].drop(columns = ['VARIABLE', 'VAR_TYPE']).pivot(columns = ["GEO_ID", "NAME", "REFERENCE_YEAR"], index=self.DIMENSIONS)
+
 
 class acs_data:
     def __init__(self, group, year, survey):
@@ -345,7 +394,10 @@ class acs_data:
         self.YEAR = year
         self.SURVEY = survey
         self.VARS = self.define_vars()
-        self.DIMENSIONS = ACS_VAR_GROUPS[self.GROUP]['dimensions']
+        if ACS_VAR_GROUPS[self.GROUP]['dimensions_verified'] == False:
+            print(f"Dimension {", ".join(ACS_VAR_GROUPS[self.GROUP]['dimensions'])} not verified for variable group. May cause errors. Check dimensions agianst variables and make corrections in acs_variable_groups.json.")
+        if ACS_VAR_GROUPS[self.GROUP]['dimensions_verified'] == True:
+            self.DIMENSIONS = ACS_VAR_GROUPS[self.GROUP]['dimensions']
 
     def query(self, for_param=None, in_param=None, get_param=None, ucgid_param = None, scope=None):
         """
@@ -369,6 +421,7 @@ class acs_data:
         import morpc
         from datetime import datetime
         import pandas as pd
+        import os
         self.SCOPE = scope
 
         if scope != None:
@@ -410,19 +463,7 @@ class acs_data:
         self.DATA = self.DATA.filter(items=self.SCHEMA.field_names, axis='columns')
         self.DATA = self.DATA.set_index('GEO_ID')
 
-        self.DIM_TABLE = self.DATA.reset_index().melt(id_vars=['GEO_ID'], value_name="VALUE", var_name='VARIABLE')
-        self.DIM_TABLE['DESC'] = self.DIM_TABLE['VARIABLE'].map(morpc.frictionless.name_to_desc_map(self.SCHEMA))
-        self.DIM_TABLE['VAR_TYPE'] = self.DIM_TABLE['VARIABLE'].apply(lambda x:'Estimate' if x[-1] == 'E' else 'MOE')
-        self.DESC_TABLE = self.DIM_TABLE['DESC'] \
-            .apply(lambda x:x.split("|")[0]) \
-            .str.replace('Estimate!!','') \
-            .str.replace(":","") \
-            .str.strip() \
-            .apply(lambda x:x.split("!!")) \
-            .apply(pd.Series)
-        self.DESC_TABLE.columns = self.DIMENSIONS[0:len(self.DESC_TABLE.columns)]
-        self.DIM_TABLE = self.DIM_TABLE.join(self.DESC_TABLE, how='left').drop(columns=['DESC'])
-        self.DESC_TABLE = self.DESC_TABLE.drop_duplicates()
+        self.DIM_TABLE = morpc.census.dimension_table(self.DATA, self.SCHEMA, self.DIMENSIONS, self.YEAR)
 
         return self
 
@@ -438,7 +479,7 @@ class acs_data:
         for sumlevel in sumlevels:
             layerName=morpc.HIERARCHY_STRING_LOOKUP[sumlevel]
             geos, resource, schema = morpc.frictionless.load_data('../../morpc-geos-collect/output_data/morpc-geos.resource.yaml', layerName=layerName, useSchema=None, verbose=False)
-            geometries.append(geos[['GEOIDFQ', 'geometry']])
+            geometries.append(geos[['GEOIDFQ', 'NAME', 'geometry']])
         geometries = pd.concat(geometries)
         geometries = geometries.loc[geometries['GEOIDFQ'].isin(self.DATA.reset_index()['GEO_ID'])].set_index('GEOIDFQ')
         self.DATA = gpd.GeoDataFrame(self.DATA.join(geometries), geometry='geometry')
@@ -467,16 +508,15 @@ class acs_data:
 
         self.SCHEMA_FILENAME = f"{self.NAME}.schema.yaml"
         self.SCHEMA_PATH = os.path.join(output_dir, self.SCHEMA_FILENAME)
-
         dummy = self.SCHEMA.to_yaml(self.SCHEMA_PATH)
 
         self.RESOURCE_FILENAME = f"{self.NAME}.resource.yaml"
         self.RESOURCE_PATH = os.path.join(output_dir, self.RESOURCE_FILENAME)
+        self.RESOURCE = self.define_resource()
 
         cwd = os.getcwd()
         os.chdir(output_dir)
 
-        self.RESOURCE = self.define_resource()
         dummy = self.RESOURCE.to_yaml(self.RESOURCE_FILENAME)
         validation = frictionless.Resource(self.RESOURCE_FILENAME).validate()
 
@@ -503,6 +543,7 @@ class acs_data:
 
         allFields = []
         allFields.append({"name":"GEO_ID", "type":"string", "description":"Unique identifier for geography"})
+        allFields.append({"name":"NAME", "type":"string", "description":"Name of the geography"})
 
         acsVarDict = self.VARS
         for var in [x for x in acsVarDict.keys()]:
