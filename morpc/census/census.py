@@ -347,12 +347,17 @@ class dimension_table:
         self.DIMENSIONS = dimensions
         self.define_dim_table(data, schema, dimensions, year)
         self.define_dim_table_wide()
+        self.define_dim_table_percent()
 
     def define_dim_table(self, data, schema, dimensions, year):
         import morpc
         import pandas as pd
-        
-        self.LONG = data.reset_index().melt(id_vars=['GEO_ID', 'NAME'], value_name="VALUE", var_name='VARIABLE')
+        if 'geometry' in data.columns:
+            index = ['GEO_ID', 'NAME', 'geometry']
+        else:
+            index = ['GEO_ID', 'NAME']
+
+        self.LONG = data.reset_index().melt(id_vars=index, value_name="VALUE", var_name='VARIABLE')
         self.LONG['DESC'] = self.LONG['VARIABLE'].map(morpc.frictionless.name_to_desc_map(schema))
         self.LONG['VAR_TYPE'] = self.LONG['VARIABLE'].apply(lambda x:'Estimate' if x[-1] == 'E' else 'MOE')
         DESC_TABLE = self.LONG['DESC'] \
@@ -375,6 +380,11 @@ class dimension_table:
 
         self.WIDE = self.LONG.loc[self.LONG['VAR_TYPE']=='Estimate'].drop(columns = ['VARIABLE', 'VAR_TYPE']).pivot(columns = ["GEO_ID", "NAME", "REFERENCE_YEAR"], index=self.DIMENSIONS)['VALUE']
         self.WIDE = self.WIDE.droplevel("TOTAL")
+
+    def define_dim_table_percent(self):
+
+        percent = self.WIDE.T
+        
 
 
 class acs_data:
@@ -446,7 +456,10 @@ class acs_data:
 
         os.chdir(cwd)
 
+        self.DATA = self.DATA.set_index('GEO_ID')
         self.DIM_TABLE = morpc.census.dimension_table(self.DATA, self.SCHEMA, self.DIMENSIONS, self.YEAR)
+        self.GEOS = self.define_geos()
+
 
         return self
     
@@ -515,10 +528,11 @@ class acs_data:
         self.DATA = self.DATA.set_index('GEO_ID')
 
         self.DIM_TABLE = morpc.census.dimension_table(self.DATA, self.SCHEMA, self.DIMENSIONS, self.YEAR)
+        self.GEOS = self.define_geos()
 
         return self
 
-    def georeference(self):
+    def define_geos(self):
         """
         Add the geometries to self.DATA and convert to a geopandas GeoDataFrame.
         """
@@ -533,10 +547,11 @@ class acs_data:
             geos, resource, schema = morpc.frictionless.load_data('../../morpc-geos-collect/output_data/morpc-geos.resource.yaml', layerName=layerName, useSchema=None, verbose=False)
             geometries.append(geos[['GEOIDFQ', 'geometry']])
         geometries = pd.concat(geometries)
-        geometries = geometries.loc[geometries['GEOIDFQ'].isin(self.DATA.reset_index()['GEO_ID'])].set_index('GEOIDFQ')
-        self.DATA = gpd.GeoDataFrame(self.DATA.join(geometries), geometry='geometry')
+        geometries = geometries.loc[geometries['GEOIDFQ'].isin(self.DATA.reset_index()['GEO_ID'])]
+        geometries = geometries.rename(columns={'GEOIDFQ': 'GEO_ID'})
+        geometries = geometries.set_index('GEO_ID')
 
-        return self
+        return geometries
 
     def save(self, output_dir="./output_data"):
         """
