@@ -1,4 +1,6 @@
 import json
+
+from attr import define
 import morpc
 from importlib.resources import files
 
@@ -55,11 +57,11 @@ SCOPES = {
                     "for": "tract:*",
                    "in": "state:39"},
     "region15-counties": {"desc": "all counties in the MORPC 15-county region",
-                          "for": f"county:{",".join([morpc.CONST_COUNTY_NAME_TO_ID[x][2:6] for x in morpc.CONST_REGIONS['15-County Region']])}",
+                          "for": f"county:{','.join([morpc.CONST_COUNTY_NAME_TO_ID[x][2:6] for x in morpc.CONST_REGIONS['15-County Region']])}",
                          "in": "state:39"},
     "region15-tracts": {"desc": "all Census tracts in the MORPC 10-county region",
                         "for": "tract:*",
-                        "in": ["state:39", f"county:{",".join([morpc.CONST_COUNTY_NAME_TO_ID[x][2:6] for x in morpc.CONST_REGIONS['15-County Region']])}"]},
+                        "in": ["state:39", f"county:{','.join([morpc.CONST_COUNTY_NAME_TO_ID[x][2:6] for x in morpc.CONST_REGIONS['15-County Region']])}"]},
     "regionmpo-parts": {"desc": "all Census township parts and place parts that are MORPC MPO members",
                         "ucgid": "1550000US3902582041,0700000US390410577499999,0700000US390410578899999,0700000US390410942899999,1550000US3918000041,0700000US390411814099999,1550000US3921434041,0700000US390412144899999,1550000US3922694041,1550000US3929148041,0700000US390412969499999,0700000US390413351699999,0700000US390414036299999,0700000US390414310699999,0700000US390414790899999,0700000US390415861899999,1550000US3958940041,0700000US390415926299999,0700000US390416417899999,1550000US3964486041,0700000US390416531299999,0700000US390417084299999,1550000US3971976041,1550000US3975602041,0700000US390417661799999,0700000US390417733699999,0700000US390417756099999,1550000US3983342041,0700000US390450695099999,1550000US3911332045,1550000US3918000045,1550000US3944086045,1550000US3962498045,1550000US3966390045,0700000US390458020699999,1550000US3906278049,0700000US390490692299999,1550000US3908532049,0700000US390490944299999,1550000US3911332049,0700000US390491611299999,1550000US3918000049,1550000US3922694049,0700000US390492828099999,1550000US3929106049,1550000US3931304049,1550000US3932592049,1550000US3932606049,0700000US390493302699999,1550000US3933740049,1550000US3935476049,0700000US390493777299999,0700000US390493861299999,1550000US3944086049,1550000US3944310049,0700000US390494641099999,1550000US3947474049,0700000US390495006499999,1550000US3950862049,1550000US3953970049,0700000US390495734499999,1550000US3957862049,0700000US390496184099999,1550000US3962498049,0700000US390496297499999,0700000US390496325499999,0700000US390496457099999,1550000US3966390049,1550000US3967440049,0700000US390497178799999,0700000US390497771499999,1550000US3979002049,1550000US3979100049,1550000US3979282049,0700000US390498124299999,1550000US3983342049,1550000US3984742049,1550000US3986604049,0700000US390892569099999,1550000US3939340089,1550000US3953970089,1550000US3961112089,1550000US3966390089,1550000US3963030097,1550000US3922694159,0700000US391593904699999,1550000US3963030159"}
 }
@@ -354,7 +356,7 @@ class dimension_table:
         self.LONG['DESC'] = self.LONG['VARIABLE'].map(morpc.frictionless.name_to_desc_map(schema))
         self.LONG['VAR_TYPE'] = self.LONG['VARIABLE'].apply(lambda x:'Estimate' if x[-1] == 'E' else 'MOE')
         DESC_TABLE = self.LONG['DESC'] \
-            .apply(lambda x:x.split("|")[0]) \
+            .apply(lambda x:str(x).split("|")[0]) \
             .str.replace('Estimate!!','') \
             .str.replace(":","") \
             .str.strip() \
@@ -396,10 +398,58 @@ class acs_data:
         self.SURVEY = survey
         self.VARS = self.define_vars()
         if ACS_VAR_GROUPS[self.GROUP]['dimensions_verified'] == False:
-            print(f"Dimension {", ".join(ACS_VAR_GROUPS[self.GROUP]['dimensions'])} not verified for variable group. May cause errors. Check dimensions agianst variables and make corrections in acs_variable_groups.json.")
+            print(f"""Dimension {", ".join(ACS_VAR_GROUPS[self.GROUP]['dimensions'])} not verified for variable group. 
+                  Check dimensions agianst variables and 
+                  make corrections in acs_variable_groups.json.""")
+            self.DIMENSIONS = ACS_VAR_GROUPS[self.GROUP]['dimensions']
+
         if ACS_VAR_GROUPS[self.GROUP]['dimensions_verified'] == True:
             self.DIMENSIONS = ACS_VAR_GROUPS[self.GROUP]['dimensions']
 
+    def load(self, scope, dirname):
+        """
+        Method for loading ACS data from a cached file. Will load all variables from the resource file, schema, and data.
+
+        Parameters:
+        ----------
+        scope : str
+            The geographic scope to load the data for. See morpc.census.SCOPES for available scopes.
+
+        dirname : str
+            The directory where the resource file is located. This is typically the directory where the resource file was downloaded to.
+
+        Returns:
+        -------
+        morpc.census.acs_data
+            The acs_data object with the data, resource, schema, and dimension table loaded.
+
+        """
+
+        import morpc
+        import os
+
+        self.SCOPE = scope
+        self.DIRNAME = dirname
+        self.NAME = f"morpc-acs{self.SURVEY}-{self.YEAR}-{scope}-{self.GROUP}".lower()
+        self.RESOURCE_FILENAME = f"{self.NAME}.resource.yaml"
+        self.RESOURCE_PATH = os.path.join(self.DIRNAME, self.RESOURCE_FILENAME)
+
+        cwd = os.getcwd()
+        if not os.path.exists(self.RESOURCE_PATH):
+            raise FileNotFoundError(f"File {self.RESOURCE_PATH} does not exist. Please check the path and try again.")
+        os.chdir(self.DIRNAME)
+
+        self.DATA, self.RESOURCE, self.SCHEMA = morpc.frictionless.load_data(os.path.basename(self.RESOURCE_PATH), verbose=False)
+        self.NAME = self.RESOURCE.get_defined('name')
+        self.API_PARAMS = self.RESOURCE.get_defined('sources')[0]['_params']
+        self.API_URL = self.RESOURCE.get_defined('sources')[0]['path']
+
+        os.chdir(cwd)
+
+        self.DIM_TABLE = morpc.census.dimension_table(self.DATA, self.SCHEMA, self.DIMENSIONS, self.YEAR)
+
+        return self
+    
     def query(self, for_param=None, in_param=None, get_param=None, ucgid_param = None, scope=None):
         """
         Method for retrieving data. Relies on morpc.census.api_get().
@@ -470,17 +520,18 @@ class acs_data:
 
     def georeference(self):
         """
-        Add the geometries to the table and convert to a geopandas GeoDataFrame.
+        Add the geometries to self.DATA and convert to a geopandas GeoDataFrame.
         """
         import pandas as pd
         import geopandas as gpd
+        import morpc
 
         sumlevels = set([x[0:3] for x in self.DATA.reset_index()['GEO_ID']])
         geometries = []
         for sumlevel in sumlevels:
             layerName=morpc.HIERARCHY_STRING_LOOKUP[sumlevel]
             geos, resource, schema = morpc.frictionless.load_data('../../morpc-geos-collect/output_data/morpc-geos.resource.yaml', layerName=layerName, useSchema=None, verbose=False)
-            geometries.append(geos[['GEOIDFQ', 'NAME', 'geometry']])
+            geometries.append(geos[['GEOIDFQ', 'geometry']])
         geometries = pd.concat(geometries)
         geometries = geometries.loc[geometries['GEOIDFQ'].isin(self.DATA.reset_index()['GEO_ID'])].set_index('GEOIDFQ')
         self.DATA = gpd.GeoDataFrame(self.DATA.join(geometries), geometry='geometry')
@@ -613,13 +664,13 @@ class acs_data:
           "profile": "tabular-data-resource",
           "name": self.NAME,
           "path": self.DATA_FILENAME,
-          "title": f"{self.YEAR} American Community Survey {self.SURVEY}-Year Estimates for {"Custom Geography" if self.SCOPE == None else SCOPES[self.SCOPE]['desc']}.",
-          "description": f"Selected variables from {self.YEAR} ACS {self.SURVEY}-Year estimates for {"custom geography (see sources._params)" if self.SCOPE == None else SCOPES[self.SCOPE]['desc']}. Data was retrieved {datetime.datetime.today().strftime('%Y-%m-%d')}",
+          "title": f"{self.YEAR} American Community Survey {self.SURVEY}-Year Estimates for {'Custom Geography' if self.SCOPE == None else SCOPES[self.SCOPE]['desc']}.".title(),
+          "description": f"Selected variables from {self.YEAR} ACS {self.SURVEY}-Year estimates for {'custom geography (see sources._params)' if self.SCOPE == None else SCOPES[self.SCOPE]['desc']}. Data was retrieved {datetime.datetime.today().strftime('%Y-%m-%d')}",
           "format": "csv",
           "mediatype": "text/csv",
           "encoding": "utf-8",
-          "bytes": os.path.getsize(self.DATA_FILENAME),
-          "hash": morpc.md5(self.DATA_FILENAME),
+          "bytes": os.path.getsize(self.DATA_PATH),
+          "hash": morpc.md5(self.DATA_PATH),
           "rows": self.DATA.shape[0],
           "columns": self.DATA.shape[1],
           "schema": self.SCHEMA_FILENAME,
