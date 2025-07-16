@@ -425,7 +425,7 @@ SUMLEVEL_DESCRIPTIONS = {
         "idField":"REGION15ID",
         "nameField":"REGION15",
         "censusQueryName": "region15",
-        "censusQuery": ["state:39", f"county:{",".join([CONST_COUNTY_NAME_TO_ID[x][2:6] for x in CONST_REGIONS['15-County Region']])}"]
+        "censusQuery": ["state:39", f"county:{(','.join([CONST_COUNTY_NAME_TO_ID[x][2:6] for x in CONST_REGIONS['15-County Region']]))}"]
     },
     'M02': {
         "singular":"MORPC 10-county region",
@@ -435,7 +435,7 @@ SUMLEVEL_DESCRIPTIONS = {
         "idField":"REGION10ID",
         "nameField":"REGION10",
         "censusQueryName": "region10",
-        "censusQuery": ["state:39", f"county:{",".join([CONST_COUNTY_NAME_TO_ID[x][2:6] for x in CONST_REGIONS['10-County Region']])}"]
+        "censusQuery": ["state:39", f"county:{','.join([CONST_COUNTY_NAME_TO_ID[x][2:6] for x in CONST_REGIONS['10-County Region']])}"]
     },
     'M03': {
         "singular":"MORPC 7-county region",
@@ -445,7 +445,7 @@ SUMLEVEL_DESCRIPTIONS = {
         "idField":"REGION7ID",
         "nameField":"REGION7",
         "censusQueryName": "region7",
-        "censusQuery": ["state:39", f"county:{",".join([CONST_COUNTY_NAME_TO_ID[x][2:6] for x in CONST_REGIONS['7-County Region']])}"]
+        "censusQuery": ["state:39", f"county:{','.join([CONST_COUNTY_NAME_TO_ID[x][2:6] for x in CONST_REGIONS['7-County Region']])}"]
 
     },
     'M04': {
@@ -456,7 +456,7 @@ SUMLEVEL_DESCRIPTIONS = {
         "idField":"REGIONCORPOID",
         "nameField":"REGIONCORPO",
         "censusQueryName": "regioncorpo",
-        "censusQuery": ["state:39", f"county:{",".join([CONST_COUNTY_NAME_TO_ID[x][2:6] for x in CONST_REGIONS['CORPO Region']])}"]
+        "censusQuery": ["state:39", f"county:{','.join([CONST_COUNTY_NAME_TO_ID[x][2:6] for x in CONST_REGIONS['CORPO Region']])}"]
     },
     'M05': {
         "singular":"MORPC CEDS region",
@@ -466,7 +466,7 @@ SUMLEVEL_DESCRIPTIONS = {
         "idField":"REGIONCEDSID",
         "nameField":"REGIONCEDS",
         "censusQueryName": "regionceds",
-        "censusQuery": ["state:39", f"county:{",".join([CONST_COUNTY_NAME_TO_ID[x][2:6] for x in CONST_REGIONS['CEDS Region']])}"]
+        "censusQuery": ["state:39", f"county:{','.join([CONST_COUNTY_NAME_TO_ID[x][2:6] for x in CONST_REGIONS['CEDS Region']])}"]
     },
     'M06': {
         "singular":"MORPC MPO region",
@@ -495,7 +495,7 @@ SUMLEVEL_DESCRIPTIONS = {
         "idField":"REGIONONECBUSID",
         "nameField":"REGIONONECBUS",
         "censusQueryName": 'regiononecbus',
-        "censusQuery": ["state:39", f"county:{",".join([CONST_COUNTY_NAME_TO_ID[x][2:6] for x in CONST_REGIONS['OneColumbus Region']])}"]
+        "censusQuery": ["state:39", f"county:{','.join([CONST_COUNTY_NAME_TO_ID[x][2:6] for x in CONST_REGIONS['OneColumbus Region']])}"]
     },
     'M10': {
         "singular":"Jurisdiction",

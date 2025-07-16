@@ -1,4 +1,6 @@
 import json
+
+from attr import define
 import morpc
 from importlib.resources import files
 
@@ -44,8 +46,8 @@ ACS_HIGHLEVEL_GROUP_DESC = {
 
 SCOPES = {
     "us-states": {"desc": "all states in the United States",
-                  "for": "state:*",
-                  "in": "us:*"},
+                  "for": "state:*"
+                 },
     "ohio": {"desc": "the State of Ohio",
              "for": "state:39"},
     "ohio-counties": {"desc": "all counties in the State of Ohio",
@@ -55,11 +57,11 @@ SCOPES = {
                     "for": "tract:*",
                    "in": "state:39"},
     "region15-counties": {"desc": "all counties in the MORPC 15-county region",
-                          "for": f"county:{",".join([morpc.CONST_COUNTY_NAME_TO_ID[x][2:6] for x in morpc.CONST_REGIONS['15-County Region']])}",
+                          "for": f"county:{','.join([morpc.CONST_COUNTY_NAME_TO_ID[x][2:6] for x in morpc.CONST_REGIONS['15-County Region']])}",
                          "in": "state:39"},
     "region15-tracts": {"desc": "all Census tracts in the MORPC 10-county region",
                         "for": "tract:*",
-                        "in": ["state:39", f"county:{",".join([morpc.CONST_COUNTY_NAME_TO_ID[x][2:6] for x in morpc.CONST_REGIONS['15-County Region']])}"]},
+                        "in": ["state:39", f"county:{','.join([morpc.CONST_COUNTY_NAME_TO_ID[x][2:6] for x in morpc.CONST_REGIONS['15-County Region']])}"]},
     "regionmpo-parts": {"desc": "all Census township parts and place parts that are MORPC MPO members",
                         "ucgid": "1550000US3902582041,0700000US390410577499999,0700000US390410578899999,0700000US390410942899999,1550000US3918000041,0700000US390411814099999,1550000US3921434041,0700000US390412144899999,1550000US3922694041,1550000US3929148041,0700000US390412969499999,0700000US390413351699999,0700000US390414036299999,0700000US390414310699999,0700000US390414790899999,0700000US390415861899999,1550000US3958940041,0700000US390415926299999,0700000US390416417899999,1550000US3964486041,0700000US390416531299999,0700000US390417084299999,1550000US3971976041,1550000US3975602041,0700000US390417661799999,0700000US390417733699999,0700000US390417756099999,1550000US3983342041,0700000US390450695099999,1550000US3911332045,1550000US3918000045,1550000US3944086045,1550000US3962498045,1550000US3966390045,0700000US390458020699999,1550000US3906278049,0700000US390490692299999,1550000US3908532049,0700000US390490944299999,1550000US3911332049,0700000US390491611299999,1550000US3918000049,1550000US3922694049,0700000US390492828099999,1550000US3929106049,1550000US3931304049,1550000US3932592049,1550000US3932606049,0700000US390493302699999,1550000US3933740049,1550000US3935476049,0700000US390493777299999,0700000US390493861299999,1550000US3944086049,1550000US3944310049,0700000US390494641099999,1550000US3947474049,0700000US390495006499999,1550000US3950862049,1550000US3953970049,0700000US390495734499999,1550000US3957862049,0700000US390496184099999,1550000US3962498049,0700000US390496297499999,0700000US390496325499999,0700000US390496457099999,1550000US3966390049,1550000US3967440049,0700000US390497178799999,0700000US390497771499999,1550000US3979002049,1550000US3979100049,1550000US3979282049,0700000US390498124299999,1550000US3983342049,1550000US3984742049,1550000US3986604049,0700000US390892569099999,1550000US3939340089,1550000US3953970089,1550000US3961112089,1550000US3966390089,1550000US3963030097,1550000US3922694159,0700000US391593904699999,1550000US3963030159"}
 }
@@ -324,57 +326,6 @@ def api_get(url, params, varBatchSize=20, verbose=True):
 
     return censusData
 
-class dimension_table:
-    def __init__(self, data, schema, dimensions, year):
-        """
-        A class for dimension table for census data.
-
-        Parameters:
-        ----------
-        data : pandas.DataFrame
-            The data indexed by GEO_ID and NAME and the columns are variables
-
-        schema : frictionless.Schema
-            The schema for the data
-
-        Returns:
-        --------
-        morpc.census.dimension_table
-        """
-
-        self.DIMENSIONS = dimensions
-        self.define_dim_table(data, schema, dimensions, year)
-        self.define_dim_table_wide()
-
-    def define_dim_table(self, data, schema, dimensions, year):
-        import morpc
-        import pandas as pd
-        
-        self.LONG = data.reset_index().melt(id_vars=['GEO_ID', 'NAME'], value_name="VALUE", var_name='VARIABLE')
-        self.LONG['DESC'] = self.LONG['VARIABLE'].map(morpc.frictionless.name_to_desc_map(schema))
-        self.LONG['VAR_TYPE'] = self.LONG['VARIABLE'].apply(lambda x:'Estimate' if x[-1] == 'E' else 'MOE')
-        DESC_TABLE = self.LONG['DESC'] \
-            .apply(lambda x:x.split("|")[0]) \
-            .str.replace('Estimate!!','') \
-            .str.replace(":","") \
-            .str.strip() \
-            .apply(lambda x:x.split("!!")) \
-            .apply(pd.Series)
-        DESC_TABLE.columns = dimensions[0:len(DESC_TABLE.columns)]
-        self.LONG = self.LONG.join(DESC_TABLE, how='left').drop(columns=['DESC'])
-        self.LONG = self.LONG.fillna("Total")
-        for dim in DESC_TABLE.columns:
-            self.LONG[dim] = pd.Categorical(self.LONG[dim], categories=self.LONG[dim].unique())
-        self.LONG['REFERENCE_YEAR'] = year
-
-        return self
-
-    def define_dim_table_wide(self):
-
-        self.WIDE = self.LONG.loc[self.LONG['VAR_TYPE']=='Estimate'].drop(columns = ['VARIABLE', 'VAR_TYPE']).pivot(columns = ["GEO_ID", "NAME", "REFERENCE_YEAR"], index=self.DIMENSIONS)['VALUE']
-        self.WIDE = self.WIDE.droplevel("TOTAL")
-
-
 class acs_data:
     def __init__(self, group, year, survey):
         """
@@ -396,10 +347,61 @@ class acs_data:
         self.SURVEY = survey
         self.VARS = self.define_vars()
         if ACS_VAR_GROUPS[self.GROUP]['dimensions_verified'] == False:
-            print(f"Dimension {", ".join(ACS_VAR_GROUPS[self.GROUP]['dimensions'])} not verified for variable group. May cause errors. Check dimensions agianst variables and make corrections in acs_variable_groups.json.")
+            print(f"""Dimension {", ".join(ACS_VAR_GROUPS[self.GROUP]['dimensions'])} not verified for variable group. 
+                  Check dimensions agianst variables and 
+                  make corrections in acs_variable_groups.json.""")
+            self.DIMENSIONS = ACS_VAR_GROUPS[self.GROUP]['dimensions']
+
         if ACS_VAR_GROUPS[self.GROUP]['dimensions_verified'] == True:
             self.DIMENSIONS = ACS_VAR_GROUPS[self.GROUP]['dimensions']
 
+    def load(self, scope, dirname):
+        """
+        Method for loading ACS data from a cached file. Will load all variables from the resource file, schema, and data.
+
+        Parameters:
+        ----------
+        scope : str
+            The geographic scope to load the data for. See morpc.census.SCOPES for available scopes.
+
+        dirname : str
+            The directory where the resource file is located. This is typically the directory where the resource file was downloaded to.
+
+        Returns:
+        -------
+        morpc.census.acs_data
+            The acs_data object with the data, resource, schema, and dimension table loaded.
+
+        """
+
+        import morpc
+        import os
+
+        self.SCOPE = scope
+        self.DIRNAME = dirname
+        self.NAME = f"morpc-acs{self.SURVEY}-{self.YEAR}-{scope}-{self.GROUP}".lower()
+        self.RESOURCE_FILENAME = f"{self.NAME}.resource.yaml"
+        self.RESOURCE_PATH = os.path.join(self.DIRNAME, self.RESOURCE_FILENAME)
+
+        cwd = os.getcwd()
+        if not os.path.exists(self.RESOURCE_PATH):
+            raise FileNotFoundError(f"File {self.RESOURCE_PATH} does not exist. Please check the path and try again.")
+        os.chdir(self.DIRNAME)
+
+        self.DATA, self.RESOURCE, self.SCHEMA = morpc.frictionless.load_data(os.path.basename(self.RESOURCE_PATH), verbose=False)
+        self.NAME = self.RESOURCE.get_defined('name')
+        self.API_PARAMS = self.RESOURCE.get_defined('sources')[0]['_params']
+        self.API_URL = self.RESOURCE.get_defined('sources')[0]['path']
+
+        os.chdir(cwd)
+
+        self.DATA = self.DATA.set_index('GEO_ID')
+        self.DIM_TABLE = morpc.census.dimension_table(self.DATA, self.SCHEMA, self.DIMENSIONS, self.YEAR)
+        self.GEOS = self.define_geos()
+        self.MAP = self.define_map()
+        
+        return self
+    
     def query(self, for_param=None, in_param=None, get_param=None, ucgid_param = None, scope=None):
         """
         Method for retrieving data. Relies on morpc.census.api_get().
@@ -465,27 +467,32 @@ class acs_data:
         self.DATA = self.DATA.set_index('GEO_ID')
 
         self.DIM_TABLE = morpc.census.dimension_table(self.DATA, self.SCHEMA, self.DIMENSIONS, self.YEAR)
+        self.GEOS = self.define_geos()
+        self.MAP = self.define_map()
+
 
         return self
 
-    def georeference(self):
+    def define_geos(self):
         """
-        Add the geometries to the table and convert to a geopandas GeoDataFrame.
+        Add the geometries to self.DATA and convert to a geopandas GeoDataFrame.
         """
         import pandas as pd
         import geopandas as gpd
+        import morpc
 
         sumlevels = set([x[0:3] for x in self.DATA.reset_index()['GEO_ID']])
         geometries = []
         for sumlevel in sumlevels:
             layerName=morpc.HIERARCHY_STRING_LOOKUP[sumlevel]
             geos, resource, schema = morpc.frictionless.load_data('../../morpc-geos-collect/output_data/morpc-geos.resource.yaml', layerName=layerName, useSchema=None, verbose=False)
-            geometries.append(geos[['GEOIDFQ', 'NAME', 'geometry']])
+            geometries.append(geos[['GEOIDFQ', 'geometry']])
         geometries = pd.concat(geometries)
-        geometries = geometries.loc[geometries['GEOIDFQ'].isin(self.DATA.reset_index()['GEO_ID'])].set_index('GEOIDFQ')
-        self.DATA = gpd.GeoDataFrame(self.DATA.join(geometries), geometry='geometry')
+        geometries = geometries.loc[geometries['GEOIDFQ'].isin(self.DATA.reset_index()['GEO_ID'])]
+        geometries = geometries.rename(columns={'GEOIDFQ': 'GEO_ID'})
+        geometries = geometries.set_index('GEO_ID')
 
-        return self
+        return geometries
 
     def save(self, output_dir="./output_data"):
         """
@@ -613,13 +620,13 @@ class acs_data:
           "profile": "tabular-data-resource",
           "name": self.NAME,
           "path": self.DATA_FILENAME,
-          "title": f"{self.YEAR} American Community Survey {self.SURVEY}-Year Estimates for {"Custom Geography" if self.SCOPE == None else SCOPES[self.SCOPE]['desc']}.",
-          "description": f"Selected variables from {self.YEAR} ACS {self.SURVEY}-Year estimates for {"custom geography (see sources._params)" if self.SCOPE == None else SCOPES[self.SCOPE]['desc']}. Data was retrieved {datetime.datetime.today().strftime('%Y-%m-%d')}",
+          "title": f"{self.YEAR} American Community Survey {self.SURVEY}-Year Estimates for {'Custom Geography' if self.SCOPE == None else SCOPES[self.SCOPE]['desc']}.".title(),
+          "description": f"Selected variables from {self.YEAR} ACS {self.SURVEY}-Year estimates for {'custom geography (see sources._params)' if self.SCOPE == None else SCOPES[self.SCOPE]['desc']}. Data was retrieved {datetime.datetime.today().strftime('%Y-%m-%d')}",
           "format": "csv",
           "mediatype": "text/csv",
           "encoding": "utf-8",
-          "bytes": os.path.getsize(self.DATA_FILENAME),
-          "hash": morpc.md5(self.DATA_FILENAME),
+          "bytes": os.path.getsize(self.DATA_PATH),
+          "hash": morpc.md5(self.DATA_PATH),
           "rows": self.DATA.shape[0],
           "columns": self.DATA.shape[1],
           "schema": self.SCHEMA_FILENAME,
@@ -629,9 +636,171 @@ class acs_data:
               "_params": self.API_PARAMS
           }]
         }
-    
+
         resource = frictionless.Resource(acsResource)
         return resource
+
+    def define_map(self):
+        """
+        Create a folium interactive map.
+        """
+        import geopandas as gpd
+        import folium
+        from folium.plugins import GroupedLayerControl
+        from branca.colormap import LinearColormap
+
+        map_data = self.DIM_TABLE.WIDE.T
+        map_data.columns = [", ".join(x) for x in map_data.columns]
+        map_data['geometry'] = [self.GEOS.loc[x, 'geometry'] for x in map_data.reset_index()['GEO_ID']]
+        map_data = gpd.GeoDataFrame(map_data, geometry='geometry', crs=self.GEOS.crs)
+        self.choros = []
+        self.cmaps = []
+        for i in range(len(map_data.columns)):
+            column = map_data.columns[i]
+            if column != 'geometry':
+
+                tooltip = folium.GeoJsonTooltip(
+                    fields=['NAME', column]
+                )
+
+                cmap = LinearColormap(
+                    colors=[morpc.color.rgb_to_dec(morpc.color.hex_to_rgb(x)) for x in morpc.palette.SEQ2['bluegreen-darkblue']],
+                    vmin=map_data[column].min(),
+                    vmax=map_data[column].max(),
+                    caption = column
+                )
+
+                choro = folium.Choropleth(
+                    geo_data=map_data.reset_index()[['NAME', column, 'geometry']],
+                    data=map_data.reset_index()[['NAME', column]],
+                    key_on='properties.NAME',
+                    columns=['NAME', column],
+                    name=column,
+                    cmap=cmap,
+                    fill_opacity=0.9,
+                    line_opacity=0,
+                    show=False,
+                )
+                choro.geojson.add_child(tooltip)
+
+                for child in choro._children:
+                    if child.startswith("color_map"):
+                        del choro._children[child]
+
+                self.choros.append(choro)
+                self.cmaps.append(cmap)
+
+        m = folium.Map()
+
+        for choro, cmap in zip(self.choros, self.cmaps):
+            m.add_child(cmap)
+
+            m.add_child(choro)
+
+            bc = BindColormap(choro, cmap)
+
+            m.add_child(bc)
+
+        folium.LayerControl(collapsed=True, position='topleft').add_to(m)
+        m.fit_bounds(m.get_bounds())
+        return m
+
+from branca.element import MacroElement
+from jinja2 import Template
+
+class BindColormap(MacroElement):
+    """Binds a colormap to a given layer.
+
+    Parameters
+    ----------
+    colormap : branca.colormap.ColorMap
+        The colormap to bind.
+    """
+
+    def __init__(self, layer, colormap):
+        super(BindColormap, self).__init__()
+        self.layer = layer
+        self.colormap = colormap
+        self._template = Template(u"""
+        {% macro script(this, kwargs) %}
+            {{this.colormap.get_name()}}.svg[0][0].style.display = 'none';
+            {{this._parent.get_name()}}.on('overlayadd', function (eventLayer) {
+                if (eventLayer.layer == {{this.layer.get_name()}}) {
+                    {{this.colormap.get_name()}}.svg[0][0].style.display = 'block';
+                }});
+            {{this._parent.get_name()}}.on('overlayremove', function (eventLayer) {
+                if (eventLayer.layer == {{this.layer.get_name()}}) {
+                    {{this.colormap.get_name()}}.svg[0][0].style.display = 'none';
+                }});
+        {% endmacro %}
+        """)
+
+class dimension_table:
+    def __init__(self, data, schema, dimensions, year):
+        """
+        A class for dimension table for census data.
+
+        Parameters:
+        ----------
+        data : pandas.DataFrame
+            The data indexed by GEO_ID and NAME and the columns are variables
+
+        schema : frictionless.Schema
+            The schema for the data
+
+        Returns:
+        --------
+        morpc.census.dimension_table
+        """
+
+        self.DIMENSIONS = dimensions
+        self.LONG = self.define_long(data, schema, dimensions, year)
+        self.WIDE = self.define_wide()
+        self.PERCENT = self.define_percent()
+
+    def define_long(self, data, schema, dimensions, year):
+        import morpc
+        import pandas as pd
+        if 'geometry' in data.columns:
+            index = ['GEO_ID', 'NAME', 'geometry']
+        else:
+            index = ['GEO_ID', 'NAME']
+
+        long = data.reset_index().melt(id_vars=index, value_name="VALUE", var_name='VARIABLE')
+        long['DESC'] = long['VARIABLE'].map(morpc.frictionless.name_to_desc_map(schema))
+        long['VAR_TYPE'] = long['VARIABLE'].apply(lambda x:'Estimate' if x[-1] == 'E' else 'MOE')
+        DESC_TABLE = long['DESC'] \
+            .apply(lambda x:str(x).split("|")[0]) \
+            .str.replace('Estimate!!','') \
+            .str.replace(":","") \
+            .str.strip() \
+            .apply(lambda x:x.split("!!")) \
+            .apply(pd.Series)
+        DESC_TABLE.columns = dimensions[0:len(DESC_TABLE.columns)]
+        long = long.join(DESC_TABLE, how='left').drop(columns=['DESC'])
+        long = long.fillna("Total")
+        for dim in DESC_TABLE.columns:
+            long[dim] = pd.Categorical(long[dim], categories=long[dim].unique())
+        long['REFERENCE_YEAR'] = year
+
+        return long
+
+    def define_wide(self):
+
+        wide = self.LONG.loc[self.LONG['VAR_TYPE']=='Estimate'].drop(columns = ['VARIABLE', 'VAR_TYPE']).pivot(columns = ["GEO_ID", "NAME", "REFERENCE_YEAR"], index=self.DIMENSIONS)['VALUE']
+        wide = wide.droplevel("TOTAL")
+
+        return wide
+
+    def define_percent(self):
+
+        percent = self.WIDE.T.copy()
+        for column in percent:
+            if column != ('Total', 'Total'):
+                percent[column] = percent[column] / percent[('Total', 'Total')] * 100
+        percent = percent.drop(columns = ('Total', 'Total'))
+        
+        return percent
 
 # acs_label_to_dimensions obtains the data dimensions associated with a particular variable by decomposing the "Label" column as described in the 
 # Census API variable list, e.g. https://api.census.gov/data/2022/acs/acs5/variables.html. There is a label associated with each variable provided 
