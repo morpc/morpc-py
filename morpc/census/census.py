@@ -398,7 +398,6 @@ class acs_data:
         self.DATA = self.DATA.set_index('GEO_ID')
         self.DIM_TABLE = morpc.census.dimension_table(self.DATA, self.SCHEMA, self.DIMENSIONS, self.YEAR)
         self.GEOS = self.define_geos()
-        self.MAP = self.define_map()
         
         return self
     
@@ -468,8 +467,6 @@ class acs_data:
 
         self.DIM_TABLE = morpc.census.dimension_table(self.DATA, self.SCHEMA, self.DIMENSIONS, self.YEAR)
         self.GEOS = self.define_geos()
-        self.MAP = self.define_map()
-
 
         return self
 
@@ -640,7 +637,7 @@ class acs_data:
         resource = frictionless.Resource(acsResource)
         return resource
 
-    def define_map(self):
+    def map(self):
         """
         Create a folium interactive map.
         """
@@ -678,7 +675,7 @@ class acs_data:
                     name=column,
                     cmap=cmap,
                     fill_opacity=0.9,
-                    line_opacity=0,
+                    line_opacity=0.1,
                     show=False,
                 )
                 choro.geojson.add_child(tooltip)
@@ -703,7 +700,18 @@ class acs_data:
 
         folium.LayerControl(collapsed=True, position='topleft').add_to(m)
         m.fit_bounds(m.get_bounds())
-        return m
+        self.MAP = m
+        return self.MAP
+
+    def plot(self, x, y):
+        """Plot a bar chart with reasonable defaults.
+
+        """
+
+        import plotnine
+
+        self.PLOT = morpc.plot.from_resource(self.DIM_TABLE.LONG, self.RESOURCE, self.SCHEMA, x, y).hbar()
+        return self.PLOT.show()
 
 from branca.element import MacroElement
 from jinja2 import Template
@@ -755,6 +763,7 @@ class dimension_table:
 
         self.DIMENSIONS = dimensions
         self.LONG = self.define_long(data, schema, dimensions, year)
+        self.LONG_SCHEMA = self.define_long_schema(schema, dimensions, year)
         self.WIDE = self.define_wide()
         self.PERCENT = self.define_percent()
 
@@ -776,14 +785,25 @@ class dimension_table:
             .str.strip() \
             .apply(lambda x:x.split("!!")) \
             .apply(pd.Series)
-        DESC_TABLE.columns = dimensions[0:len(DESC_TABLE.columns)]
+        DESC_TABLE.columns = dimensions[1:len(DESC_TABLE.columns)]
         long = long.join(DESC_TABLE, how='left').drop(columns=['DESC'])
         long = long.fillna("Total")
         for dim in DESC_TABLE.columns:
             long[dim] = pd.Categorical(long[dim], categories=long[dim].unique())
         long['REFERENCE_YEAR'] = year
+        columns = ['GEO_ID', 'NAME', 'REFERENCE_YEAR', 'VARIABLE', 'VAR_TYPE'] + [x for x in dimensions[1:len(DESC_TABLE.columns)]] + ['VALUE']
+        long = long[[x for x in columns]]
 
         return long
+
+    def define_long_schema(self, schema, dimensions, year):
+        schema = {
+            "fields": [{
+                self.schema.get_field('GEO_ID'),
+                self.schema.get_field('NAME'),
+                
+            }]
+        }
 
     def define_wide(self):
 
