@@ -2623,34 +2623,41 @@ def write_table(df, path, format=None, index=None):
 
 
 
-def reapportion_by_area(targetGeos, overlayGeos, apportionColumns=None, roundPreserveSum=None, overlayShareTolerance=6):
+def reapportion_by_area(targetGeos, sourceGeos, apportionColumns=None, summaryType="sum", roundPreserveSum=None, sourceShareTolerance=6):
     """
-    Given you have some variable(s) summarized at one geography level, reapportion those variables to other geographies in proportion to the area of overlap of the target 
-    geographies with the overlay (source) geographies.  This is accomplished by intersecting the target geographies with the overlay geographies, then summarizing the variable(s)
-    by the target geography index.
+    Given you have some variable(s) summarized at one geography level, reapportion those variables to other geographies in proportion 
+    # to the area of overlap of the target geographies with the source geographies.  This is accomplished by intersecting the target 
+    # geographies with the source geographies, then summarizing the variable(s)     by the target geography index.
     
     Example usage: 
-        # Reapportion block-level decennial census counts to library districts.  Included only the "POP" column from the census data.  Round reapportioned values to integers.
-        # Throw warning if the overlay shares do not sum to 1 after rounding to the 3rd decimal place.
+        # Reapportion block-level decennial census counts to library districts.  Included only the "POP" column from the census data.  
+        # Round reapportioned values to integers. Throw warning if the source shares do not sum to 1 after rounding to the 3rd decimal place.
         libraryDistrictPop = morpc.reapportion_by_area(libraryDistrictGeos, censusBlockPopulation, apportionColumns=["POP"], roundPreserveSum=0, overlayShareTolerance=3)
 
     Parameters
     ----------
     targetGeos : geopandas.geodataframe.GeoDataFrame with polygon geometry type
-        A GeoPandas GeoDataFrame containing the polygons for which you want to summarize the variables.for which the QCEW would be summarized.  Only the geometries
-        are required.  The other columns will be preserved but will not be used. It is assumed that the target polygons are non-overlapping and fully cover the overlay geographies.
-    overlayGeos : geopandas.geodataframe.GeoDataFrame with polygon geometry type
-        A GeoPandas GeoDataFrame containing the variables to be reapportioned (summarized) for the target geographies. It is assumed that the overlay polygons are non-overlapping.
+        A GeoPandas GeoDataFrame containing the polygons for which you want to summarize the variables.for which the QCEW would be 
+        summarized.  Only the geometries are required.  The other columns will be preserved but will not be used. It is assumed that 
+        the target polygons are non-overlapping and fully cover the source geographies.
+    sourceGeos : geopandas.geodataframe.GeoDataFrame with polygon geometry type
+        A GeoPandas GeoDataFrame containing the variables to be reapportioned (summarized) for the target geographies. It is assumed 
+        that the source polygons are non-overlapping.
     apportionColumns : str
-        Optional. List of columns containing the variables to be reapportioned.  If apportionColumns is unspecified, the function will attempt to reapportion all columns other than 
-        geometry.  This will lead to an error if non-numeric columns are present.
+        Optional. List of columns containing the variables to be reapportioned.  If apportionColumns is unspecified, the function will 
+        attempt to reapportion all columns other than geometry.  This will lead to an error if non-numeric columns are present.
     roundPreserveSum : int
-        Optional. If set to an integer, round the reapportioned values to the specified number of decimal places while preserving their sum.  Uses morpc.round_preserve_sum().  Note
-        that the sum for the entire collection of values is preserved, not the sums by target geo.  Set to None to skip rounding.
-    overlayShareTolerance : int
-        Optional. If set to an integer, warn the user if the overlay shares for intersection polygons associated with one or more overlay geographies do not sum to 1.  Round the sums
-        to the specified decimal place prior to evaluation.  Sum greater than 1 may indicate that there are overlapping polygons in the target geos or overlay geos. Sum less than 1
-        may indicate that target geo coverage of overlay geos is incomplete.  Set to None to allow no tolerance (warning will be generated if shares do not sum to exactly 1).
+        Optional. If set to an integer, round the reapportioned values to the specified number of decimal places while preserving their 
+        sum.  Uses morpc.round_preserve_sum().  Note that the sum for the entire collection of values is preserved, not the sums by target 
+        geo.  Set to None to skip rounding. Ignored when summaryType == "mean".
+    summaryType: sum
+        Optional. The name of the function to use to summarize the variables for the target geos. The default is to sum the variables within 
+        the target geos.  Supported functions include "sum", "mean"
+    sourceShareTolerance : int
+        Optional. If set to an integer, warn the user if the source shares for intersection polygons associated with one or more source 
+        geographies do not sum to 1.  Round the sums to the specified decimal place prior to evaluation.  Sum greater than 1 may indicate 
+        that there are overlapping polygons in the target geos or source geos. Sum less than 1 may indicate that target geo coverage of 
+        source geos is incomplete.  Set to None to allow no tolerance (warning will be generated if shares do not sum to exactly 1).
 
     Returns
     -------
@@ -2660,28 +2667,33 @@ def reapportion_by_area(targetGeos, overlayGeos, apportionColumns=None, roundPre
 
     import pandas as pd
     import geopandas as gpd
+
+    # Verify that the user specified a valid summary type before we get started
+    if(not summaryType in ["sum","mean"]):
+        print("morpc.reapportion_by_area | ERROR | Summary type '{}' is not supported".format(summaryType))
+        raise RuntimeError        
     
     # Check whether the user has specified which variables are to be reapportioned.
     # If not, assume that all variables are to be reapportioned (except geometry)
     if(apportionColumns == None):
-        apportionColumns = list(overlayGeos.columns.drop("geometry"))
+        apportionColumns = list(sourceGeos.columns.drop("geometry"))
 
     # Verify that the coordinate reference systems for the two sets of geographies are
     # the same.  If not, spatial operations will produce incorrect results.
-    if(targetGeos.crs != overlayGeos.crs):
-        print("morpc.reapportion_by_area | ERROR | Target geos and overlay geos must use the same coordinate reference system")
+    if(targetGeos.crs != sourceGeos.crs):
+        print("morpc.reapportion_by_area | ERROR | Target geos and source geos must use the same coordinate reference system")
         raise RuntimeError
 
     # Create a working copy of the target geos dataframe.  Temporarily separate the attributes for 
     # the target geos from the geometries. This will make it easier to summarize the reapportioned 
     # variables later.
-    myTargetGeosAttr = targetGeos.drop(columns="geometry").copy()
-    targetGeosUpdated = targetGeos.filter(items=["geometry"], axis="columns").copy()
+    myTargetGeosAttr = targetGeos.copy().drop(columns="geometry")
+    targetGeosUpdated = targetGeos.copy().filter(items=["geometry"], axis="columns")
     
-    # Create a working copy of the overlay geos and eliminate unneeded variables
-    myOverlayGeos = overlayGeos.copy().filter(items=apportionColumns+["geometry"], axis="columns")
+    # Create a working copy of the source geos and eliminate unneeded variables
+    mySourceGeos = sourceGeos.copy().filter(items=apportionColumns+["geometry"], axis="columns")
 
-    # Store the name of the indexes used for the target geos and overlay geos and then reset the index for each dataframe
+    # Store the name of the indexes used for the target geos and source geos and then reset the index for each dataframe
     # to bring the identifiers out into a series. Standardize the names of the identifier fields.  This will preserve the identifiers
     # to summarize the reapportioned variables. The target geos index will be restored in the output.
     if(targetGeosUpdated.index.name is None):
@@ -2689,49 +2701,68 @@ def reapportion_by_area(targetGeos, overlayGeos, apportionColumns=None, roundPre
     targetGeosIndexName = targetGeosUpdated.index.name
     targetGeosUpdated = targetGeosUpdated.reset_index()
     targetGeosUpdated = targetGeosUpdated.rename(columns={targetGeosIndexName:"targetIndex"})
-    if(myOverlayGeos.index.name is None):
-        myOverlayGeos.index.name = "None"
-    overlayGeosIndexName = myOverlayGeos.index.name
-    myOverlayGeos = myOverlayGeos.reset_index()
-    myOverlayGeos = myOverlayGeos.rename(columns={overlayGeosIndexName:"overlayIndex"})
+    if(mySourceGeos.index.name is None):
+        mySourceGeos.index.name = "None"
+    sourceGeosIndexName = mySourceGeos.index.name
+    mySourceGeos = mySourceGeos.reset_index()
+    mySourceGeos = mySourceGeos.rename(columns={sourceGeosIndexName:"sourceIndex"})
 
-    # Compute the areas of the overlay geos
-    myOverlayGeos["OVERLAY_GEOS_AREA"] = myOverlayGeos.area
+    # Compute the areas of the source geos
+    mySourceGeos["SOURCE_GEOS_AREA"] = mySourceGeos.area
 
-    # Intersect the overlay geos with the target geos
-    intersectGeos = targetGeosUpdated.overlay(myOverlayGeos, keep_geom_type=True)
+    # Compute the areas of the target geos
+    targetGeosUpdated["TARGET_GEOS_AREA"] = targetGeosUpdated.area
+    
+    # Intersect the source geos with the target geos
+    intersectGeos = targetGeosUpdated.overlay(mySourceGeos, keep_geom_type=True)
 
     # Compute the areas of the intersection polygons
     intersectGeos["INTERSECT_GEOS_AREA"] = intersectGeos.area
 
-    # Compute the share of the overlay geo that each intersection polygon represents
-    intersectGeos["OVERLAY_SHARE"] = intersectGeos["INTERSECT_GEOS_AREA"] / intersectGeos["OVERLAY_GEOS_AREA"]
+    # Compute the share of the source geo that each intersection polygon represents
+    intersectGeos["SOURCE_SHARE"] = intersectGeos["INTERSECT_GEOS_AREA"] / intersectGeos["SOURCE_GEOS_AREA"]
 
-    # Sum the overlay shares by overlay geography and verify that they sum to 1.  This indicates that there are no overlapping polygons in the target geos
-    # or overlay geos and that the coverage of the overlay geos by the target geos is complete.  If the shares do not sum to 1 for one or more overlay geos,
+    # Compute the share of the target geo that each intersection polygon represents
+    intersectGeos["TARGET_SHARE"] = intersectGeos["INTERSECT_GEOS_AREA"] / intersectGeos["TARGET_GEOS_AREA"]
+    
+    # Sum the source shares by source geography and verify that they sum to 1.  This indicates that there are no overlapping polygons 
+    # in the target geos or source geos and that the coverage of the source geos by the target geos is complete.  If the shares do not 
+    # sum to 1 for one or more source geos,
     # warn the user.
-    groupSums = intersectGeos.groupby("overlayIndex")[["OVERLAY_SHARE"]].sum()
-    if(overlayShareTolerance is not None):
-        groupSums["OVERLAY_SHARE"] = groupSums["OVERLAY_SHARE"].round(decimals=overlayShareTolerance)
-    if((groupSums["OVERLAY_SHARE"].max() != 1) | (groupSums["OVERLAY_SHARE"].min() != 1)):
-        print("morpc.reapportion_by_area | WARNING | The overlay shares of the intersection geographies should sum to 1, however they sum to another value in at least one case.  This could mean that the there are overlapping polygons in the target geos or in the overlay geos (overlay sum > 1), or that the target geos coverage of the overlay geos is incomplete (overlay sum < 1).  The greatest overlay sum is {0} and the smallest overlay sum is {1}. Assess the severity of the discrepancy and troubleshoot the geometries if necessary prior to proceeding.".format(groupSums["OVERLAY_SHARE"].max(), groupSums["OVERLAY_SHARE"].min()))
+    groupSums = intersectGeos.groupby("sourceIndex")[["SOURCE_SHARE"]].sum()
+    if(sourceShareTolerance is not None):
+        groupSums["SOURCE_SHARE"] = groupSums["SOURCE_SHARE"].round(decimals=sourceShareTolerance)
+    if((groupSums["SOURCE_SHARE"].max() != 1) | (groupSums["SOURCE_SHARE"].min() != 1)):
+        print("morpc.reapportion_by_area | WARNING | The source shares of the intersection geographies should sum to 1, however they sum to another value in at least one case.  This could mean that the there are overlapping polygons in the target geos or in the overlay geos (overlay sum > 1), or that the target geos coverage of the overlay geos is incomplete (overlay sum < 1).  The greatest overlay sum is {0} and the smallest overlay sum is {1}. Assess the severity of the discrepancy and troubleshoot the geometries if necessary prior to proceeding.".format(groupSums["OVERLAY_SHARE"].max(), groupSums["OVERLAY_SHARE"].min()))
         
-    # For each of the variables to be reapportioned, multiply the overlay share by the original value
-    # to get the share of the variable allocated to the interesection polygon.
+    # For each of the variables to be reapportioned, compute the reapportioned values
     for column in apportionColumns:
-        print("morpc.reapportion_by_area | INFO | Reapportioning variable {}".format(column))
-        intersectGeos[column] = intersectGeos[column] * intersectGeos["OVERLAY_SHARE"]
-        # If the user specified a value for roundPreserveSum, execute the rounding
-        if(roundPreserveSum is not None):
-            intersectGeos[column] = round_preserve_sum(intersectGeos[column], digits=roundPreserveSum).astype("int")
+        if(summaryType == "sum"):
+            print("morpc.reapportion_by_area | INFO | Reapportioning variable {} by sum".format(column))
+            # Apportion the total value for the source geography to the intersect polygons in proportion to how
+            # much of the area of the source geography the intersection represents. For example, an intersection
+            # polygon that covers 40% of the source geography will get 40% of the value associated with that geography
+            intersectGeos[column] = intersectGeos[column] * intersectGeos["SOURCE_SHARE"]
+            # If the user specified a value for roundPreserveSum, execute the rounding
+            if(roundPreserveSum is not None):
+                intersectGeos[column] = round_preserve_sum(intersectGeos[column], digits=roundPreserveSum).astype("int")
+        elif(summaryType == "mean"):
+            # In this case we want the intersect polygon to have the same value as the source geography, however we need to weight the
+            # value according to the share of the target geo that the intersection represents.  That way when we summarize the values
+            # by target geo later we'll get a weighted mean.
+            print("morpc.reapportion_by_area | INFO | Reapportioning variable {} by mean".format(column))
+            intersectGeos[column] = intersectGeos[column] * intersectGeos["TARGET_SHARE"]
+        else:
+            print("morpc.reapportion_by_area | ERROR | Unsupported summary type. This error should never happen. Troubleshoot code.")
+            raise RuntimeError
 
     # Drop some columns which are no longer needed now that the variables have been reapportioned
-    intersectGeos = intersectGeos.drop(columns=["overlayIndex", "OVERLAY_GEOS_AREA", "INTERSECT_GEOS_AREA", "OVERLAY_SHARE", "geometry"])
+    intersectGeos = intersectGeos.drop(columns=["sourceIndex", "SOURCE_GEOS_AREA", "TARGET_GEOS_AREA", "INTERSECT_GEOS_AREA", "SOURCE_SHARE", "TARGET_SHARE", "geometry"])
 
-    # Sum the variable values for the intersection polygons, grouping by target geo identifier.
+    # Summarize the variable values for the intersection polygons, grouping by target geo identifier.
     # In the resulting dataframe, the variables are fully reapportioned to the target geos.
     targetGeosUpdate = intersectGeos.groupby("targetIndex").sum()
-
+        
     # Recombine the target geometries with their attributes and add the reapportioned variables
     targetGeosUpdated = targetGeosUpdated.rename(columns={"targetIndex":targetGeosIndexName}).set_index(targetGeosIndexName).join(myTargetGeosAttr).join(targetGeosUpdate)
     if(targetGeosUpdated.index.name == "None"):
