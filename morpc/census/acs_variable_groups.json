@@ -76,7 +76,7 @@
    "B01003": {
       "concept": "Total Population",
       "dimensions": [
-         "TOTAL"
+         "Population"
       ],
       "dimensions_verified": true,
       "variables": {
@@ -19306,10 +19306,9 @@
    "B25001": {
       "concept": "Housing Units",
       "dimensions": [
-         "TOTAL",
          "Housing Units"
       ],
-      "dimensions_verified": false,
+      "dimensions_verified": true,
       "variables": {
          "B25001_001E": "Estimate!!Total"
       }
@@ -19320,7 +19319,7 @@
          "TOTAL",
          "Occupancy Status"
       ],
-      "dimensions_verified": false,
+      "dimensions_verified": true,
       "variables": {
          "B25002_001E": "Estimate!!Total:",
          "B25002_002E": "Estimate!!Total:!!Occupied",
@@ -19468,11 +19467,11 @@
    "B25010": {
       "concept": "Average Household Size of Occupied Housing Units by Tenure",
       "dimensions": [
-         "TOTAL",
-         "Average Household Size of Occupied Housing Units",
-         "Tenure"
+          "Average Household Size of Occupied Housing Units",       
+          "TOTAL",
+          "Tenure"
       ],
-      "dimensions_verified": false,
+      "dimensions_verified": true,
       "variables": {
          "B25010_001E": "Estimate!!Average household size --!!Total:",
          "B25010_002E": "Estimate!!Average household size --!!Total:!!Owner occupied",

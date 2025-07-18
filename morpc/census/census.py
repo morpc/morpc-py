@@ -637,17 +637,27 @@ class acs_data:
         resource = frictionless.Resource(acsResource)
         return resource
 
-    def map(self):
+    def map(self, stat='Total'):
         """
         Create a folium interactive map.
+
+        Parameters:
+        -----------
+        stat : str
+            "Total" or "Percent". What statistics to use in ploting the map. 
         """
         import geopandas as gpd
         import folium
         from folium.plugins import GroupedLayerControl
         from branca.colormap import LinearColormap
 
-        map_data = self.DIM_TABLE.WIDE.T
-        map_data.columns = [", ".join(x) for x in map_data.columns]
+        if stat == 'Total':
+            map_data = self.DIM_TABLE.WIDE.T.copy()
+        if stat == 'Percent':
+            map_data = self.DIM_TABLE.PERCENT.copy()
+        # Check for multilevel columns, concat if true
+        if map_data.columns.nlevels > 1:
+            map_data.columns = [", ".join(x) for x in map_data.columns]
         map_data['geometry'] = [self.GEOS.loc[x, 'geometry'] for x in map_data.reset_index()['GEO_ID']]
         map_data = gpd.GeoDataFrame(map_data, geometry='geometry', crs=self.GEOS.crs)
         self.choros = []
@@ -703,15 +713,15 @@ class acs_data:
         self.MAP = m
         return self.MAP
 
-    def plot(self, x, y):
-        """Plot a bar chart with reasonable defaults.
+    # def plot(self, x, y):
+    #     """Plot a bar chart with reasonable defaults.
 
-        """
+    #     """
 
-        import plotnine
+    #     import plotnine
 
-        self.PLOT = morpc.plot.from_resource(self.DIM_TABLE.LONG, self.RESOURCE, self.SCHEMA, x, y).hbar()
-        return self.PLOT.show()
+    #     self.PLOT = morpc.plot.from_resource(self.DIM_TABLE.LONG, self.RESOURCE, self.SCHEMA, x, y).hbar()
+    #     return self.PLOT.show()
 
 from branca.element import MacroElement
 from jinja2 import Template
@@ -763,7 +773,7 @@ class dimension_table:
 
         self.DIMENSIONS = dimensions
         self.LONG = self.define_long(data, schema, dimensions, year)
-        self.LONG_SCHEMA = self.define_long_schema(schema, dimensions, year)
+        # self.LONG_SCHEMA = self.define_long_schema(schema, dimensions, year)
         self.WIDE = self.define_wide()
         self.PERCENT = self.define_percent()
 
@@ -785,19 +795,19 @@ class dimension_table:
             .str.strip() \
             .apply(lambda x:x.split("!!")) \
             .apply(pd.Series)
-        DESC_TABLE.columns = dimensions[1:len(DESC_TABLE.columns)]
+        DESC_TABLE.columns = dimensions[0:len(DESC_TABLE.columns)]
         long = long.join(DESC_TABLE, how='left').drop(columns=['DESC'])
         long = long.fillna("Total")
         for dim in DESC_TABLE.columns:
             long[dim] = pd.Categorical(long[dim], categories=long[dim].unique())
         long['REFERENCE_YEAR'] = year
-        columns = ['GEO_ID', 'NAME', 'REFERENCE_YEAR', 'VARIABLE', 'VAR_TYPE'] + [x for x in dimensions[1:len(DESC_TABLE.columns)]] + ['VALUE']
+        columns = ['GEO_ID', 'NAME', 'REFERENCE_YEAR', 'VARIABLE', 'VAR_TYPE'] + [x for x in dimensions[0:len(DESC_TABLE.columns)]] + ['VALUE']
         long = long[[x for x in columns]]
 
         return long
 
     def define_long_schema(self, schema, dimensions, year):
-        schema = {
+        long_schema = {
             "fields": [{
                 self.schema.get_field('GEO_ID'),
                 self.schema.get_field('NAME'),
@@ -807,18 +817,16 @@ class dimension_table:
 
     def define_wide(self):
 
-        wide = self.LONG.loc[self.LONG['VAR_TYPE']=='Estimate'].drop(columns = ['VARIABLE', 'VAR_TYPE']).pivot(columns = ["GEO_ID", "NAME", "REFERENCE_YEAR"], index=self.DIMENSIONS)['VALUE']
-        wide = wide.droplevel("TOTAL")
+        wide = self.LONG.loc[self.LONG['VAR_TYPE']=='Estimate'].drop(columns = ['VARIABLE', 'VAR_TYPE']).pivot(columns = ["GEO_ID", "NAME", "REFERENCE_YEAR"], index=[x for x in self.DIMENSIONS if 'TOTAL' != x])['VALUE']
+        # wide = wide.droplevel("TOTAL")
 
         return wide
 
     def define_percent(self):
-
-        percent = self.WIDE.T.copy()
+        total = self.WIDE.T.iloc[:,0].copy()
+        percent = self.WIDE.T.iloc[:,1:].copy()
         for column in percent:
-            if column != ('Total', 'Total'):
-                percent[column] = percent[column] / percent[('Total', 'Total')] * 100
-        percent = percent.drop(columns = ('Total', 'Total'))
+            percent[column] = percent[column] / total * 100
         
         return percent
 
