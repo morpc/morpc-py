@@ -2773,3 +2773,102 @@ def reapportion_by_area(targetGeos, sourceGeos, apportionColumns=None, summaryTy
     targetGeosUpdated = targetGeosUpdated.filter(items=list(targetGeos.columns)+apportionColumns, axis="columns")
     
     return targetGeosUpdated
+    
+def hist_scaled(series, logy="auto", yRatioThreshold=100, xClassify=False, xRatioThreshold=100, scheme="NaturalBreaks", bins=10, retBinsCounts=False, figsize=None):
+    """
+    Wrapper for pandas.Series.hist() method which provides additional flexibility for how the data is displayed. By default, function
+    automatically decides whether to use a linear scale or a log scale for the y-axis based on the ratio of the counts in the most 
+    frequent bin and the least frequent bin (zeros excluded).  Optionally allows for automatic determination of bin edges based on
+    classification of data according to a specified scheme and number of classes.  The mapclassify package is used for data classification
+    since this is also used by geopandas.plot() and therefore is likely to be installed already in MORPC Python environments.
+    
+    Parameters
+    ----------
+    series : pandas.core.series.Series
+        A pandas Series containing the data to be displayed in the histogram.  
+    logy : bool or "auto"
+        Set to True to use log scale on y-axis. Set to "auto" to automatically determine whether to use log scale based on the ratio
+        of the counts in the most frequent bin to the least frequent bin (zeros excluded). Specify the threshold above which to use
+        log scale using yRatioThreshold.
+    yRatioThreshold: numeric value (usually int)
+        Threshold for ratio of count in most frequent bin to count in least frequent bin (excluding zeros) above which a 
+        log scale will be used.
+    xClassify : bool or "auto"
+        Set to True to determine bins based on classified data. Specify classification scheme using scheme parameter and bins 
+        parameter.  Set to "auto" to automatically determine whether to use classified data based on the ratio of the maximum 
+        absolute value in the series to the minimum absolute value in the series. Specify the threshold above which to use
+        classified data using xRatioThreshold.
+    xRatioThreshold: numeric value (usually int)
+        Threshold for ratio of maximum absoulute value in series to minimum absolute value (excluding zeros) above which classified 
+        data will be used.
+    scheme : str
+        Classification scheme supported by mapclassify.classify.
+        See https://pysal.org/mapclassify/generated/mapclassify.classify.html#mapclassify.classify
+    bins : int
+        The number of bins to use for the histogram.  This also serves as the number of classes when classified data is
+        used (k parameter for mapclassify.classify).  The range of of the series is extended by .1% on each side to include 
+        the minimum and maximum series values as in pandas.cut().
+    retBinsCounts : bool
+        Set to true to include lists of bins and counts in the return false. Set to false to omit these.
+    figsize : tuple
+        Figure size tuple as used by pandas.hist()
+
+    Returns
+    -------
+    retval :  matplotlib.AxesSubplot
+        Matplotlib axis object for histogram plot
+    binsList : list
+        List of bins used for the histogram.
+    countsList : list
+        List of counts used for the histogram.
+    
+    """
+
+    import pandas as pd
+    import mapclassify
+
+    # If xClassify is set to auto, determine the ratio of the maximum absolute series value
+    # to the minimum absolute series value (excluding zero) and compare this to the specified 
+    # threshold to determine whether to classify the data. If yes, set xClassify to True. If no, 
+    # set xClassify to False.
+    if(xClassify == "auto"):
+        seriesMin = series.loc[series != 0].abs().min()
+        seriesMax = series.abs().max()
+        xRatio = seriesMax/SeriesMin
+        xClassify = (True if (xRatio > xRatioThreshold) else False)
+
+    # If xClassify is set to True (because the user specified this or because it was determined
+    # automatically), classify the data using the specified classification scheme and number of bins.
+    # Expand the left and right bins by .1% of the series range to ensure the min and max series
+    # values are included. If xClassify is set to False, simply cut the data into the specified number
+    # of equally spaced bins.
+    if(xClassify == True):
+        temp = mapclassify.classify(series, scheme=scheme, k=bins)
+        counts = pd.Series(temp.counts)
+        seriesRange = series.max() - series.min()
+        binsList = [series.min()-seriesRange*.001]+ list(temp.bins)
+        binsList[-1] = binsList[-1]+seriesRange*.001
+    else:
+        (temp, binsList) = pd.cut(series, bins=bins, retbins=True)
+        binsList=list(binsList)
+        counts = temp.value_counts()
+
+    # If logy is set to auto, determine the ratio of the counts in the most frequent bin to
+    # the counts in the least frequent bin (excluding zero) and compare this to the specified 
+    # threshold to determine use a log scale on the y-axis.  If yes, set logy to True. If no, set 
+    # logy to False.
+    if(logy == "auto"):
+        countMin = counts.loc[counts > 0].min()
+        countMax = counts.max()
+        yRatio = countMax/countMin
+        logy = (True if (yRatio > yRatioThreshold) else False)
+
+    # Generate the histogram
+    retval = series.hist(bins=binsList, log=logy, figsize=figsize)
+    
+    countsList = list(counts)
+    
+    if(retBinsCounts == True):
+        return (retval, binsList, countsList)
+    else:
+        return retval
