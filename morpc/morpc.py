@@ -2733,7 +2733,7 @@ def reapportion_by_area(targetGeos, sourceGeos, apportionColumns=None, summaryTy
     if(sourceShareTolerance is not None):
         groupSums["SOURCE_SHARE"] = groupSums["SOURCE_SHARE"].round(decimals=sourceShareTolerance)
     if((groupSums["SOURCE_SHARE"].max() != 1) | (groupSums["SOURCE_SHARE"].min() != 1)):
-        print("morpc.reapportion_by_area | WARNING | The source shares of the intersection geographies should sum to 1, however they sum to another value in at least one case.  This could mean that the there are overlapping polygons in the target geos or in the overlay geos (overlay sum > 1), or that the target geos coverage of the overlay geos is incomplete (overlay sum < 1).  The greatest overlay sum is {0} and the smallest overlay sum is {1}. Assess the severity of the discrepancy and troubleshoot the geometries if necessary prior to proceeding.".format(groupSums["OVERLAY_SHARE"].max(), groupSums["OVERLAY_SHARE"].min()))
+        print("morpc.reapportion_by_area | WARNING | The source shares of the intersection geographies should sum to 1, however they sum to another value in at least one case.  This could mean that the there are overlapping polygons in the target geos or in the overlay geos (overlay sum > 1), or that the target geos coverage of the overlay geos is incomplete (overlay sum < 1).  The greatest overlay sum is {0} and the smallest overlay sum is {1}. Assess the severity of the discrepancy and troubleshoot the geometries if necessary prior to proceeding.".format(groupSums["SOURCE_SHARE"].max(), groupSums["SOURCE_SHARE"].min()))
         
     # For each of the variables to be reapportioned, compute the reapportioned values
     for column in apportionColumns:
@@ -2751,7 +2751,7 @@ def reapportion_by_area(targetGeos, sourceGeos, apportionColumns=None, summaryTy
             # value according to the share of the target geo that the intersection represents.  That way when we summarize the values
             # by target geo later we'll get a weighted mean.
             print("morpc.reapportion_by_area | INFO | Reapportioning variable {} by mean".format(column))
-            intersectGeos[column] = intersectGeos[column] * intersectGeos["TARGET_SHARE"]
+            intersectGeos[column] = (intersectGeos[column] * intersectGeos["TARGET_SHARE"]).astype("float")
         else:
             print("morpc.reapportion_by_area | ERROR | Unsupported summary type. This error should never happen. Troubleshoot code.")
             raise RuntimeError
@@ -2834,7 +2834,7 @@ def hist_scaled(series, logy="auto", yRatioThreshold=100, xClassify=False, xRati
     if(xClassify == "auto"):
         seriesMin = series.loc[series != 0].abs().min()
         seriesMax = series.abs().max()
-        xRatio = seriesMax/SeriesMin
+        xRatio = seriesMax/seriesMin
         xClassify = (True if (xRatio > xRatioThreshold) else False)
 
     # If xClassify is set to True (because the user specified this or because it was determined
@@ -2864,11 +2864,11 @@ def hist_scaled(series, logy="auto", yRatioThreshold=100, xClassify=False, xRati
         logy = (True if (yRatio > yRatioThreshold) else False)
 
     # Generate the histogram
-    retval = series.hist(bins=binsList, log=logy, figsize=figsize)
+    ax = series.hist(bins=binsList, log=logy, figsize=figsize, edgecolor="black")
     
     countsList = list(counts)
     
     if(retBinsCounts == True):
-        return (retval, binsList, countsList)
+        return (ax, binsList, countsList)
     else:
-        return retval
+        return ax
