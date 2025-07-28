@@ -100,7 +100,7 @@ class get_colors():
         if n <= 10:
             for color in self.morpc_colors:
                 if not 'grey' in color:
-                    __key = self.morpc_colors[color]['key']['position']
+                    __key = self.morpc_colors[color]['key']['position']-1
                     self.hex_list.append(self.morpc_colors[color]['gradient']['hex'][__key])
         if 10 < n <= 20:
             for color in self.morpc_colors:
