@@ -275,8 +275,8 @@ SUMLEVEL_DESCRIPTIONS = {
         "authority":"census",
         "idField":"PLACEPARTID",
         "nameField":"PLACEPART",
-        "censusQueryName": "place (or part)",
-        "censusQuery": "place (or part):*"
+        "censusQueryName": "county (or part)",
+        "censusQuery": "county (or part):*"
     },
     '160': {
         "singular":"place",
