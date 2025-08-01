@@ -689,6 +689,7 @@ class acs_data:
           "path": self.DATA_FILENAME, # Just file name due to frictionless using paths relative to resource
           # A title with basic data and scope
           # tododo: implement a custom description for the scope. See todo in .query()
+          # Issue URL: https://github.com/morpc/morpc-py/issues/35
           "title": f"{self.YEAR} American Community Survey {self.SURVEY}-Year Estimates for {'Custom Geography' if self.SCOPE == None else SCOPES[self.SCOPE]['desc']}.".title(),
           # A full description of the data. 
           "description": f"Selected variables from {self.YEAR} ACS {self.SURVEY}-Year estimates for {'custom geography (see sources._params)' if self.SCOPE == None else SCOPES[self.SCOPE]['desc']}. Data was retrieved {datetime.datetime.today().strftime('%Y-%m-%d')}",
