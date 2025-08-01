@@ -48,8 +48,9 @@ ACS_HIGHLEVEL_GROUP_DESC = {
 }
 
 ## Scopes represent a type of geography with a certain region. ie. us-states is all states in the US.
-## TODO: implement these as standard layers in a geopackage or similar repository. 
-## These could later be used as a filter for people to select particular areas of interest.
+# TODO: implement these as standard layers in a geopackage or similar repository. 
+#  These could later be used as a filter for people to select particular areas of interest.
+#  assignees: jinskeep-morpc
 
 SCOPES = {
     "us-states": {"desc": "all states in the United States",
