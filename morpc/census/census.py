@@ -58,6 +58,7 @@ SCOPES = {
                   "for": "state:*"
                  },
     # TODO: implement us-cities, us-counties for comparative analysis to morpc.census.SCOPES
+    # Issue URL: https://github.com/morpc/morpc-py/issues/50
     #   Could need work on geos-collect and lookup to account for extended scopes.
     "ohio": {"desc": "the State of Ohio",
              "for": "state:39"},
@@ -77,11 +78,13 @@ SCOPES = {
     # the MPO region gepgraphies depend on using unique geoids as a filter. 
     # This is not a perfect representation of the jurisdictions in the region but works as an example.
     # TODO: Refine the geographies for regionmpo-parts.
+    # Issue URL: https://github.com/morpc/morpc-py/issues/49
     #  Determine which geos make most sense to represent the jurisdictions in the MPO region. Possibly different sumlevels.
     #  assignees: jinskeep-morpc
     "regionmpo-parts": {"desc": "all Census township parts and place parts that are MORPC MPO members",
                         "ucgid": "1550000US3902582041,0700000US390410577499999,0700000US390410578899999,0700000US390410942899999,1550000US3918000041,0700000US390411814099999,1550000US3921434041,0700000US390412144899999,1550000US3922694041,1550000US3929148041,0700000US390412969499999,0700000US390413351699999,0700000US390414036299999,0700000US390414310699999,0700000US390414790899999,0700000US390415861899999,1550000US3958940041,0700000US390415926299999,0700000US390416417899999,1550000US3964486041,0700000US390416531299999,0700000US390417084299999,1550000US3971976041,1550000US3975602041,0700000US390417661799999,0700000US390417733699999,0700000US390417756099999,1550000US3983342041,0700000US390450695099999,1550000US3911332045,1550000US3918000045,1550000US3944086045,1550000US3962498045,1550000US3966390045,0700000US390458020699999,1550000US3906278049,0700000US390490692299999,1550000US3908532049,0700000US390490944299999,1550000US3911332049,0700000US390491611299999,1550000US3918000049,1550000US3922694049,0700000US390492828099999,1550000US3929106049,1550000US3931304049,1550000US3932592049,1550000US3932606049,0700000US390493302699999,1550000US3933740049,1550000US3935476049,0700000US390493777299999,0700000US390493861299999,1550000US3944086049,1550000US3944310049,0700000US390494641099999,1550000US3947474049,0700000US390495006499999,1550000US3950862049,1550000US3953970049,0700000US390495734499999,1550000US3957862049,0700000US390496184099999,1550000US3962498049,0700000US390496297499999,0700000US390496325499999,0700000US390496457099999,1550000US3966390049,1550000US3967440049,0700000US390497178799999,0700000US390497771499999,1550000US3979002049,1550000US3979100049,1550000US3979282049,0700000US390498124299999,1550000US3983342049,1550000US3984742049,1550000US3986604049,0700000US390892569099999,1550000US3939340089,1550000US3953970089,1550000US3961112089,1550000US3966390089,1550000US3963030097,1550000US3922694159,0700000US391593904699999,1550000US3963030159"}
     # TODO: Implement other regions, corpo, region10, region7, etc for
+    # Issue URL: https://github.com/morpc/morpc-py/issues/48
 }
 
 ACS_MISSING_VALUES = ["","-222222222","-333333333","-555555555","-666666666","-888888888","-999999999"]
@@ -369,6 +372,7 @@ class acs_data:
 
         # Check if the group dimensions have been verified in json file.
         # TODO: Develop means of varifying or updating dimensions when called.
+        # Issue URL: https://github.com/morpc/morpc-py/issues/47
         #  Possible an interactive dialouge window for user input and update json.
         #  assignees: jinskeep-morpc
         if not ACS_VAR_GROUPS[self.GROUP]['dimensions_verified']: 
@@ -480,6 +484,7 @@ class acs_data:
 
         # If custom query parameters are passed to .query then the name of the resource is custom and includes date.
         # TODO: Find a better way of naming custom queries, possibly by passing a custom parameter.
+        # Issue URL: https://github.com/morpc/morpc-py/issues/46
         if scope is None:
             self.NAME = f"morpc-acs{self.SURVEY}-{self.YEAR}-custom-ucgid-{self.GROUP}-{datetime.now().strftime(format='%Y%m%d')}".lower()
         
@@ -530,11 +535,13 @@ class acs_data:
         # Get all geographies for sumlevels in data
         # This is expensive, find a way to query data. This may be a use case for spatial database.
         # TODO: Either remove dependencies on geos-lookup or adjust geos-lookup to include scopes.
+        # Issue URL: https://github.com/morpc/morpc-py/issues/45
         geometries = []
         for sumlevel in sumlevels:
             layerName=morpc.HIERARCHY_STRING_LOOKUP[sumlevel]
             # Geos-collect does not include all the geographies outside of the regional data.
             # TODO: In define_geos, find a way to not read all data into memory
+            # Issue URL: https://github.com/morpc/morpc-py/issues/44
             #  assignees: jinskeep-morpc
             geos, resource, schema = morpc.frictionless.load_data('../../morpc-geos-collect/output_data/morpc-geos.resource.yaml', layerName=layerName, useSchema=None, verbose=False)
             geometries.append(geos[['GEOIDFQ', 'geometry']])
@@ -694,6 +701,7 @@ class acs_data:
           "path": self.DATA_FILENAME, # Just file name due to frictionless using paths relative to resource
           # A title with basic data and scope
           # TODO: Implement a custom description for the scope here as well as in .query().
+          # Issue URL: https://github.com/morpc/morpc-py/issues/43
           "title": f"{self.YEAR} American Community Survey {self.SURVEY}-Year Estimates for {'Custom Geography' if self.SCOPE == None else SCOPES[self.SCOPE]['desc']}.".title(),
           # A full description of the data. 
           "description": f"Selected variables from {self.YEAR} ACS {self.SURVEY}-Year estimates for {'custom geography (see sources._params)' if self.SCOPE == None else SCOPES[self.SCOPE]['desc']}. Data was retrieved {datetime.datetime.today().strftime('%Y-%m-%d')}",
@@ -741,6 +749,7 @@ class acs_data:
         return self.MAP # Also show the map
 
     # TODO: Fix plot to use default morpc.plot functions.
+    # Issue URL: https://github.com/morpc/morpc-py/issues/42
     # def plot(self, x, y):
     #     """Plot a bar chart with reasonable defaults.
 
@@ -794,6 +803,7 @@ def multilayer_map(map_data, geos):
 
             # The cmap based on morpc colors. This is used by folium to construct the legend.
             # TODO: add custom colors or colors based on data.
+            # Issue URL: https://github.com/morpc/morpc-py/issues/41
             cmap = LinearColormap(
                 colors=[morpc.color.rgb_to_dec(morpc.color.hex_to_rgb(x)) for x in morpc.palette.SEQ2['bluegreen-darkblue']],
                 vmin=map_data[column].min(), # minimum to use for legend
@@ -893,6 +903,7 @@ class dimension_table:
         self.DIMENSIONS = dimensions
         self.LONG = self.define_long(data, schema, dimensions, year)
         # TODO: Add long_schema in order to save long dimension table as frictionless resource.
+        # Issue URL: https://github.com/morpc/morpc-py/issues/40
         # self.LONG_SCHEMA = self.define_long_schema(schema, dimensions, year)
         self.WIDE = self.define_wide()
         self.PERCENT = self.define_percent()
@@ -947,6 +958,7 @@ class dimension_table:
         long = long.join(DESC_TABLE, how='left').drop(columns=['DESC'])
 
         # Fill the empty descriptions with total, TODO: drop this, it should be needed any longer
+        # Issue URL: https://github.com/morpc/morpc-py/issues/39
         long = long.fillna("Total")
 
         # Make each dimension column as a categorical to preserve order later on
@@ -955,6 +967,7 @@ class dimension_table:
 
         # Add year column to facilitate concatonating multiple year later on
         # TODO: Add function for timeseries data, maybe seperate class.
+        # Issue URL: https://github.com/morpc/morpc-py/issues/38
         long['REFERENCE_YEAR'] = year
 
         # Filter and order columns of long table.
@@ -966,6 +979,7 @@ class dimension_table:
         return long
 
     # TODO: develop long schema function
+    # Issue URL: https://github.com/morpc/morpc-py/issues/37
     # def define_long_schema(self, schema, dimensions, year):
     #     long_schema = {
     #         "fields": [{
@@ -1122,6 +1136,7 @@ def acs_label_to_dimensions(labelSeries, dimensionNames=None):
     import numpy as np
     import pandas as pd
     #TODO: add support for single variable as string.
+    #Issue URL: https://github.com/morpc/morpc-py/issues/36
     
     labelSeries = labelSeries \
         .apply(lambda x:x.split("|")[0]) \
