@@ -1,14 +1,17 @@
 import json
 
-from attr import define
 import morpc
 from importlib.resources import files
 
+# Import the variable groups dimensions using import lib.
 try:
     with files('morpc').joinpath('census', 'acs_variable_groups.json').open('r') as file:
         ACS_VAR_GROUPS = json.load(file)
 except ValueError as e:
     print(e)
+
+# Define some of the high level table descriptions to assist with looking up tables.
+# Potentional later use this as in input for people to select variables of interest based on these categories.
 
 ACS_HIGHLEVEL_GROUP_DESC = {
     "01": "Sex, Age, and Population",
@@ -44,12 +47,19 @@ ACS_HIGHLEVEL_GROUP_DESC = {
     "99": "Allocations",
 }
 
+## Scopes represent a type of geography with a certain region. ie. us-states is all states in the US.
+## TODO: implement these as standard layers in a geopackage or similar repository. 
+## These could later be used as a filter for people to select particular areas of interest.
+
 SCOPES = {
     "us-states": {"desc": "all states in the United States",
                   "for": "state:*"
                  },
+    # TODO: implement us-cities, us-counties for comparative analysis.
     "ohio": {"desc": "the State of Ohio",
              "for": "state:39"},
+    # TODO: Adjust the geo_lookup scripts to account for scopes outside the region.
+    # Currently the only counties saves in morpc-geos-collect are the 15 county region.
     "ohio-counties": {"desc": "all counties in the State of Ohio",
                       "for": "county:*",
                      "in": "state:39"},
@@ -62,8 +72,12 @@ SCOPES = {
     "region15-tracts": {"desc": "all Census tracts in the MORPC 10-county region",
                         "for": "tract:*",
                         "in": ["state:39", f"county:{','.join([morpc.CONST_COUNTY_NAME_TO_ID[x][2:6] for x in morpc.CONST_REGIONS['15-County Region']])}"]},
+    # the MPO region gepgraphies depend on using unique geoids as a filter. 
+    # This is not a perfect representation of the jurisdictions in the region but works as an example.
+    # TODO: Refine the geographies that represent the jurisdiction in the MPO region. Possibly different sumlevels.
     "regionmpo-parts": {"desc": "all Census township parts and place parts that are MORPC MPO members",
                         "ucgid": "1550000US3902582041,0700000US390410577499999,0700000US390410578899999,0700000US390410942899999,1550000US3918000041,0700000US390411814099999,1550000US3921434041,0700000US390412144899999,1550000US3922694041,1550000US3929148041,0700000US390412969499999,0700000US390413351699999,0700000US390414036299999,0700000US390414310699999,0700000US390414790899999,0700000US390415861899999,1550000US3958940041,0700000US390415926299999,0700000US390416417899999,1550000US3964486041,0700000US390416531299999,0700000US390417084299999,1550000US3971976041,1550000US3975602041,0700000US390417661799999,0700000US390417733699999,0700000US390417756099999,1550000US3983342041,0700000US390450695099999,1550000US3911332045,1550000US3918000045,1550000US3944086045,1550000US3962498045,1550000US3966390045,0700000US390458020699999,1550000US3906278049,0700000US390490692299999,1550000US3908532049,0700000US390490944299999,1550000US3911332049,0700000US390491611299999,1550000US3918000049,1550000US3922694049,0700000US390492828099999,1550000US3929106049,1550000US3931304049,1550000US3932592049,1550000US3932606049,0700000US390493302699999,1550000US3933740049,1550000US3935476049,0700000US390493777299999,0700000US390493861299999,1550000US3944086049,1550000US3944310049,0700000US390494641099999,1550000US3947474049,0700000US390495006499999,1550000US3950862049,1550000US3953970049,0700000US390495734499999,1550000US3957862049,0700000US390496184099999,1550000US3962498049,0700000US390496297499999,0700000US390496325499999,0700000US390496457099999,1550000US3966390049,1550000US3967440049,0700000US390497178799999,0700000US390497771499999,1550000US3979002049,1550000US3979100049,1550000US3979282049,0700000US390498124299999,1550000US3983342049,1550000US3984742049,1550000US3986604049,0700000US390892569099999,1550000US3939340089,1550000US3953970089,1550000US3961112089,1550000US3966390089,1550000US3963030097,1550000US3922694159,0700000US391593904699999,1550000US3963030159"}
+    # TODO: Implement other regions, corpo, region10, region7, etc.
 }
 
 ACS_MISSING_VALUES = ["","-222222222","-333333333","-555555555","-666666666","-888888888","-999999999"]
@@ -329,7 +343,9 @@ def api_get(url, params, varBatchSize=20, verbose=True):
 class acs_data:
     def __init__(self, group, year, survey):
         """
-        Class for working with ACS Survey Data. Creates an object representing data for a variable by year by survey. Use .query() method to retrive data for a specific geography.
+        Class for working with ACS Survey Data. Creates an object representing data for a variable by year by survey. 
+        Use .query() method to retrive data for a specific geography.
+
 
         Parameters
         ----------
@@ -345,14 +361,17 @@ class acs_data:
         self.GROUP = group
         self.YEAR = year
         self.SURVEY = survey
-        self.VARS = self.define_vars()
-        if ACS_VAR_GROUPS[self.GROUP]['dimensions_verified'] == False:
+        self.VARS = self.define_vars() ## fetch a dictionary of the variables in the table
+
+        # Check if the group dimensions have been verified in json file.
+        # TODO: Develop means of varifying or updating dimensions when called. 
+        if not ACS_VAR_GROUPS[self.GROUP]['dimensions_verified']: 
             print(f"""Dimension {", ".join(ACS_VAR_GROUPS[self.GROUP]['dimensions'])} not verified for variable group. 
                   Check dimensions agianst variables and 
                   make corrections in acs_variable_groups.json.""")
             self.DIMENSIONS = ACS_VAR_GROUPS[self.GROUP]['dimensions']
-
-        if ACS_VAR_GROUPS[self.GROUP]['dimensions_verified'] == True:
+        # if verified, asign
+        if ACS_VAR_GROUPS[self.GROUP]['dimensions_verified']:
             self.DIMENSIONS = ACS_VAR_GROUPS[self.GROUP]['dimensions']
 
     def load(self, scope, dirname):
@@ -379,22 +398,27 @@ class acs_data:
 
         self.SCOPE = scope
         self.DIRNAME = dirname
+        # Name will later be used in frictionless as resource name.
         self.NAME = f"morpc-acs{self.SURVEY}-{self.YEAR}-{scope}-{self.GROUP}".lower()
         self.RESOURCE_FILENAME = f"{self.NAME}.resource.yaml"
         self.RESOURCE_PATH = os.path.join(self.DIRNAME, self.RESOURCE_FILENAME)
 
+        # Need to change directories to location of file to read using load data.
         cwd = os.getcwd()
         if not os.path.exists(self.RESOURCE_PATH):
             raise FileNotFoundError(f"File {self.RESOURCE_PATH} does not exist. Please check the path and try again.")
         os.chdir(self.DIRNAME)
 
+        # Load data and store some of the constants from resource. 
         self.DATA, self.RESOURCE, self.SCHEMA = morpc.frictionless.load_data(os.path.basename(self.RESOURCE_PATH), verbose=False)
         self.NAME = self.RESOURCE.get_defined('name')
         self.API_PARAMS = self.RESOURCE.get_defined('sources')[0]['_params']
         self.API_URL = self.RESOURCE.get_defined('sources')[0]['path']
 
+        # change back to working directory
         os.chdir(cwd)
 
+        # Rebuild dimension tables and store geographies
         self.DATA = self.DATA.set_index('GEO_ID')
         self.DIM_TABLE = morpc.census.dimension_table(self.DATA, self.SCHEMA, self.DIMENSIONS, self.YEAR)
         self.GEOS = self.define_geos()
@@ -422,11 +446,11 @@ class acs_data:
 
         import morpc
         from datetime import datetime
-        import pandas as pd
-        import os
-        self.SCOPE = scope
 
-        if scope != None:
+        # Define scope and build query based on scopes. See morpc.census.SCOPES
+        self.SCOPE = scope
+        if scope is not None:
+            # Name will be used later in frictionless as resource name
             self.NAME = f"morpc-acs{self.SURVEY}-{self.YEAR}-{scope}-{self.GROUP}".lower()
             if "for" in morpc.census.SCOPES[scope]:
                 for_param = morpc.census.SCOPES[scope]['for']
@@ -435,19 +459,28 @@ class acs_data:
             if "ucgid" in morpc.census.SCOPES[scope]:
                 ucgid_param = morpc.census.SCOPES[scope]['ucgid']
 
-        if get_param != None:
+        # Check to make sure that 
+        if get_param is not None:
             if not isinstance(get_param, list):
                 print('get_param must be a list')
             temp = {}
             for VAR in self.VARS:
+                if VAR not in get_param:
+                    print(f"ERROR | {VAR} not in list of variables for {self.GROUP}")
+                    raise RuntimeError
                 if VAR in get_param:
                     temp[VAR] = self.VARS[VAR]
-            # TODO: add check to make sure everything passed to get_param is in VARS.
             self.VARS = temp
-        if scope == None:
-            self.NAME = f"morpc-acs{self.SURVEY}-{self.YEAR}-custom-ucgid-{self.GROUP}-{datetime.now().strftime(format='%Y%m%d-%H%M%S')}".lower()
+
+        # If custom query parameters are passed to .query then the name of the resource is custom and includes date.
+        # TODO: Find a better way of naming custom queries, possibly by passing a custom parameter.
+        if scope is None:
+            self.NAME = f"morpc-acs{self.SURVEY}-{self.YEAR}-custom-ucgid-{self.GROUP}-{datetime.now().strftime(format='%Y%m%d')}".lower()
+        
+        # Build the schema from the list of variables.
         self.SCHEMA = self.define_schema()
 
+        # Construct the full query string to pass to api_get
         getFields = ",".join(self.SCHEMA.field_names)
         self.API_PARAMS = {}
         self.API_PARAMS['get'] = getFields
@@ -457,15 +490,22 @@ class acs_data:
             self.API_PARAMS['in'] = in_param
         if ucgid_param != None:
             self.API_PARAMS['ucgid'] = ucgid_param
+
+        # Construct the url
         self.API_URL = f"https://api.census.gov/data/{self.YEAR}/acs/acs{self.SURVEY}"
 
+        # Query the data
         self.DATA = morpc.census.api_get(self.API_URL, self.API_PARAMS)
 
+        # Wrangle data types and index
         self.DATA = morpc.cast_field_types(self.DATA.reset_index(), self.SCHEMA, verbose=False)
         self.DATA = self.DATA.filter(items=self.SCHEMA.field_names, axis='columns')
         self.DATA = self.DATA.set_index('GEO_ID')
 
+        # Construct the dimension tables.
         self.DIM_TABLE = morpc.census.dimension_table(self.DATA, self.SCHEMA, self.DIMENSIONS, self.YEAR)
+
+        # Store geographies to join later
         self.GEOS = self.define_geos()
 
         return self
@@ -478,10 +518,17 @@ class acs_data:
         import geopandas as gpd
         import morpc
 
+        # Get a list of the sumlevels in the geographies.
         sumlevels = set([x[0:3] for x in self.DATA.reset_index()['GEO_ID']])
+
+        # Get all geographies for sumlevels in data
+        # This is expensive, find a way to query data. This may be a use case for spatial database.
+        # TODO: Either remove dependencies on geos-lookup or adjust geos-lookup to include scopes.
+        # TODO: Find a way to not read in so much data to memory. 
         geometries = []
         for sumlevel in sumlevels:
             layerName=morpc.HIERARCHY_STRING_LOOKUP[sumlevel]
+            # Geos-collect does not include all the geographies outside of the regional data.
             geos, resource, schema = morpc.frictionless.load_data('../../morpc-geos-collect/output_data/morpc-geos.resource.yaml', layerName=layerName, useSchema=None, verbose=False)
             geometries.append(geos[['GEOIDFQ', 'geometry']])
         geometries = pd.concat(geometries)
@@ -504,29 +551,39 @@ class acs_data:
         import os
         import frictionless
 
+        # Make the output directory if it doesn't exist
         if not os.path.exists(output_dir):
             os.mkdir(output_dir)
 
+        # Store some needed values for the frictionless resource
         self.DATA_FILENAME = f"{self.NAME}.csv"
         self.DATA_PATH = os.path.join(output_dir, self.DATA_FILENAME)
+
+        # Save the data
         self.DATA.reset_index().to_csv(self.DATA_PATH, index=False)
 
+        # Save the schema
         self.SCHEMA_FILENAME = f"{self.NAME}.schema.yaml"
         self.SCHEMA_PATH = os.path.join(output_dir, self.SCHEMA_FILENAME)
         dummy = self.SCHEMA.to_yaml(self.SCHEMA_PATH)
 
+        # Create the resource file
         self.RESOURCE_FILENAME = f"{self.NAME}.resource.yaml"
         self.RESOURCE_PATH = os.path.join(output_dir, self.RESOURCE_FILENAME)
         self.RESOURCE = self.define_resource()
 
-        cwd = os.getcwd()
+        # Change the working directory to the output directory due to write_resource and validation behavior
+        cwd = os.getcwd() # save current working dir
         os.chdir(output_dir)
 
+        # Write the resource
         dummy = self.RESOURCE.to_yaml(self.RESOURCE_FILENAME)
         validation = frictionless.Resource(self.RESOURCE_FILENAME).validate()
 
+        # Return to the current working directory
         os.chdir(cwd)
-
+    
+        # Validate the resource
         if validation.valid == True:
             print("Resource is valid.")
         else:
@@ -534,22 +591,24 @@ class acs_data:
             print(validation)
             raise RuntimeError
 
-    def define_sumlevel(self):
-        import morpc
-        sumlevel_dict={}
-        for sumlevel in morpc.SUMLEVEL_DESCRIPTIONS:
-            if morpc.SUMLEVEL_DESCRIPTIONS[sumlevel]['censusQueryName'] == self.GEO:
-                sumlevel_dict[sumlevel] = morpc.SUMLEVEL_DESCRIPTIONS[sumlevel]
-                return sumlevel_dict
-
     def define_schema(self):
+        """Create a frictionless schema for the acs data using sane defaults and validates.
+
+        Raises:
+            RuntimeError: Failed to validate the schema
+
+        Returns:
+            frictionless.Schema: A schema representing the fields in the acs data. 
+        """
         import frictionless
         import morpc
 
         allFields = []
+        # Add GEO_ID and NAME as default index fields as they are not included in the var list.
         allFields.append({"name":"GEO_ID", "type":"string", "description":"Unique identifier for geography"})
         allFields.append({"name":"NAME", "type":"string", "description":"Name of the geography"})
 
+        # Create an entry for each field and apply friction data types.
         acsVarDict = self.VARS
         for var in [x for x in acsVarDict.keys()]:
             field = {}
@@ -562,6 +621,7 @@ class acs_data:
             field["description"] = f"{acsVarDict[var]['label']} | {acsVarDict[var]['concept']} | Estimate"
             allFields.append(field)
 
+            # Add a field for the MOE
             field = {}
             field["name"] = var[:-1] + "M"
             field["type"] = acsVarDict[var]['predicateType']
@@ -572,12 +632,14 @@ class acs_data:
             field["description"] = f"{acsVarDict[var]['label']} | {acsVarDict[var]['concept']} | MOE"
             allFields.append(field)
     
+        # Combine to construct the whole schema
         acsSchema = {
           "fields": allFields,
           "missingValues": morpc.census.ACS_MISSING_VALUES,
           "primaryKey": morpc.census.ACS_PRIMARY_KEY
         }
     
+        # Validate
         results = frictionless.Schema.validate_descriptor(acsSchema)
         if(results.valid == True):
             print(f"{self.NAME} schema is valid")
@@ -601,28 +663,37 @@ class acs_data:
         r = requests.get(self.varlist_url)
         json = r.json()
         variables = {}
-        for variable in sorted(json['variables']):
+        for variable in sorted(json['variables']): # Sort in alphanum order
             if json['variables'][variable]['group'] == self.GROUP:
                 variables[variable] = json['variables'][variable]
 
         return variables
 
     def define_resource(self):
+        """Create a frictionless resource for ACS data with sane defaults.
+
+        Returns:
+            frictionless.Resource: A frictionless resource based on the metadata from the ACS data.
+        """
         import frictionless
         import morpc
         import datetime
         import os
 
+
         acsResource = {
           "profile": "tabular-data-resource",
           "name": self.NAME,
-          "path": self.DATA_FILENAME,
+          "path": self.DATA_FILENAME, # Just file name due to frictionless using paths relative to resource
+          # A title with basic data and scope
+          # TODO: implement a custom description for the scope. See todo in .query()
           "title": f"{self.YEAR} American Community Survey {self.SURVEY}-Year Estimates for {'Custom Geography' if self.SCOPE == None else SCOPES[self.SCOPE]['desc']}.".title(),
+          # A full description of the data. 
           "description": f"Selected variables from {self.YEAR} ACS {self.SURVEY}-Year estimates for {'custom geography (see sources._params)' if self.SCOPE == None else SCOPES[self.SCOPE]['desc']}. Data was retrieved {datetime.datetime.today().strftime('%Y-%m-%d')}",
           "format": "csv",
           "mediatype": "text/csv",
           "encoding": "utf-8",
-          "bytes": os.path.getsize(self.DATA_PATH),
+          "bytes": os.path.getsize(self.DATA_PATH), # The reason we need to change locations when saving the resource
           "hash": morpc.md5(self.DATA_PATH),
           "rows": self.DATA.shape[0],
           "columns": self.DATA.shape[1],
@@ -630,7 +701,7 @@ class acs_data:
           "sources": [{
               "title": f"{self.YEAR} American Community Survey {self.SURVEY}-Year Estimates, U.S. Census Bureau",
               "path": self.API_URL,
-              "_params": self.API_PARAMS
+              "_params": self.API_PARAMS # Custom parameter signfied by _ are not validated by frictionless.
           }]
         }
 
@@ -639,80 +710,30 @@ class acs_data:
 
     def map(self, stat='Total'):
         """
-        Create a folium interactive map.
+        Create a folium interactive map. Dependent upon DIM_TABLE.WIDE and DIM_TABLE.PERCENT
 
         Parameters:
         -----------
         stat : str
             "Total" or "Percent". What statistics to use in ploting the map. 
-        """
-        import geopandas as gpd
-        import folium
-        from folium.plugins import GroupedLayerControl
-        from branca.colormap import LinearColormap
 
+        Returns:
+        --------
+        folium.Map : a interactive map including layers for each dimension of the data. 
+        """
+
+        # map for total values or percentages?
         if stat == 'Total':
             map_data = self.DIM_TABLE.WIDE.T.copy()
         if stat == 'Percent':
             map_data = self.DIM_TABLE.PERCENT.copy()
-        # Check for multilevel columns, concat if true
-        if map_data.columns.nlevels > 1:
-            map_data.columns = [", ".join(x) for x in map_data.columns]
-        map_data['geometry'] = [self.GEOS.loc[x, 'geometry'] for x in map_data.reset_index()['GEO_ID']]
-        map_data = gpd.GeoDataFrame(map_data, geometry='geometry', crs=self.GEOS.crs)
-        self.choros = []
-        self.cmaps = []
-        for i in range(len(map_data.columns)):
-            column = map_data.columns[i]
-            if column != 'geometry':
 
-                tooltip = folium.GeoJsonTooltip(
-                    fields=['NAME', column]
-                )
+        # Create the map
+        m = multilayer_map(map_data, self.GEOS)
+        self.MAP = m # Save to MAP
+        return self.MAP # Also show the map
 
-                cmap = LinearColormap(
-                    colors=[morpc.color.rgb_to_dec(morpc.color.hex_to_rgb(x)) for x in morpc.palette.SEQ2['bluegreen-darkblue']],
-                    vmin=map_data[column].min(),
-                    vmax=map_data[column].max(),
-                    caption = column
-                )
-
-                choro = folium.Choropleth(
-                    geo_data=map_data.reset_index()[['NAME', column, 'geometry']],
-                    data=map_data.reset_index()[['NAME', column]],
-                    key_on='properties.NAME',
-                    columns=['NAME', column],
-                    name=column,
-                    cmap=cmap,
-                    fill_opacity=0.9,
-                    line_opacity=0.1,
-                    show=False,
-                )
-                choro.geojson.add_child(tooltip)
-
-                for child in choro._children:
-                    if child.startswith("color_map"):
-                        del choro._children[child]
-
-                self.choros.append(choro)
-                self.cmaps.append(cmap)
-
-        m = folium.Map()
-
-        for choro, cmap in zip(self.choros, self.cmaps):
-            m.add_child(cmap)
-
-            m.add_child(choro)
-
-            bc = BindColormap(choro, cmap)
-
-            m.add_child(bc)
-
-        folium.LayerControl(collapsed=True, position='topleft').add_to(m)
-        m.fit_bounds(m.get_bounds())
-        self.MAP = m
-        return self.MAP
-
+    # TODO: fix plot to use default morpc.plot functions.
     # def plot(self, x, y):
     #     """Plot a bar chart with reasonable defaults.
 
@@ -723,11 +744,100 @@ class acs_data:
     #     self.PLOT = morpc.plot.from_resource(self.DIM_TABLE.LONG, self.RESOURCE, self.SCHEMA, x, y).hbar()
     #     return self.PLOT.show()
 
+def multilayer_map(map_data, geos):
+    """Create a multilayer folium map with layers for each column in a wide format data and geographies table.
+    
+    Parameters:
+    -----------
+    data : pandas.DataFrame
+        A dataframe of the data with an index that matched the index of geos. Each column represents a layer in the map.
+
+    geos : geopandas.GeoDataFrame
+        A geodataframe with an entry for each geo_id in data. 
+
+    Returns:
+    --------
+    folium.Map
+    """
+    import geopandas as gpd
+    import folium
+    from branca.colormap import LinearColormap
+
+    # Check for multilevel columns, concat if true
+    if map_data.columns.nlevels > 1:
+        map_data.columns = [", ".join(x) for x in map_data.columns]
+
+    # Get geographies for the data and add to data. Create GeoDataFrame
+    map_data['geometry'] = [geos.loc[x, 'geometry'] for x in map_data.reset_index()['GEO_ID']]
+    map_data = gpd.GeoDataFrame(map_data, geometry='geometry', crs=geos.crs)
+
+    # Construct the map
+    choros = [] # Empty list for the choropleths for each layer
+    cmaps = [] # Empty list for the colormaps for each layer
+
+    ## for each column construct a layer consisting of choro, cmap, and tooltips
+    for i in range(len(map_data.columns)):
+        column = map_data.columns[i]
+        if column != 'geometry':
+
+            # A popup including each geometries name and data for column
+            tooltip = folium.GeoJsonTooltip(
+                fields=['NAME', column]
+            )
+
+            # The cmap based on morpc colors. This is used by folium to construct the legend.
+            # TODO: add custom colors or colors based on data.
+            cmap = LinearColormap(
+                colors=[morpc.color.rgb_to_dec(morpc.color.hex_to_rgb(x)) for x in morpc.palette.SEQ2['bluegreen-darkblue']],
+                vmin=map_data[column].min(), # minimum to use for legend
+                vmax=map_data[column].max(), # maximum to use for legend
+                caption = column # Column name as name of legend
+            )
+
+            # Create the choropleth
+            choro = folium.Choropleth(
+                geo_data=map_data.reset_index()[['NAME', column, 'geometry']],
+                data=map_data.reset_index()[['NAME', column]],
+                key_on='properties.NAME',
+                columns=['NAME', column],
+                name=column,
+                cmap=cmap,
+                fill_opacity=0.9,
+                line_opacity=0.1,
+                show=False,
+            )
+            choro.geojson.add_child(tooltip) # Add the tooltips to the layer
+
+            # Remove the default colormaps from the layers to allow for showing and hiding legends
+            for child in choro._children:
+                if child.startswith("color_map"):
+                    del choro._children[child]
+
+            choros.append(choro)
+            cmaps.append(cmap)
+
+    # Create the map and add in each layer
+    m = folium.Map()
+    for choro, cmap in zip(choros, cmaps):
+        m.add_child(cmap)
+
+        m.add_child(choro)
+
+        bc = BindColormap(choro, cmap) # Adds in the colormap as custom class, see below
+
+        m.add_child(bc)
+
+    # Add in layer selection box
+    folium.LayerControl(collapsed=True, position='topleft').add_to(m)
+    m.fit_bounds(m.get_bounds()) # Set the starting bounds of the map to the bounds of the geographies.
+
+    return m
+
 from branca.element import MacroElement
 from jinja2 import Template
 
 class BindColormap(MacroElement):
-    """Binds a colormap to a given layer.
+    """Binds a colormap to a given layer. See https://nbviewer.org/gist/BibMartin/f153aa957ddc5fadc64929abdee9ff2e
 
     Parameters
     ----------
@@ -739,6 +849,8 @@ class BindColormap(MacroElement):
         super(BindColormap, self).__init__()
         self.layer = layer
         self.colormap = colormap
+        # Made one minor change in Template from above link: Change this.colormap.get_name()}}.svg[0][0].style.display = 'none'
+        # Previous script was 'block' which didn't work.
         self._template = Template(u"""
         {% macro script(this, kwargs) %}
             {{this.colormap.get_name()}}.svg[0][0].style.display = 'none';
@@ -756,7 +868,7 @@ class BindColormap(MacroElement):
 class dimension_table:
     def __init__(self, data, schema, dimensions, year):
         """
-        A class for dimension table for census data.
+        A class for dimension table for ACS census data.
 
         Parameters:
         ----------
@@ -773,21 +885,46 @@ class dimension_table:
 
         self.DIMENSIONS = dimensions
         self.LONG = self.define_long(data, schema, dimensions, year)
+        # TODO: Add long_schema in order to save long dimension table as frictionless resource.
         # self.LONG_SCHEMA = self.define_long_schema(schema, dimensions, year)
         self.WIDE = self.define_wide()
         self.PERCENT = self.define_percent()
 
     def define_long(self, data, schema, dimensions, year):
+        """Creates a dataframe in long format showing the variables as dimensions of the data.
+
+        Parameters:
+        -----------
+            data : morpc.census.acs_data.DATA
+                The data from acs data class to use
+            schema : morpc.census.acs_data.SCHEMA
+                The schema for the acs data
+            dimensions : list
+                A list of the dimension to use in the dimension table. 
+            year (_type_): _description_
+
+        Returns:
+            _type_: _description_
+        """
         import morpc
         import pandas as pd
+
+        # If geometry is in the data preserve it
         if 'geometry' in data.columns:
             index = ['GEO_ID', 'NAME', 'geometry']
         else:
             index = ['GEO_ID', 'NAME']
 
+        # Pivot the data long
         long = data.reset_index().melt(id_vars=index, value_name="VALUE", var_name='VARIABLE')
+
+        # Add a description column that is a description for each row
         long['DESC'] = long['VARIABLE'].map(morpc.frictionless.name_to_desc_map(schema))
+
+        # Add variable type column
         long['VAR_TYPE'] = long['VARIABLE'].apply(lambda x:'Estimate' if x[-1] == 'E' else 'MOE')
+
+        # Create the table with a column for each dimension in the the descriptions.
         DESC_TABLE = long['DESC'] \
             .apply(lambda x:str(x).split("|")[0]) \
             .str.replace('Estimate!!','') \
@@ -795,29 +932,51 @@ class dimension_table:
             .str.strip() \
             .apply(lambda x:x.split("!!")) \
             .apply(pd.Series)
+        
+        # Name each column in the description table as a dimension
         DESC_TABLE.columns = dimensions[0:len(DESC_TABLE.columns)]
+
+        # Rejoin the dimensions and descriptions to the table
         long = long.join(DESC_TABLE, how='left').drop(columns=['DESC'])
+
+        # Fill the empty descriptions with total, TODO: drop this, it should be needed any longer
         long = long.fillna("Total")
+
+        # Make each dimension column as a categorical to preserve order later on
         for dim in DESC_TABLE.columns:
             long[dim] = pd.Categorical(long[dim], categories=long[dim].unique())
+
+        # Add year column to facilitate concatonating multiple year later on
+        # TODO: Add function for timeseries data, maybe seperate class.
         long['REFERENCE_YEAR'] = year
-        columns = ['GEO_ID', 'NAME', 'REFERENCE_YEAR', 'VARIABLE', 'VAR_TYPE'] + [x for x in dimensions[0:len(DESC_TABLE.columns)]] + ['VALUE']
+
+        # Filter and order columns of long table.
+        index_columns = ['GEO_ID', 'NAME', 'REFERENCE_YEAR', 'VARIABLE', 'VAR_TYPE']
+        dim_columns = [x for x in dimensions[0:len(DESC_TABLE.columns)]]
+        columns = index_columns + dim_columns + ['VALUE']
         long = long[[x for x in columns]]
 
         return long
 
-    def define_long_schema(self, schema, dimensions, year):
-        long_schema = {
-            "fields": [{
-                self.schema.get_field('GEO_ID'),
-                self.schema.get_field('NAME'),
+    # TODO: develop long schema function
+    # def define_long_schema(self, schema, dimensions, year):
+    #     long_schema = {
+    #         "fields": [{
+    #             self.schema.get_field('GEO_ID'),
+    #             self.schema.get_field('NAME'),
                 
-            }]
-        }
+    #         }]
+    #     }
 
     def define_wide(self):
+        """Get wide table for human readability and table outputs.
 
-        wide = self.LONG.loc[self.LONG['VAR_TYPE']=='Estimate'].drop(columns = ['VARIABLE', 'VAR_TYPE']).pivot(columns = ["GEO_ID", "NAME", "REFERENCE_YEAR"], index=[x for x in self.DIMENSIONS if 'TOTAL' != x])['VALUE']
+        Returns:
+            pandas.DataFrame: A dataframe 
+        """
+        wide = self.LONG.loc[self.LONG['VAR_TYPE']=='Estimate'] \
+            .drop(columns = ['VARIABLE', 'VAR_TYPE']) \
+            .pivot(columns = ["GEO_ID", "NAME", "REFERENCE_YEAR"], index=[x for x in self.DIMENSIONS if 'TOTAL' != x])['VALUE']
         # wide = wide.droplevel("TOTAL")
 
         return wide
@@ -855,11 +1014,26 @@ class dimension_table:
 #         | B25127_004E  | Owner occupied | Built 2020 or later | 1, detached or attached |
 #
 
+def acs_variables_by_group(ACS_GROUP, ACS_YEAR, ACS_SURVEY):
+    """
+    Retrieves a dictionary of variables from acs variable metadata table.
+    """
+    import requests
 
+    varlist_url = f"https://api.census.gov/data/{ACS_YEAR}/acs/acs{ACS_SURVEY}/variables.json"
+    r = requests.get(varlist_url)
+    json = r.json()
+    variables = {}
+    for variable in sorted(json['variables']):
+        if json['variables'][variable]['group'] == ACS_GROUP:
+            variables[variable] = json['variables'][variable]
+
+    return variables
 
 def acs_schema(ACS_GROUP, ACS_YEAR, ACS_SURVEY, GEO_SUMLEVEL, OUTPUT_DIR):
     import frictionless
     import morpc
+    import os
     
     allFields = []
 
