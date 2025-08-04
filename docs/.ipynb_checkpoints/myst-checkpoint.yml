@@ -1,6 +1,0 @@
-version: 1
-project:
-    title: morpc-py documentation
-    github: https://github.com/morpc/morpc-py
-site:
-    template: book-theme

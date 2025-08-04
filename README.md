@@ -40,4 +40,4 @@ To contribute to the development branch make changes in the local repo and push 
 
 ## Documentation
 
-See [docs](https://morpc.github.io/morpc-py) for documentation.
+See [doc](https://morpc.github.io/morpc-py) for documentation.
