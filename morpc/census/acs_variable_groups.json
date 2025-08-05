@@ -88,7 +88,7 @@
       "dimensions": [
          "TOTAL",
          "Race",
-		 "Two or More Races"
+		   "Two or More Races"
       ],
       "dimensions_verified": true,
       "variables": {
@@ -107,7 +107,7 @@
    "B02008": {
       "concept": "White Alone or in Combination With One or More Other Races",
       "dimensions": [
-         "TOTAL"
+         "Total"
 		 ],
       "dimensions_verified": true,
       "variables": {
@@ -414,9 +414,10 @@
       "dimensions": [
          "TOTAL",
          "Hispanic or Latino Origin",
-         "Specific Origin"
+         "Specific Origin",
+         "Country of Origin"
       ],
-      "dimensions_verified": false,
+      "dimensions_verified": true,
       "variables": {
          "B03001_001E": "Estimate!!Total:",
          "B03001_002E": "Estimate!!Total:!!Not Hispanic or Latino",
@@ -456,9 +457,10 @@
       "dimensions": [
          "TOTAL",
          "Hispanic or Latino Origin",
-         "Race"
+         "Race",
+         "Two or More Races"
       ],
-      "dimensions_verified": false,
+      "dimensions_verified": true,
       "variables": {
          "B03002_001E": "Estimate!!Total:",
          "B03002_002E": "Estimate!!Total:!!Not Hispanic or Latino:",
@@ -489,7 +491,7 @@
          "TOTAL",
          "Hispanic or Latino Origin"
       ],
-      "dimensions_verified": false,
+      "dimensions_verified": true,
       "variables": {
          "B03003_001E": "Estimate!!Total:",
          "B03003_002E": "Estimate!!Total:!!Not Hispanic or Latino",
@@ -500,9 +502,10 @@
       "concept": "People Reporting Single Ancestry",
       "dimensions": [
          "TOTAL",
-         "People Reporting Single Ancestry"
+         "Ancestry",
+         "Country of Origin"
       ],
-      "dimensions_verified": false,
+      "dimensions_verified": true,
       "variables": {
          "B04004_001E": "Estimate!!Total:",
          "B04004_002E": "Estimate!!Total:!!Afghan",
@@ -618,9 +621,10 @@
       "concept": "People Reporting Multiple Ancestry",
       "dimensions": [
          "TOTAL",
-         "People Reporting Multiple Ancestry"
+         "Ancestry",
+         "Country of Ancestry"
       ],
-      "dimensions_verified": false,
+      "dimensions_verified": true,
       "variables": {
          "B04005_001E": "Estimate!!Total:",
          "B04005_002E": "Estimate!!Total:!!Afghan",
@@ -736,9 +740,10 @@
       "concept": "People Reporting Ancestry",
       "dimensions": [
          "TOTAL",
-         "People Reporting Ancestry"
+         "Ancestry",
+         "Country of Ancestry"
       ],
-      "dimensions_verified": false,
+      "dimensions_verified": true,
       "variables": {
          "B04006_001E": "Estimate!!Total:",
          "B04006_002E": "Estimate!!Total:!!Afghan",
@@ -855,9 +860,10 @@
       "concept": "Ancestry",
       "dimensions": [
          "TOTAL",
+         "Specified",
          "Ancestry"
       ],
-      "dimensions_verified": false,
+      "dimensions_verified": true,
       "variables": {
          "B04007_001E": "Estimate!!Total:",
          "B04007_002E": "Estimate!!Total:!!Ancestry specified:",
@@ -872,10 +878,9 @@
       "concept": "Nativity and Citizenship Status in the United States",
       "dimensions": [
          "TOTAL",
-         "Nativity",
-         "Citizenship Status in the United States"
+         "Nativity & Citizenship Status in the United States"
       ],
-      "dimensions_verified": false,
+      "dimensions_verified": true,
       "variables": {
          "B05001_001E": "Estimate!!Total:",
          "B05001_002E": "Estimate!!Total:!!U.S. citizen, born in the United States",
@@ -889,11 +894,11 @@
       "concept": "Place of Birth by Nativity and Citizenship Status",
       "dimensions": [
          "TOTAL",
-         "Place of Birth",
          "Nativity",
-         "Citizenship Status"
+         "Citizenship Status",
+         "Place of Birth"
       ],
-      "dimensions_verified": false,
+      "dimensions_verified": true,
       "variables": {
          "B05002_001E": "Estimate!!Total:",
          "B05002_002E": "Estimate!!Total:!!Native:",
@@ -933,7 +938,7 @@
          "Nativity",
          "Citizenship Status"
       ],
-      "dimensions_verified": false,
+      "dimensions_verified": true,
       "variables": {
          "B05003_001E": "Estimate!!Total:",
          "B05003_002E": "Estimate!!Total:!!Male:",
@@ -996,7 +1001,7 @@
          "Nativity",
          "Citizenship Status in the United States"
       ],
-      "dimensions_verified": false,
+      "dimensions_verified": true,
       "variables": {
          "B05005_001E": "Estimate!!Total:",
          "B05005_002E": "Estimate!!Total:!!Entered 2010 or later:",
@@ -1025,9 +1030,12 @@
       "concept": "Place of Birth for the Foreign-Born Population in the United States",
       "dimensions": [
          "TOTAL",
-         "Place of Birth for the Foreign-Born Population in the United States"
+         "Contenient",
+         "Region",
+         "Country",
+         "UK Countries"
       ],
-      "dimensions_verified": false,
+      "dimensions_verified": true,
       "variables": {
          "B05006_001E": "Estimate!!Total:",
          "B05006_002E": "Estimate!!Total:!!Europe:",
@@ -1502,9 +1510,10 @@
       "concept": "Period of Naturalization",
       "dimensions": [
          "TOTAL",
+         "Naturalized",
          "Period of Naturalization"
       ],
-      "dimensions_verified": false,
+      "dimensions_verified": true,
       "variables": {
          "B05011_001E": "Estimate!!Total:",
          "B05011_002E": "Estimate!!Total:!!Not a U.S. citizen",
@@ -1524,7 +1533,7 @@
          "TOTAL",
          "Nativity in the United States"
       ],
-      "dimensions_verified": false,
+      "dimensions_verified": true,
       "variables": {
          "B05012_001E": "Estimate!!Total:",
          "B05012_002E": "Estimate!!Total:!!Native",
@@ -1538,7 +1547,7 @@
          "Sex",
          "Age for the Foreign-Born Population"
       ],
-      "dimensions_verified": false,
+      "dimensions_verified": true,
       "variables": {
          "B05013_001E": "Estimate!!Total:",
          "B05013_002E": "Estimate!!Total:!!Male:",
@@ -1588,7 +1597,7 @@
          "Sex",
          "Age for the Foreign-Born Population"
       ],
-      "dimensions_verified": false,
+      "dimensions_verified": true,
       "variables": {
          "B05014_001E": "Estimate!!Total:",
          "B05014_002E": "Estimate!!Total:!!Male:",
@@ -1618,7 +1627,7 @@
          "Place of Birth",
          "Year of Entry for the Foreign-Born Population"
       ],
-      "dimensions_verified": false,
+      "dimensions_verified": true,
       "variables": {
          "B05015_001E": "Estimate!!Total:",
          "B05015_002E": "Estimate!!Total:!!China, Hong Kong, and Taiwan:",
@@ -1660,7 +1669,7 @@
          "Place of Birth",
          "Age in the United States"
       ],
-      "dimensions_verified": false,
+      "dimensions_verified": true,
       "variables": {
          "B06001_001E": "Estimate!!Total:",
          "B06001_002E": "Estimate!!Total:!!Under 5 years",
@@ -1727,11 +1736,11 @@
    "B06002": {
       "concept": "Median Age by Place of Birth in the United States",
       "dimensions": [
-         "TOTAL",
          "Median Age",
+         "Total",
          "Place of Birth in the United States"
       ],
-      "dimensions_verified": false,
+      "dimensions_verified": true,
       "variables": {
          "B06002_001E": "Estimate!!Median age --!!Total:",
          "B06002_002E": "Estimate!!Median age --!!Total:!!Born in state of residence",
@@ -1747,7 +1756,7 @@
          "Place of Birth",
          "Sex in the United States"
       ],
-      "dimensions_verified": false,
+      "dimensions_verified": true,
       "variables": {
          "B06003_001E": "Estimate!!Total:",
          "B06003_002E": "Estimate!!Total:!!Male",

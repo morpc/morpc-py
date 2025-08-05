@@ -340,7 +340,7 @@ class acs_data:
             The year of the survey. For 5 year survey it is the ending year
 
         survey : str
-            Number of years represnting the ACS Survey, "1" or "5"
+            Number of years representing the ACS Survey, "1" or "5"
         """
         self.GROUP = group
         self.YEAR = year
@@ -490,6 +490,21 @@ class acs_data:
         geometries = geometries.set_index('GEO_ID')
 
         return geometries
+    
+    def explore(self, table='TOTALS'):
+        import geopandas as gpd
+        import morpc
+
+        if table == 'TOTALS':
+            map_data = self.DIM_TABLE.WIDE.T.copy()
+        if table == 'PERCENTS':
+            map_data = self.DIM_TABLE.PERCENT.copy()
+        if map_data.columns.nlevels > 1:
+            map_data.columns = [", ".join(x) for x in map_data.columns]
+        map_data['geometry'] = [self.GEOS.loc[x, 'geometry'] for x in map_data.reset_index()['GEO_ID']]
+        map_data = gpd.GeoDataFrame(map_data, geometry='geometry', crs=self.GEOS.crs)
+        self.MAP = morpc.plot.map.MAP(map_data)
+        return self.MAP.explore()
 
     def save(self, output_dir="./output_data"):
         """
@@ -637,122 +652,6 @@ class acs_data:
         resource = frictionless.Resource(acsResource)
         return resource
 
-    def map(self, stat='Total'):
-        """
-        Create a folium interactive map.
-
-        Parameters:
-        -----------
-        stat : str
-            "Total" or "Percent". What statistics to use in ploting the map. 
-        """
-        import geopandas as gpd
-        import folium
-        from folium.plugins import GroupedLayerControl
-        from branca.colormap import LinearColormap
-
-        if stat == 'Total':
-            map_data = self.DIM_TABLE.WIDE.T.copy()
-        if stat == 'Percent':
-            map_data = self.DIM_TABLE.PERCENT.copy()
-        # Check for multilevel columns, concat if true
-        if map_data.columns.nlevels > 1:
-            map_data.columns = [", ".join(x) for x in map_data.columns]
-        map_data['geometry'] = [self.GEOS.loc[x, 'geometry'] for x in map_data.reset_index()['GEO_ID']]
-        map_data = gpd.GeoDataFrame(map_data, geometry='geometry', crs=self.GEOS.crs)
-        self.choros = []
-        self.cmaps = []
-        for i in range(len(map_data.columns)):
-            column = map_data.columns[i]
-            if column != 'geometry':
-
-                tooltip = folium.GeoJsonTooltip(
-                    fields=['NAME', column]
-                )
-
-                cmap = LinearColormap(
-                    colors=[morpc.color.rgb_to_dec(morpc.color.hex_to_rgb(x)) for x in morpc.palette.SEQ2['bluegreen-darkblue']],
-                    vmin=map_data[column].min(),
-                    vmax=map_data[column].max(),
-                    caption = column
-                )
-
-                choro = folium.Choropleth(
-                    geo_data=map_data.reset_index()[['NAME', column, 'geometry']],
-                    data=map_data.reset_index()[['NAME', column]],
-                    key_on='properties.NAME',
-                    columns=['NAME', column],
-                    name=column,
-                    cmap=cmap,
-                    fill_opacity=0.9,
-                    line_opacity=0.1,
-                    show=False,
-                )
-                choro.geojson.add_child(tooltip)
-
-                for child in choro._children:
-                    if child.startswith("color_map"):
-                        del choro._children[child]
-
-                self.choros.append(choro)
-                self.cmaps.append(cmap)
-
-        m = folium.Map()
-
-        for choro, cmap in zip(self.choros, self.cmaps):
-            m.add_child(cmap)
-
-            m.add_child(choro)
-
-            bc = BindColormap(choro, cmap)
-
-            m.add_child(bc)
-
-        folium.LayerControl(collapsed=True, position='topleft').add_to(m)
-        m.fit_bounds(m.get_bounds())
-        self.MAP = m
-        return self.MAP
-
-    # def plot(self, x, y):
-    #     """Plot a bar chart with reasonable defaults.
-
-    #     """
-
-    #     import plotnine
-
-    #     self.PLOT = morpc.plot.from_resource(self.DIM_TABLE.LONG, self.RESOURCE, self.SCHEMA, x, y).hbar()
-    #     return self.PLOT.show()
-
-from branca.element import MacroElement
-from jinja2 import Template
-
-class BindColormap(MacroElement):
-    """Binds a colormap to a given layer.
-
-    Parameters
-    ----------
-    colormap : branca.colormap.ColorMap
-        The colormap to bind.
-    """
-
-    def __init__(self, layer, colormap):
-        super(BindColormap, self).__init__()
-        self.layer = layer
-        self.colormap = colormap
-        self._template = Template(u"""
-        {% macro script(this, kwargs) %}
-            {{this.colormap.get_name()}}.svg[0][0].style.display = 'none';
-            {{this._parent.get_name()}}.on('overlayadd', function (eventLayer) {
-                if (eventLayer.layer == {{this.layer.get_name()}}) {
-                    {{this.colormap.get_name()}}.svg[0][0].style.display = 'block';
-                }});
-            {{this._parent.get_name()}}.on('overlayremove', function (eventLayer) {
-                if (eventLayer.layer == {{this.layer.get_name()}}) {
-                    {{this.colormap.get_name()}}.svg[0][0].style.display = 'none';
-                }});
-        {% endmacro %}
-        """)
-
 class dimension_table:
     def __init__(self, data, schema, dimensions, year):
         """
@@ -780,6 +679,7 @@ class dimension_table:
     def define_long(self, data, schema, dimensions, year):
         import morpc
         import pandas as pd
+        import numpy as np
         if 'geometry' in data.columns:
             index = ['GEO_ID', 'NAME', 'geometry']
         else:
@@ -801,6 +701,8 @@ class dimension_table:
         for dim in DESC_TABLE.columns:
             long[dim] = pd.Categorical(long[dim], categories=long[dim].unique())
         long['REFERENCE_YEAR'] = year
+        for missing in [pd.to_numeric(x) for x in schema.missing_values]:
+            long['VALUE'] = long['VALUE'].replace(missing, np.nan)
         columns = ['GEO_ID', 'NAME', 'REFERENCE_YEAR', 'VARIABLE', 'VAR_TYPE'] + [x for x in dimensions[0:len(DESC_TABLE.columns)]] + ['VALUE']
         long = long[[x for x in columns]]
 
@@ -817,7 +719,9 @@ class dimension_table:
 
     def define_wide(self):
 
-        wide = self.LONG.loc[self.LONG['VAR_TYPE']=='Estimate'].drop(columns = ['VARIABLE', 'VAR_TYPE']).pivot(columns = ["GEO_ID", "NAME", "REFERENCE_YEAR"], index=[x for x in self.DIMENSIONS if 'TOTAL' != x])['VALUE']
+        wide = self.LONG.loc[self.LONG['VAR_TYPE']=='Estimate'] \
+            .drop(columns = ['VARIABLE', 'VAR_TYPE'])\
+            .pivot(columns = ["GEO_ID", "NAME", "REFERENCE_YEAR"], index=[x for x in self.DIMENSIONS if 'TOTAL' != x])['VALUE']
         # wide = wide.droplevel("TOTAL")
 
         return wide
