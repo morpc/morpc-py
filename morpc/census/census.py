@@ -363,7 +363,7 @@ class acs_data:
             The year of the survey. For 5 year survey it is the ending year
 
         survey : str
-            Number of years represnting the ACS Survey, "1" or "5"
+            Number of years representing the ACS Survey, "1" or "5"
         """
         self.GROUP = group
         self.YEAR = year
@@ -515,8 +515,6 @@ class acs_data:
 
         # Construct the dimension tables.
         self.DIM_TABLE = morpc.census.dimension_table(self.DATA, self.SCHEMA, self.DIMENSIONS, self.YEAR)
-
-        # Store geographies to join later
         self.GEOS = self.define_geos()
 
         return self
@@ -551,6 +549,21 @@ class acs_data:
         geometries = geometries.set_index('GEO_ID')
 
         return geometries
+    
+    def explore(self, table='TOTALS'):
+        import geopandas as gpd
+        import morpc
+
+        if table == 'TOTALS':
+            map_data = self.DIM_TABLE.WIDE.T.copy()
+        if table == 'PERCENTS':
+            map_data = self.DIM_TABLE.PERCENT.copy()
+        if map_data.columns.nlevels > 1:
+            map_data.columns = [", ".join(x) for x in map_data.columns]
+        map_data['geometry'] = [self.GEOS.loc[x, 'geometry'] for x in map_data.reset_index()['GEO_ID']]
+        map_data = gpd.GeoDataFrame(map_data, geometry='geometry', crs=self.GEOS.crs)
+        self.MAP = morpc.plot.map.MAP(map_data)
+        return self.MAP.explore()
 
     def save(self, output_dir="./output_data"):
         """
@@ -723,165 +736,6 @@ class acs_data:
         resource = frictionless.Resource(acsResource)
         return resource
 
-    def map(self, stat='Total'):
-        """
-        Create a folium interactive map. Dependent upon DIM_TABLE.WIDE and DIM_TABLE.PERCENT
-
-        Parameters:
-        -----------
-        stat : str
-            "Total" or "Percent". What statistics to use in ploting the map. 
-
-        Returns:
-        --------
-        folium.Map : a interactive map including layers for each dimension of the data. 
-        """
-
-        # map for total values or percentages?
-        if stat == 'Total':
-            map_data = self.DIM_TABLE.WIDE.T.copy()
-        if stat == 'Percent':
-            map_data = self.DIM_TABLE.PERCENT.copy()
-
-        # Create the map
-        m = multilayer_map(map_data, self.GEOS)
-        self.MAP = m # Save to MAP
-        return self.MAP # Also show the map
-
-    # TODO: Fix plot to use default morpc.plot functions.
-    # Issue URL: https://github.com/morpc/morpc-py/issues/42
-    # def plot(self, x, y):
-    #     """Plot a bar chart with reasonable defaults.
-
-    #     """
-
-    #     import plotnine
-
-    #     self.PLOT = morpc.plot.from_resource(self.DIM_TABLE.LONG, self.RESOURCE, self.SCHEMA, x, y).hbar()
-    #     return self.PLOT.show()
-
-def multilayer_map(map_data, geos):
-    """Create a multilayer folium map with layers for each column in a wide format data and geographies table.
-    
-    Parameters:
-    -----------
-    data : pandas.DataFrame
-        A dataframe of the data with an index that matched the index of geos. Each column represents a layer in the map.
-
-    geos : geopandas.GeoDataFrame
-        A geodataframe with an entry for each geo_id in data. 
-
-    Returns:
-    --------
-    folium.Map
-    """
-    import geopandas as gpd
-    import folium
-    from branca.colormap import LinearColormap
-
-    # Check for multilevel columns, concat if true
-    if map_data.columns.nlevels > 1:
-        map_data.columns = [", ".join(x) for x in map_data.columns]
-
-    # Get geographies for the data and add to data. Create GeoDataFrame
-    map_data['geometry'] = [geos.loc[x, 'geometry'] for x in map_data.reset_index()['GEO_ID']]
-    map_data = gpd.GeoDataFrame(map_data, geometry='geometry', crs=geos.crs)
-
-    # Construct the map
-    choros = [] # Empty list for the choropleths for each layer
-    cmaps = [] # Empty list for the colormaps for each layer
-
-    ## for each column construct a layer consisting of choro, cmap, and tooltips
-    for i in range(len(map_data.columns)):
-        column = map_data.columns[i]
-        if column != 'geometry':
-
-            # A popup including each geometries name and data for column
-            tooltip = folium.GeoJsonTooltip(
-                fields=['NAME', column]
-            )
-
-            # The cmap based on morpc colors. This is used by folium to construct the legend.
-            # TODO: add custom colors or colors based on data.
-            # Issue URL: https://github.com/morpc/morpc-py/issues/41
-            cmap = LinearColormap(
-                colors=[morpc.color.rgb_to_dec(morpc.color.hex_to_rgb(x)) for x in morpc.palette.SEQ2['bluegreen-darkblue']],
-                vmin=map_data[column].min(), # minimum to use for legend
-                vmax=map_data[column].max(), # maximum to use for legend
-                caption = column # Column name as name of legend
-            )
-
-            # Create the choropleth
-            choro = folium.Choropleth(
-                geo_data=map_data.reset_index()[['NAME', column, 'geometry']],
-                data=map_data.reset_index()[['NAME', column]],
-                key_on='properties.NAME',
-                columns=['NAME', column],
-                name=column,
-                cmap=cmap,
-                fill_opacity=0.9,
-                line_opacity=0.1,
-                show=False,
-            )
-            choro.geojson.add_child(tooltip) # Add the tooltips to the layer
-
-            # Remove the default colormaps from the layers to allow for showing and hiding legends
-            for child in choro._children:
-                if child.startswith("color_map"):
-                    del choro._children[child]
-
-            choros.append(choro)
-            cmaps.append(cmap)
-
-    # Create the map and add in each layer
-    m = folium.Map()
-    for choro, cmap in zip(choros, cmaps):
-        m.add_child(cmap)
-
-        m.add_child(choro)
-
-        bc = BindColormap(choro, cmap) # Adds in the colormap as custom class, see below
-
-        m.add_child(bc)
-
-    # Add in layer selection box
-    folium.LayerControl(collapsed=True, position='topleft').add_to(m)
-    m.fit_bounds(m.get_bounds()) # Set the starting bounds of the map to the bounds of the geographies.
-
-    return m
-
-from branca.element import MacroElement
-from jinja2 import Template
-
-class BindColormap(MacroElement):
-    """Binds a colormap to a given layer. See https://nbviewer.org/gist/BibMartin/f153aa957ddc5fadc64929abdee9ff2e
-
-    Parameters
-    ----------
-    colormap : branca.colormap.ColorMap
-        The colormap to bind.
-    """
-
-    def __init__(self, layer, colormap):
-        super(BindColormap, self).__init__()
-        self.layer = layer
-        self.colormap = colormap
-        # Made one minor change in Template from above link: Change this.colormap.get_name()}}.svg[0][0].style.display = 'none'
-        # Previous script was 'block' which didn't work.
-        self._template = Template(u"""
-        {% macro script(this, kwargs) %}
-            {{this.colormap.get_name()}}.svg[0][0].style.display = 'none';
-            {{this._parent.get_name()}}.on('overlayadd', function (eventLayer) {
-                if (eventLayer.layer == {{this.layer.get_name()}}) {
-                    {{this.colormap.get_name()}}.svg[0][0].style.display = 'block';
-                }});
-            {{this._parent.get_name()}}.on('overlayremove', function (eventLayer) {
-                if (eventLayer.layer == {{this.layer.get_name()}}) {
-                    {{this.colormap.get_name()}}.svg[0][0].style.display = 'none';
-                }});
-        {% endmacro %}
-        """)
-
 class dimension_table:
     def __init__(self, data, schema, dimensions, year):
         """
@@ -902,8 +756,6 @@ class dimension_table:
 
         self.DIMENSIONS = dimensions
         self.LONG = self.define_long(data, schema, dimensions, year)
-        # TODO: Add long_schema in order to save long dimension table as frictionless resource.
-        # Issue URL: https://github.com/morpc/morpc-py/issues/40
         # self.LONG_SCHEMA = self.define_long_schema(schema, dimensions, year)
         self.WIDE = self.define_wide()
         self.PERCENT = self.define_percent()
@@ -926,8 +778,7 @@ class dimension_table:
         """
         import morpc
         import pandas as pd
-
-        # If geometry is in the data preserve it
+        import numpy as np
         if 'geometry' in data.columns:
             index = ['GEO_ID', 'NAME', 'geometry']
         else:
@@ -969,6 +820,10 @@ class dimension_table:
         # TODO: Add function for timeseries data, maybe seperate class.
         # Issue URL: https://github.com/morpc/morpc-py/issues/38
         long['REFERENCE_YEAR'] = year
+        for missing in [pd.to_numeric(x) for x in schema.missing_values]:
+            long['VALUE'] = long['VALUE'].replace(missing, np.nan)
+        columns = ['GEO_ID', 'NAME', 'REFERENCE_YEAR', 'VARIABLE', 'VAR_TYPE'] + [x for x in dimensions[0:len(DESC_TABLE.columns)]] + ['VALUE']
+        long = long[[x for x in columns]]
 
         # Filter and order columns of long table.
         index_columns = ['GEO_ID', 'NAME', 'REFERENCE_YEAR', 'VARIABLE', 'VAR_TYPE']
@@ -978,25 +833,19 @@ class dimension_table:
 
         return long
 
-    # TODO: develop long schema function
-    # Issue URL: https://github.com/morpc/morpc-py/issues/37
-    # def define_long_schema(self, schema, dimensions, year):
-    #     long_schema = {
-    #         "fields": [{
-    #             self.schema.get_field('GEO_ID'),
-    #             self.schema.get_field('NAME'),
+    def define_long_schema(self, schema, dimensions, year):
+        long_schema = {
+            "fields": [{
+                self.schema.get_field('GEO_ID'),
+                self.schema.get_field('NAME'),
                 
-    #         }]
-    #     }
+            }]
+        }
 
     def define_wide(self):
-        """Get wide table for human readability and table outputs.
 
-        Returns:
-            pandas.DataFrame: A dataframe 
-        """
         wide = self.LONG.loc[self.LONG['VAR_TYPE']=='Estimate'] \
-            .drop(columns = ['VARIABLE', 'VAR_TYPE']) \
+            .drop(columns = ['VARIABLE', 'VAR_TYPE'])\
             .pivot(columns = ["GEO_ID", "NAME", "REFERENCE_YEAR"], index=[x for x in self.DIMENSIONS if 'TOTAL' != x])['VALUE']
         # wide = wide.droplevel("TOTAL")
 
