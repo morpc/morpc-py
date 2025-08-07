@@ -1,0 +1,7 @@
+fields:
+  - name: column1
+    type: integer
+  - name: column2
+    type: integer
+  - name: column3
+    type: integer

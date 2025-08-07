@@ -1,0 +1,53 @@
+{
+  "name": "morpc-mpo-boundary-2020",
+  "type": "json",
+  "path": "https://services1.arcgis.com/EjjnBtwS9ivTGI8x/arcgis/rest/services/MORPC_MPO_Boundary_2020/FeatureServer/0",
+  "scheme": "https",
+  "format": "json",
+  "mediatype": "application/geo+json",
+  "schema": {
+    "fields": [
+      {
+        "name": "OBJECTID",
+        "type": "string",
+        "title": "OBJECTID"
+      },
+      {
+        "name": "SQMILES",
+        "type": "number",
+        "title": "SQMILES"
+      },
+      {
+        "name": "NAME",
+        "type": "string",
+        "title": "NAME"
+      },
+      {
+        "name": "Updated",
+        "type": "string",
+        "title": "Updated"
+      },
+      {
+        "name": "Source",
+        "type": "string",
+        "title": "Source"
+      },
+      {
+        "name": "Shape__Area",
+        "type": "number",
+        "title": "Shape__Area"
+      },
+      {
+        "name": "Shape__Length",
+        "type": "number",
+        "title": "Shape__Length"
+      }
+    ]
+  },
+  "_metadata": {
+    "type": "arcgis_service",
+    "total_records": 1,
+    "max_record_count": 2000,
+    "wkid": 102723
+  }
+}

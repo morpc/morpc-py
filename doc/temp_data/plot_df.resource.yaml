@@ -1,0 +1,13 @@
+name: plot_df
+type: table
+title: plot_df
+description: This dataset was produced by MORPC. For more information, please contact
+  dataandmaps@morpc.org.
+profile: data-resource
+path: plot_df.csv
+scheme: file
+format: csv
+mediatype: text/csv
+hash: fe51132ff0a097541e5c37fc73a3f6a4
+bytes: 2612
+schema: plot_df.schema.yaml
