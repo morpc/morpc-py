@@ -1,4 +1,16 @@
 def schema_from_services_fields(pjson):
+    """Extracts the schema from a JSON object returned by an ArcGIS REST API service.
+
+    Parameters:
+    -----------
+    pjson : dict
+        A JSON object returned by an ArcGIS REST API service.
+    Returns:
+    --------
+    schema : dict
+        A dictionary containing the schema of the fields in the service.
+    """
+    import json
     schema = {}
     schema['fields'] = []
     for field in pjson['fields']:
@@ -21,6 +33,16 @@ def schema_from_services_fields(pjson):
     return schema
 
 def get_totalRecordCount(url):
+    """Fetches the total number of records from an ArcGIS REST API service.
+    Parameters:
+    -----------
+    url : str
+        The URL of the ArcGIS REST API service.
+    Returns:
+    --------    
+    total_count : int
+        The total number of records in the service.
+    """
     import requests
     import re
 
@@ -37,7 +59,24 @@ def get_totalRecordCount(url):
 
 
     
-def resource_from_services_url(url):
+def resource(url):
+    """Creates a frictionless Resource object from an ArcGIS REST API service URL.
+
+    Parameters:
+    ----------- 
+    url : str
+        The URL of the ArcGIS REST API service. 
+    
+    Returns:
+    --------    
+    resource : frictionless.Resource
+        A frictionless Resource object containing the schema and metadata of the service.
+
+    Example:
+    --------
+    >>> resource = resource("https://services.arcgis.com/arcgis/rest/services/ServiceName/FeatureServer/0")
+
+    """
     import frictionless
     import re
     import requests
@@ -56,13 +95,30 @@ def resource_from_services_url(url):
             "type": "arcgis_service",
             "total_records": get_totalRecordCount(url),
             "max_record_count": pjson['maxRecordCount'],
-            "wkid": pjson['spatialReference']['wkid']
+            "wkid": pjson['sourceSpatialReference']['wkid']
         }
     }
 
     return frictionless.Resource(resource)
 
 def esri_wkid_to_epsg(esri_wkid):
+    """Converts an ESRI WKID to an EPSG code.
+
+    Parameters:
+    -----------
+    esri_wkid : int
+        The ESRI WKID to be converted.  
+    Returns:
+    --------
+    epsg : int
+        The corresponding EPSG code.
+    Example:
+    --------
+    >>> epsg = esri_wkid_to_epsg(4326)
+    >>> print(epsg)
+    4326    
+
+    """
     import json
     import requests
 
@@ -72,6 +128,15 @@ def esri_wkid_to_epsg(esri_wkid):
     return epsg
 
 def print_bar(i, total):
+    """Prints a progress bar to the console.
+
+    Parameters:     
+    -----------
+    i : int
+        The current iteration number.
+    total : int
+        The total number of iterations.
+    """
     from IPython.display import clear_output
 
     percent = round(i/total * 100, 3)
@@ -82,11 +147,24 @@ def print_bar(i, total):
     clear_output(wait=True)
 
 def get_api_key(path):
+    """Reads an API key from a file.
+    Parameters: 
+    -----------
+    path : str
+        The path to the file containing the API key.
+    Returns:
+    --------
+    key : str
+        The API key read from the file.
+    Example:
+    --------
+    >>> key = get_api_key('path/to/api_key.txt')
+    """
     with open(path, 'r') as file:
         key = file.readlines()
     return key[0]
 
-def gdf_from_rest_resource(resource_path, field_ids=None, api_key=None):
+def get(resource_path, field_ids=None, api_key=None):
     """Creates a GeoDataFrame from resource file for an ArcGIS Services. Automatically queries for maxRecordCount and
     iterates over the whole feature layer to return all features. Optional: Filter the results by including a list of field
     IDs.
@@ -95,24 +173,34 @@ def gdf_from_rest_resource(resource_path, field_ids=None, api_key=None):
 
     Parameters:
     ------------
-    url : str
-        A path to a ArcGIS Service feature layer.
-        Example: https://services2.arcgis.com/ziXVKVy3BiopMCCU/arcgis/rest/services/Parcel/FeatureServer/0
+    resource_path : str
+        The path to the resource file, which can be a local file or a URL to an ArcGIS REST API service.
 
     field_ids : list of str
         A list of strings that match field ids in the feature layer.
+
+    api_key : str, optional
+        An API key for accessing the ArcGIS REST API service. If not provided, the function will attempt to access the service without an API key.
 
     Returns
     ----------
     gdf : pandas.core.frame.DataFrame
         A GeoPandas GeoDataframe constructed from the GeoJSON requested from the url.
+
+    Raises:
+    ------
+    RuntimeError: If the provided field_ids are not available in the resource.  
+
+    Example:
+    --------
+    >>> gdf = get("path/to/resource.json", 
+                  field_ids=['OBJECTID', 'NAME'], 
+                  api_key=get_api_key('path/to/api_key.txt'))
     """
 
     import requests
-    import json
     import frictionless
     import geopandas as gpd
-    import pyproj
 
     ## Extract important metadata
     resource = frictionless.Resource(resource_path)
@@ -120,7 +208,7 @@ def gdf_from_rest_resource(resource_path, field_ids=None, api_key=None):
     totalRecordCount = resource.to_dict()['_metadata']['total_records']
     maxRecordCount = resource.to_dict()['_metadata']['max_record_count']
     wkid = resource.to_dict()['_metadata']['wkid']
-    epsg = esri_wkid_to_epsg(wkid)
+    epsg = esri_wkid_to_epsg(wkid) ## Convert ESRI WKID to EPSG code
 
     ## Get field names for filtering fields
     schema = resource.schema
