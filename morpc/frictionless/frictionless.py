@@ -611,7 +611,7 @@ def load_data(resourcePath, archiveDir=None, validate=False, forceInteger=False,
       
     print("morpc.frictionless.load_data | INFO | Loading data.")          
     if(dataFileExtension == ".csv"):
-        data = pd.read_csv(targetData, dtype="string")
+        data = pd.read_csv(targetData, dtype="str")
     elif(dataFileExtension == ".xlsx"):
         data = pd.read_excel(targetData, sheet_name=sheetName)
     elif(dataFileExtension in [".gpkg",".shp",".geojson",".gdb"]):
