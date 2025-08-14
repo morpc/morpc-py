@@ -36,7 +36,7 @@ def name_to_desc_map(schema):
 
 # Given a dataframe and the Frictionless Schema object (see load_schema), recast each of the fields in the 
 # dataframe to the data type specified in the schema.    
-def cast_field_types(df, schema, forceInteger=False, forceInt64=False, handleMissingFields="error", verbose=True):
+def cast_field_types(df, schema, forceInteger=False, forceInt64=False, nullBoolValue=False, handleMissingFields="error", verbose=True):
     import frictionless
     import pandas as pd
     import shapely
@@ -48,18 +48,18 @@ def cast_field_types(df, schema, forceInteger=False, forceInt64=False, handleMis
         fieldType = field.type 
         if(not fieldName in df.columns):
             if(handleMissingFields == "ignore"):
-                print("cast_field_types | WARNING | Skipping field {} which is not present in dataframe".format(fieldName))
+                print("morpc.frictionless.cast_field_types | WARNING | Skipping field {} which is not present in dataframe".format(fieldName))
                 continue
             elif(handleMissingFields == "add"):
-                print("cast_field_types | WARNING | Adding field {} which is not present in dataframe".format(fieldName))
+                print("morpc.frictionless.cast_field_types | WARNING | Adding field {} which is not present in dataframe".format(fieldName))
                 add_missing_fields(df, schema, fieldNames=fieldName, verbose=verbose)
                 continue
             else:
-                print("cast_field_types | ERROR | Field {} is not present in dataframe. To handle missing fields, see argument handleMissingFields.".format(fieldName))
+                print("morpc.frictionless.cast_field_types | ERROR | Field {} is not present in dataframe. To handle missing fields, see argument handleMissingFields.".format(fieldName))
                 raise RuntimeError
    
         if(verbose):
-            print("cast_field_types | INFO | Casting field {} as type {}.".format(fieldName, fieldType))
+            print("morpc.frictionless.cast_field_types | INFO | Casting field {} as type {}.".format(fieldName, fieldType))
         # The following section is necessary because the pandas "int" type does not support null values.  If null values are present,
         # the field must be cast as "Int64" instead.
         if((fieldType == "int") or (fieldType == "integer")):
@@ -75,17 +75,17 @@ def cast_field_types(df, schema, forceInteger=False, forceInt64=False, handleMis
                 try:
                     # Try to cast as "Int64", which supports nulls. This will fail if the fractional part is non-zero.
                     if(verbose):
-                        print("cast_field_types | WARNING | Failed conversion of fieldname {} to type 'int'.  Trying type 'Int64' instead.".format(fieldName))
+                        print("morpc.frictionless.cast_field_types | WARNING | Failed conversion of fieldname {} to type 'int'.  Trying type 'Int64' instead.".format(fieldName))
                     outDF[fieldName] = outDF[fieldName].astype("Int64")
                 except:
                     if(forceInteger == True):
                         # If the user has allowed coercion of the values to integers, then round the values to the ones place prior to 
                         # converting to "Int64"
-                        print("cast_field_types | WARNING | Failed conversion of fieldname {} to type 'Int64'.  Trying to round first.".format(fieldName))
+                        print("morpc.frictionless.cast_field_types | WARNING | Failed conversion of fieldname {} to type 'Int64'.  Trying to round first.".format(fieldName))
                         outDF[fieldName] = outDF[fieldName].astype("float").round(0).astype("Int64")
                     else:
                         # If the user has not allow coercion of the values to integers, then throw an error.
-                        print("cast_field_types | ERROR | Unable to coerce value to Int64 type.  Ensure that fractional part of values is zero, or set forceInteger=True")
+                        print("morpc.frictionless.cast_field_types | ERROR | Unable to coerce value to Int64 type.  Ensure that fractional part of values is zero, or set forceInteger=True")
                         raise RuntimeError           
         elif(fieldType == "number"):
             outDF[fieldName] = outDF[fieldName].astype("float")
@@ -93,48 +93,63 @@ def cast_field_types(df, schema, forceInteger=False, forceInt64=False, handleMis
             outDF[fieldName] = pd.to_datetime(outDF[fieldName])
         elif(fieldType == "geojson"):
             try:
-                print(f"cast_field_types | INFO | Fieldname {fieldName} as geojson. Attempting to convert to geometry.")
+                print(f"morpc.frictionless.cast_field_types | INFO | Fieldname {fieldName} as geojson. Attempting to convert to geometry.")
                 outDF[fieldName] = [shapely.geometry.shape(json.loads(x)) for x in outDF[fieldName]]
             except RuntimeError as r:
-                print(f"cast_field_types | ERROR | Unable to convert to geometry. {r}")
+                print(f"morpc.frictionless.cast_field_types | ERROR | Unable to convert to geometry. {r}")
             finally:
-                print(f"cast_field_types | INFO | Fieldname {fieldName} cast as geometry.")
+                print(f"morpc.frictionless.cast_field_types | INFO | Field {fieldName} cast as geometry.")
         elif(fieldType == "boolean"): 
             if(outDF[fieldName].dtype == "bool"):
-                print("cast_field_types | WARNING | Fieldname {} already cast as boolean type. Skipping casting for this field.".format(fieldName))
+                print("morpc.frictionless.cast_field_types | WARNING | Field {} already cast as boolean type. Skipping casting for this field.".format(fieldName))
                 continue
-            elif(outDF[fieldName].dtype != "string"):
-                print("cast_field_types | WARNING | Standardizing fieldname {} as a string prior to conversion to boolean.".format(fieldName))
-                outDF[fieldName] = outDF[fieldName].astype("string")
-            
-            # The field definition in the schema may contain properties trueValues and/or falseValues which specify what values
-            # represent True and False, respectively. If trueVales or falseValues are unspecified, Frictionless recognizes the 
-            # following values by default:
-            #   trueValues: ['true', 'True', 'TRUE', '1']
-            #   falseValues: ['false', 'False', 'FALSE', '0']
-            trueValues = field.true_values
-            falseValues = field.false_values
-            
-            # Map each of the true and false values to the appropriate Python boolean values
-            truthMap = {}
-            for value in trueValues:
-                truthMap[value] = True
-            for value in falseValues:
-                truthMap[value] = False
-                
-            # Compare the values found in the field to the set of valid true and false values.  If there are values in the
-            # data that are among the valid values, throw an error.
-            validValuesSet = set(list(truthMap.keys()))
-            foundValuesSet = set(outDF[fieldName].unique())
-            if(foundValuesSet > validValuesSet):
-                print("cast_field_types | ERROR | Fieldname {0} contains values that are not recognized as true or false: {1}".format(fieldName, ", ".join(list(foundValuesSet-validValuesSet))))
+            elif(pd.api.types.is_numeric_dtype(outDF[fieldName])):
+                print("morpc.frictionless.cast_field_types | WARNING | Field {} is numeric type. Using standard numeric boolean associations. Nulls will be interpreted as {}. To change this, set nullBoolValue.".format(fieldName, nullBoolValue))
+                if(nullBoolValue == True):
+                    outDF[fieldName] = outDF[fieldName].fillna(1)
+                else:
+                    outDF[fieldName] = outDF[fieldName].fillna(0)
+                outDF[fieldName] = outDF[fieldName].astype("bool")
+            elif(outDF[fieldName].dtype == "string"):
+                print("morpc.frictionless.cast_field_types | WARNING | Field {} is string type. Will interpret using truth values specified in schema (or Frictionless defaults). Nulls will be interpreted as {}. To change this, set nullBoolValue.".format(fieldName, nullBoolValue))
+                # The field definition in the schema may contain properties trueValues and/or falseValues which specify what values
+                # represent True and False, respectively. If trueVales or falseValues are unspecified, Frictionless recognizes the 
+                # following values by default:
+                #   trueValues: ['true', 'True', 'TRUE', '1']
+                #   falseValues: ['false', 'False', 'FALSE', '0']
+                trueValues = field.true_values
+                falseValues = field.false_values
+
+                # Map each of the true and false values to the appropriate Python boolean values
+                truthMap = {}
+                for value in trueValues:
+                    truthMap[value] = True
+                for value in falseValues:
+                    truthMap[value] = False
+
+                # Compare the values found in the field to the set of valid true and false values.  If there are values in the
+                # data that are among the valid values, throw an error.
+                validValuesSet = set(list(truthMap.keys()))
+                foundValuesSet = set(outDF[fieldName].unique())
+                if(foundValuesSet > validValuesSet):
+                    print("morpc.frictionless.cast_field_types | ERROR | Fieldname {0} contains values that are not recognized as true or false: {1}".format(fieldName, ", ".join(list(foundValuesSet-validValuesSet))))
+                    raise RuntimeError
+
+                # Now that we are confident that all of the values are valid in string form, map them to actual boolean values
+                outDF[fieldName] = outDF[fieldName].map(truthMap)
+
+                # Fill nulls will the first of the specified true values or false values, depending on the setting of nullBoolValue
+                if(nullBoolValue == True):
+                    outDF[fieldName] = outDF.fillna(trueValues[0])
+                else:
+                    outDF[fieldName] = outDF.fillna(falseValues[0])
+                outDF[fieldName] = outDF[fieldName].astype("bool")                
+                            
+                # Finally, make the change official by changing the pandas field type to "bool".
+                outDF[fieldName] = outDF[fieldName].astype("bool")
+            else:
+                print("morpc.frictionless.cast_field_types | ERROR | Field {} is a type that is not currently supported for casting to boolean. Convert it to boolean, numeric, or string types first.".format(fieldName))
                 raise RuntimeError
-
-            # Now that we are confident that all of the values are valid in string form, map them to actual boolean values
-            outDF[fieldName] = outDF[fieldName].map(truthMap)
-
-            # Finally, make the change official by changing the pandas field type to "bool".
-            outDF[fieldName] = outDF[fieldName].astype("bool")
             
         else:
             outDF[fieldName] = outDF[fieldName].astype(fieldType)
