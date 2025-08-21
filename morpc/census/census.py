@@ -47,46 +47,6 @@ ACS_HIGHLEVEL_GROUP_DESC = {
     "99": "Allocations",
 }
 
-## Scopes represent a type of geography with a certain region. ie. us-states is all states in the US.
-# TODO: implement these as standard layers in a geopackage or similar repository. 
-# Issue URL: https://github.com/morpc/morpc-py/issues/34
-#  These could later be used as a filter for people to select particular areas of interest.
-#  assignees: jinskeep-morpc
-
-SCOPES = {
-    "us-states": {"desc": "all states in the United States",
-                  "for": "state:*"
-                 },
-    # TODO: implement us-cities, us-counties for comparative analysis to morpc.census.SCOPES
-    # Issue URL: https://github.com/morpc/morpc-py/issues/50
-    #   Could need work on geos-collect and lookup to account for extended scopes.
-    "ohio": {"desc": "the State of Ohio",
-             "for": "state:39"},
-    # Currently the only counties saves in morpc-geos-collect are the 15 county region.
-    "ohio-counties": {"desc": "all counties in the State of Ohio",
-                      "for": "county:*",
-                     "in": "state:39"},
-    "ohio-tracts": {"desc": "all Census tracts in the State of Ohio",
-                    "for": "tract:*",
-                   "in": "state:39"},
-    "region15-counties": {"desc": "all counties in the MORPC 15-county region",
-                          "for": f"county:{','.join([morpc.CONST_COUNTY_NAME_TO_ID[x][2:6] for x in morpc.CONST_REGIONS['15-County Region']])}",
-                         "in": "state:39"},
-    "region15-tracts": {"desc": "all Census tracts in the MORPC 10-county region",
-                        "for": "tract:*",
-                        "in": ["state:39", f"county:{','.join([morpc.CONST_COUNTY_NAME_TO_ID[x][2:6] for x in morpc.CONST_REGIONS['15-County Region']])}"]},
-    # the MPO region gepgraphies depend on using unique geoids as a filter. 
-    # This is not a perfect representation of the jurisdictions in the region but works as an example.
-    # TODO: Refine the geographies for regionmpo-parts.
-    # Issue URL: https://github.com/morpc/morpc-py/issues/49
-    #  Determine which geos make most sense to represent the jurisdictions in the MPO region. Possibly different sumlevels.
-    #  assignees: jinskeep-morpc
-    "regionmpo-parts": {"desc": "all Census township parts and place parts that are MORPC MPO members",
-                        "ucgid": "1550000US3902582041,0700000US390410577499999,0700000US390410578899999,0700000US390410942899999,1550000US3918000041,0700000US390411814099999,1550000US3921434041,0700000US390412144899999,1550000US3922694041,1550000US3929148041,0700000US390412969499999,0700000US390413351699999,0700000US390414036299999,0700000US390414310699999,0700000US390414790899999,0700000US390415861899999,1550000US3958940041,0700000US390415926299999,0700000US390416417899999,1550000US3964486041,0700000US390416531299999,0700000US390417084299999,1550000US3971976041,1550000US3975602041,0700000US390417661799999,0700000US390417733699999,0700000US390417756099999,1550000US3983342041,0700000US390450695099999,1550000US3911332045,1550000US3918000045,1550000US3944086045,1550000US3962498045,1550000US3966390045,0700000US390458020699999,1550000US3906278049,0700000US390490692299999,1550000US3908532049,0700000US390490944299999,1550000US3911332049,0700000US390491611299999,1550000US3918000049,1550000US3922694049,0700000US390492828099999,1550000US3929106049,1550000US3931304049,1550000US3932592049,1550000US3932606049,0700000US390493302699999,1550000US3933740049,1550000US3935476049,0700000US390493777299999,0700000US390493861299999,1550000US3944086049,1550000US3944310049,0700000US390494641099999,1550000US3947474049,0700000US390495006499999,1550000US3950862049,1550000US3953970049,0700000US390495734499999,1550000US3957862049,0700000US390496184099999,1550000US3962498049,0700000US390496297499999,0700000US390496325499999,0700000US390496457099999,1550000US3966390049,1550000US3967440049,0700000US390497178799999,0700000US390497771499999,1550000US3979002049,1550000US3979100049,1550000US3979282049,0700000US390498124299999,1550000US3983342049,1550000US3984742049,1550000US3986604049,0700000US390892569099999,1550000US3939340089,1550000US3953970089,1550000US3961112089,1550000US3966390089,1550000US3963030097,1550000US3922694159,0700000US391593904699999,1550000US3963030159"}
-    # TODO: Implement other regions, corpo, region10, region7, etc for
-    # Issue URL: https://github.com/morpc/morpc-py/issues/48
-}
-
 ACS_MISSING_VALUES = ["","-222222222","-333333333","-555555555","-666666666","-888888888","-999999999"]
 
 ACS_PRIMARY_KEY = "GEO_ID"
