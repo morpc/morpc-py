@@ -483,28 +483,30 @@ class acs_data:
         """
         Add the geometries to self.DATA and convert to a geopandas GeoDataFrame.
         """
+        import morpc.rest_api
         import pandas as pd
-        import geopandas as gpd
-        import morpc
 
-        # Get a list of the sumlevels in the geographies.
+        # Get sum levels in the data
         sumlevels = set([x[0:3] for x in self.DATA.reset_index()['GEO_ID']])
 
-        # Get all geographies for sumlevels in data
-        # This is expensive, find a way to query data. This may be a use case for spatial database.
-        # TODO: Either remove dependencies on geos-lookup or adjust geos-lookup to include scopes.
-        # Issue URL: https://github.com/morpc/morpc-py/issues/45
         geometries = []
-        for sumlevel in sumlevels:
-            layerName=morpc.HIERARCHY_STRING_LOOKUP[sumlevel]
-            # Geos-collect does not include all the geographies outside of the regional data.
-            # TODO: In define_geos, find a way to not read all data into memory
-            # Issue URL: https://github.com/morpc/morpc-py/issues/44
-            #  assignees: jinskeep-morpc
-            geos, resource, schema = morpc.frictionless.load_data('../../morpc-geos-collect/output_data/morpc-geos.resource.yaml', layerName=layerName, useSchema=None, verbose=False)
-            geometries.append(geos[['GEOIDFQ', 'geometry']])
+        for sumlevel in sumlevels: # Get geometries for each sumlevel iteratively
+
+                # Get rest api layer name and get url
+                layerName = morpc.SUMLEVEL_DESCRIPTIONS[sumlevel]['censusRestAPI_layername']
+                url = morpc.rest_api.get_layer_url(self.YEAR, layer_name=layerName, survey="ACS")
+
+                # Construct a list of geoids from data to us to query API
+                geoids = ",".join([f"'{x.split('US')[-1]}'" for x in self.DATA.index if x.startswith(sumlevel)])
+
+                # Build resource file and query API
+                resource = morpc.rest_api.resource(name='temp', url=url, where= f"GEOID in ({geoids})")
+                geos = morpc.rest_api.gdf_from_resource(resource)
+                geos['GEOIDFQ'] = [f"{sumlevel}0000US{x}" for x in geos['GEOID']]
+
+                geometries.append(geos[['GEOIDFQ', 'geometry']])
+
         geometries = pd.concat(geometries)
-        geometries = geometries.loc[geometries['GEOIDFQ'].isin(self.DATA.reset_index()['GEO_ID'])]
         geometries = geometries.rename(columns={'GEOIDFQ': 'GEO_ID'})
         geometries = geometries.set_index('GEO_ID')
 

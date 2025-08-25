@@ -9,6 +9,8 @@ import morpc
 #   [ ]: Define scale and scopes that are used. Possibly lists for benchmarking (i.e. Most populous cities)
 
 
+		
+
 SCOPES = {
     "us-states": {"desc": "all states in the United States",
                   "for": "state:*"

@@ -175,7 +175,8 @@ SUMLEVEL_DESCRIPTIONS = {
         "idField":"NATIONID",
         "nameField":"NATION",
         "censusQueryName": "us",
-        "censusQuery" : "us:*"
+        "censusQuery" : "us:*",
+        "censusRestAPI_layername": None
     },
     '020': {
         "singular":"Census region",
@@ -185,7 +186,8 @@ SUMLEVEL_DESCRIPTIONS = {
         "idField":"REGIONID",
         "nameField":"REGION",
         "censusQueryName": "region",
-        "censusQuery": "region:*"
+        "censusQuery": "region:*",
+        "censusRestAPI_layername": 'regions'
     },
     '030': {
         "singular":"division",
@@ -195,7 +197,8 @@ SUMLEVEL_DESCRIPTIONS = {
         "idField":"DIVISONID",
         "nameField":"DIVISION",
         "censusQueryName": "division",
-        "censusQuery": "division:*"
+        "censusQuery": "division:*",
+        "censusRestAPI_layername": 'divisions'
     },
     '040': {
         "singular":"state",
@@ -205,7 +208,8 @@ SUMLEVEL_DESCRIPTIONS = {
         "idField":"STATEFP",
         "nameField":"STATE",
         "censusQueryName": "state",
-        "censusQuery": "state:*"
+        "censusQuery": "state:*",
+        "censusRestAPI_layername": 'states'
     },
     '050': {
         "singular":"county",
@@ -215,7 +219,9 @@ SUMLEVEL_DESCRIPTIONS = {
         "idField":"COUNTYFP",
         "nameField":"COUNTY",
         "censusQueryName": "county",
-        "censusQuery": "county:*"
+        "censusQuery": "county:*",
+        "censusRestAPI_layername": 'counties'
+        
     },
     '060': {
         "singular":"county subdivision",
@@ -225,7 +231,8 @@ SUMLEVEL_DESCRIPTIONS = {
         "idField":"COUSUBFP",
         "nameField":"COUSUB",
         "censusQueryName": "county subdivision",
-        "censusQuery": "county subdivision:*"
+        "censusQuery": "county subdivision:*",
+        "censusRestAPI_layername": 'county subdivisions'
     },
     '070': {
         "singular":"county subdivision part/remainder",
@@ -235,7 +242,8 @@ SUMLEVEL_DESCRIPTIONS = {
         "idField":"COUSUBPARTID",
         "nameField":"COUSUBPART",
         "censusQueryName": "place/remainder (or part)",
-        "censusQuery": "place/remainder (or part):*"
+        "censusQuery": "place/remainder (or part):*",
+        "censusRestAPI_layername": None
     },
     # NOTE: Some references use SUMLEVEL 750 for block in the PL94 data, but the API
     # uses SUMLEVEL 100
@@ -246,7 +254,8 @@ SUMLEVEL_DESCRIPTIONS = {
         "authority":"census",
         "idField":"BLOCKCE",
         "nameField":None,
-        "censusQueryName": None
+        "censusQueryName": None,
+        "censusRestAPI_layername": 'blocks'
     },
     '140': {
         "singular":"tract",
@@ -256,7 +265,8 @@ SUMLEVEL_DESCRIPTIONS = {
         "idField":"TRACTCE",
         "nameField":None,
         "censusQueryName": "tract",
-        "censusQuery": "tract:*"
+        "censusQuery": "tract:*",
+        "censusRestAPI_layername": 'tracts'
     },
     '150': {
         "singular":"block group",
@@ -266,7 +276,8 @@ SUMLEVEL_DESCRIPTIONS = {
         "idField":"BLKGRPCE",
         "nameField":None,
         "censusQueryName": "block group",
-        "censusQuery": "block group:*"
+        "censusQuery": "block group:*",
+        "censusRestAPI_layername": 'block groups'
     },
     '155': {
         "singular":"place county part",
@@ -286,7 +297,8 @@ SUMLEVEL_DESCRIPTIONS = {
         "idField":"PLACEFP",
         "nameField":"PLACE",
         "censusQueryName": "place",
-        "censusQuery": "place:*"
+        "censusQuery": "place:*",
+        "censusRestAPI_layername": 'incorporated places'
     },
     '310': {
         "singular":"core-based statistical area",
@@ -296,7 +308,8 @@ SUMLEVEL_DESCRIPTIONS = {
         "idField":"CBAFP",
         "nameField":"CBSA",
         "censusQueryName": "metropolitan statistical area/micropolitan statistical area",
-        "censusQuery": "metropolitan statistical area/micropolitan statistical area:*"
+        "censusQuery": "metropolitan statistical area/micropolitan statistical area:*",
+        "censusRestAPI_layername": 'metropolitan statistical areas'
     },
     '330': {
         "singular":"combined statistical area",
@@ -306,7 +319,8 @@ SUMLEVEL_DESCRIPTIONS = {
         "idField":"CSAFP",
         "nameField":"CSA",
         "censusQueryName": "combined statistical area",
-        "censusQuery": "combined statistical area:*"
+        "censusQuery": "combined statistical area:*",
+        "censusRestAPI_layername": 'combined statistical areas'
     },
     '400': {
         "singular":"urban area",
@@ -316,7 +330,8 @@ SUMLEVEL_DESCRIPTIONS = {
         "idField":"UACE",
         "nameField":"URBANAREA",
         "censusQueryName": "urban area",
-        "censusQuery": "urban area:*"
+        "censusQuery": "urban area:*",
+        "censusRestAPI_layername": 'urban areas'
     },
     '500': {
         "singular":"congressional district",
@@ -326,8 +341,8 @@ SUMLEVEL_DESCRIPTIONS = {
         "idField":"CDFP",  # Census uses CDNNNFP where NNN is the congressional session number
         "nameField":"CONGRESS",
         "censusQueryName": "congressional district",
-        "censusQuery": "congressional district:*"
-
+        "censusQuery": "congressional district:*",
+        "censusRestAPI_layername": 'congressional districts'
     },
     '610': {
         "singular":"state senate district",
@@ -337,7 +352,8 @@ SUMLEVEL_DESCRIPTIONS = {
         "idField":"SLDUST",
         "nameField":None,
         "censusQueryName": "state legislative district (upper chamber)",
-        "censusQuery": "state legislative district (upper chamber):*"
+        "censusQuery": "state legislative district (upper chamber):*",
+        "censusRestAPI_layername": 'state legislative districts - upper'
     },
     '620': {
         "singular":"state house district",
@@ -347,7 +363,9 @@ SUMLEVEL_DESCRIPTIONS = {
         "idField":"SLDLST",
         "nameField":None,
         "censusQueryName": "state legislative district (lower chamber)",
-        "censusQuery": "state legislative district (lower chamber):*"
+        "censusQuery": "state legislative district (lower chamber):*",
+        "censusRestAPI_layername": 'state legislative districts - lower'    
+
     },
     '795': {
         "singular":"public use microdata area",
@@ -357,7 +375,8 @@ SUMLEVEL_DESCRIPTIONS = {
         "idField":"PUMACE",
         "nameField":"PUMA",
         "censusQueryName": "public use microdata area",
-        "censusQuery": "public use microdata area:*"
+        "censusQuery": "public use microdata area:*",
+        "censusRestAPI_layername": 'public use microdata areas'
     },
     '850': {
         "singular":"zip code tabulation area",
@@ -366,17 +385,19 @@ SUMLEVEL_DESCRIPTIONS = {
         "authority":"census",
         "idField":"ZCTA3CE",
         "nameField":None,
-        "censusQueryName": None
+        "censusQueryName": None,
+        "censusRestAPI_layername": None
     },
     '860': {
         "singular":"zip code tabulation area",
-        "plural":"zip code tabulation area",
+        "plural":"zip code tabulation areas",
         "hierarchy_string":"ZCTA5",
         "authority":"census",
         "idField":"ZCTA5CE",
         "nameField":None,
         "censusQueryName": "zip code tabulation area",
-        "censusQuery": "zip code tabulation area:*"
+        "censusQuery": "zip code tabulation area:*",
+        "censusRestAPI_layername": 'zip code tabulation areas'
     },
     '930': {
         "singular":"MPO region",
@@ -395,7 +416,8 @@ SUMLEVEL_DESCRIPTIONS = {
         "idField":"ELSDLEA",
         "nameField":"SCHOOLDELEM",
         "censusQueryName": "school district (elementry)",
-        "censusQuery": "school district (elementry):*"
+        "censusQuery": "school district (elementry):*",
+        "censusRestAPI_layername": 'elementary school districts'
     },
     '960': {
         "singular":"high school district",
@@ -405,7 +427,8 @@ SUMLEVEL_DESCRIPTIONS = {
         "idField":"SCSDLEA",
         "nameField":"SCHOOLDHIGH",
         "censusQueryName": "school district (secondary)",
-        "censusQuery": "school district (secondary):*"
+        "censusQuery": "school district (secondary):*",
+        "censusRestAPI_layername": 'secondary school districts'
     },
     '970': {
         "singular":"unified school district",
@@ -415,7 +438,8 @@ SUMLEVEL_DESCRIPTIONS = {
         "idField":"UNSDLEA",
         "nameField":"SCHOOLD",
         "censusQueryName": "school district (unified)",
-        "censusQuery": "school district (unified):*"
+        "censusQuery": "school district (unified):*",
+        "censusRestAPI_layername": 'unified school districts'
     },
     'M01': {
         "singular":"MORPC 15-county region",
@@ -425,7 +449,8 @@ SUMLEVEL_DESCRIPTIONS = {
         "idField":"REGION15ID",
         "nameField":"REGION15",
         "censusQueryName": "region15",
-        "censusQuery": ["state:39", f"county:{(','.join([CONST_COUNTY_NAME_TO_ID[x][2:6] for x in CONST_REGIONS['15-County Region']]))}"]
+        "censusQuery": ["state:39", f"county:{(','.join([CONST_COUNTY_NAME_TO_ID[x][2:6] for x in CONST_REGIONS['15-County Region']]))}"],
+        "censusRestAPI_layername": None
     },
     'M02': {
         "singular":"MORPC 10-county region",
@@ -435,7 +460,8 @@ SUMLEVEL_DESCRIPTIONS = {
         "idField":"REGION10ID",
         "nameField":"REGION10",
         "censusQueryName": "region10",
-        "censusQuery": ["state:39", f"county:{','.join([CONST_COUNTY_NAME_TO_ID[x][2:6] for x in CONST_REGIONS['10-County Region']])}"]
+        "censusQuery": ["state:39", f"county:{','.join([CONST_COUNTY_NAME_TO_ID[x][2:6] for x in CONST_REGIONS['10-County Region']])}"],
+        "censusRestAPI_layername": None
     },
     'M03': {
         "singular":"MORPC 7-county region",
@@ -445,7 +471,8 @@ SUMLEVEL_DESCRIPTIONS = {
         "idField":"REGION7ID",
         "nameField":"REGION7",
         "censusQueryName": "region7",
-        "censusQuery": ["state:39", f"county:{','.join([CONST_COUNTY_NAME_TO_ID[x][2:6] for x in CONST_REGIONS['7-County Region']])}"]
+        "censusQuery": ["state:39", f"county:{','.join([CONST_COUNTY_NAME_TO_ID[x][2:6] for x in CONST_REGIONS['7-County Region']])}"],
+        "censusRestAPI_layername": None
 
     },
     'M04': {
@@ -456,7 +483,8 @@ SUMLEVEL_DESCRIPTIONS = {
         "idField":"REGIONCORPOID",
         "nameField":"REGIONCORPO",
         "censusQueryName": "regioncorpo",
-        "censusQuery": ["state:39", f"county:{','.join([CONST_COUNTY_NAME_TO_ID[x][2:6] for x in CONST_REGIONS['CORPO Region']])}"]
+        "censusQuery": ["state:39", f"county:{','.join([CONST_COUNTY_NAME_TO_ID[x][2:6] for x in CONST_REGIONS['CORPO Region']])}"],
+        "censusRestAPI_layername": None
     },
     'M05': {
         "singular":"MORPC CEDS region",
@@ -466,7 +494,8 @@ SUMLEVEL_DESCRIPTIONS = {
         "idField":"REGIONCEDSID",
         "nameField":"REGIONCEDS",
         "censusQueryName": "regionceds",
-        "censusQuery": ["state:39", f"county:{','.join([CONST_COUNTY_NAME_TO_ID[x][2:6] for x in CONST_REGIONS['CEDS Region']])}"]
+        "censusQuery": ["state:39", f"county:{','.join([CONST_COUNTY_NAME_TO_ID[x][2:6] for x in CONST_REGIONS['CEDS Region']])}"],
+        "censusRestAPI_layername": None
     },
     'M06': {
         "singular":"MORPC MPO region",
@@ -476,7 +505,8 @@ SUMLEVEL_DESCRIPTIONS = {
         "idField":"REGIONMPOID",
         "nameField":"REGIONMPO",
         "censusQueryName": "regionmpo",
-        "censusQuery":  None
+        "censusQuery":  None,
+        "censusRestAPI_layername": None
     },
     'M07': {
         "singular":"MORPC TDM region",
@@ -485,7 +515,8 @@ SUMLEVEL_DESCRIPTIONS = {
         "authority":"morpc",
         "idField":"REGIONTDMID",
         "nameField":"REGIONTDM",
-        "censusQueryName": "regiontdm"
+        "censusQueryName": "regiontdm",
+        "censusRestAPI_layername": None
     },
     'M08': {
         "singular":"OneColumbus region",
@@ -495,7 +526,8 @@ SUMLEVEL_DESCRIPTIONS = {
         "idField":"REGIONONECBUSID",
         "nameField":"REGIONONECBUS",
         "censusQueryName": 'regiononecbus',
-        "censusQuery": ["state:39", f"county:{','.join([CONST_COUNTY_NAME_TO_ID[x][2:6] for x in CONST_REGIONS['OneColumbus Region']])}"]
+        "censusQuery": ["state:39", f"county:{','.join([CONST_COUNTY_NAME_TO_ID[x][2:6] for x in CONST_REGIONS['OneColumbus Region']])}"],
+        "censusRestAPI_layername": None
     },
     'M10': {
         "singular":"Jurisdiction",
@@ -504,7 +536,8 @@ SUMLEVEL_DESCRIPTIONS = {
         "authority":"morpc",
         "idField":"JURISID",
         "nameField":"JURIS",
-        "censusQueryName": None
+        "censusQueryName": None,
+        "censusRestAPI_layername": None
     },
     'M11': {
         "singular":"Jurisdiction county part",
@@ -513,7 +546,8 @@ SUMLEVEL_DESCRIPTIONS = {
         "authority":"morpc",
         "idField":"JURISPARTID",
         "nameField":"JURISPART",
-        "censusQueryName": None
+        "censusQueryName": None,
+        "censusRestAPI_layername": None
     },
     'M20': {
         "singular":"Traffic analysis zone",
@@ -522,7 +556,8 @@ SUMLEVEL_DESCRIPTIONS = {
         "authority":"morpc",
         "idField":"TAZ2020",
         "nameField":None,
-        "censusQueryName": None
+        "censusQueryName": None,
+        "censusRestAPI_layername": None
     },
     'M21': {
         "singular":"Micro analysis zone",
@@ -531,7 +566,8 @@ SUMLEVEL_DESCRIPTIONS = {
         "authority":"morpc",
         "idField":"MAZ2020",
         "nameField":None,
-        "censusQueryName": None
+        "censusQueryName": None,
+        "censusRestAPI_layername": None
     },
     'M22': {
         "singular":"GridMAZ zone",
@@ -540,7 +576,8 @@ SUMLEVEL_DESCRIPTIONS = {
         "authority":"morpc",
         "idField":"GridMAZ20",
         "nameField":None,
-        "censusQueryName": None
+        "censusQueryName": None,
+        "censusRestAPI_layername": None
     },
 }
 

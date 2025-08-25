@@ -6,8 +6,6 @@ from ArcGIS services.
 """
 
 
-
-
 def resource(name, url, where='1=1', outfields='*', max_record_count=None):
     """Creates a frictionless Resource object from an ArcGIS REST API service URL.
 
@@ -325,7 +323,8 @@ def get_tigerweb_layers_map(year, survey='ACS'):
     year : int
         The year of the TIGERweb layer (e.g., 2024).
     survey : str, optional
-        The survey type, either 'ACS' (American Community Survey) or 'DEC' for Decennial Census.
+        The survey type, either 'ACS' (American Community Survey) or 'DEC' for Decennial Census
+        or 'Current' for the most current geometries.
         Default is 'ACS'.
 
     Returns:
@@ -340,16 +339,19 @@ def get_tigerweb_layers_map(year, survey='ACS'):
     """
     import pandas as pd
     import requests
+    import re
 
 
     if survey not in ['ACS', 'DEC']:
         raise ValueError("Invalid survey type. Must be 'ACS' or 'DEC'.")
-    if survey == 'DEC' and year not in [2010, 2020]:
+    if survey == 'DEC' and year not in ['2010', '2020']:
         raise ValueError("Invalid year for Decennial Census. Must be 2010 or 2020.")
-    if survey == 'ACS' and year < 2012:
+    if survey == 'ACS' and pd.to_numeric(year) < 2012:
         raise ValueError("Invalid year for ACS. Must be 2012 or later.")
     if survey == 'DEC':
         survey = 'Census'
+    if survey == 'Current':
+        year == ""
 
     baseurl = f"https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/"
     mapserver_path = f"tigerWMS_{survey}{year}/MapServer/"
@@ -383,6 +385,11 @@ def get_tigerweb_layers_map(year, survey='ACS'):
     layers = {k.lower(): v for k, v in layers.items()}  # Normalize layer names to lowercase
     # remove census from keys in layers
     layers = {k.replace('census ', ''): v for k, v in layers.items()}
+    # remove years from keys in layers
+    layers = {re.sub(r"^(19|20)\d{2}$ ", '', k): v for k, v in layers.items()}
+    # remove the 11Xth from congressional districts
+    layers = {re.sub(r"^(11)\d{1}$th ", '', k): v for k, v in layers.items()}
+
 
     return layers
     
@@ -419,13 +426,14 @@ def get_layer_url(year, layer_name, survey='ACS'):
     
     import requests
     from morpc.rest_api import get_tigerweb_layers_map
+    import pandas as pd
     
     # Validate inputs
     if survey not in ['ACS', 'DEC']:
         raise ValueError("Invalid survey type. Must be 'ACS' or 'DEC'.")
-    if survey == 'DEC' and year not in [2010, 2020]:
+    if survey == 'DEC' and year not in ['2010', '2020']:
         raise ValueError("Invalid year for Decennial Census. Must be 2010 or 2020.")
-    if survey == 'ACS' and year < 2012:
+    if survey == 'ACS' and pd.to_numeric(year) < 2012:
         raise ValueError("Invalid year for ACS. Must be 2012 or later.")    
     if survey == 'DEC':
         survey = 'Census'
