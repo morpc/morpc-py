@@ -2623,7 +2623,7 @@ def write_table(df, path, format=None, index=None):
 
 
 
-def reapportion_by_area(targetGeos, sourceGeos, apportionColumns=None, summaryType="sum", roundPreserveSum=None, sourceShareTolerance=6):
+def reapportion_by_area(targetGeos, sourceGeos, apportionColumns=None, summaryType="sum", roundPreserveSum=None, sourceShareTolerance=6, targetShareTolerance=6):
     """
     Given you have some variable(s) summarized at one geography level, reapportion those variables to other geographies in proportion 
     # to the area of overlap of the target geographies with the source geographies.  This is accomplished by intersecting the target 
@@ -2658,7 +2658,12 @@ def reapportion_by_area(targetGeos, sourceGeos, apportionColumns=None, summaryTy
         geographies do not sum to 1.  Round the sums to the specified decimal place prior to evaluation.  Sum greater than 1 may indicate 
         that there are overlapping polygons in the target geos or source geos. Sum less than 1 may indicate that target geo coverage of 
         source geos is incomplete.  Set to None to allow no tolerance (warning will be generated if shares do not sum to exactly 1).
-
+    targetShareTolerance : int
+        Optional. If set to an integer, warn the user if the target shares for intersection polygons associated with one or more target 
+        geographies do not sum to 1.  Round the sums to the specified decimal place prior to evaluation.  Sum greater than 1 may indicate 
+        that there are overlapping polygons in the target geos or source geos. Sum less than 1 may indicate that portions of the target geos
+        do not overlap the source geos. Set to None to allow no tolerance (warning will be generated if shares do not sum to exactly 1).
+        
     Returns
     -------
     targetGeosUpdated :  geopandas.geodataframe.GeoDataFrame with polygon geometry type
@@ -2727,13 +2732,21 @@ def reapportion_by_area(targetGeos, sourceGeos, apportionColumns=None, summaryTy
     
     # Sum the source shares by source geography and verify that they sum to 1.  This indicates that there are no overlapping polygons 
     # in the target geos or source geos and that the coverage of the source geos by the target geos is complete.  If the shares do not 
-    # sum to 1 for one or more source geos,
-    # warn the user.
+    # sum to 1 for one or more source geos, warn the user.
     groupSums = intersectGeos.groupby("sourceIndex")[["SOURCE_SHARE"]].sum()
     if(sourceShareTolerance is not None):
         groupSums["SOURCE_SHARE"] = groupSums["SOURCE_SHARE"].round(decimals=sourceShareTolerance)
     if((groupSums["SOURCE_SHARE"].max() != 1) | (groupSums["SOURCE_SHARE"].min() != 1)):
-        print("morpc.reapportion_by_area | WARNING | The source shares of the intersection geographies should sum to 1, however they sum to another value in at least one case.  This could mean that the there are overlapping polygons in the target geos or in the overlay geos (overlay sum > 1), or that the target geos coverage of the overlay geos is incomplete (overlay sum < 1).  The greatest overlay sum is {0} and the smallest overlay sum is {1}. Assess the severity of the discrepancy and troubleshoot the geometries if necessary prior to proceeding.".format(groupSums["SOURCE_SHARE"].max(), groupSums["SOURCE_SHARE"].min()))
+        print("morpc.reapportion_by_area | WARNING | The source shares of the intersection geographies should sum to 1, however they sum to another value in at least one case.  This could mean that the there are overlapping polygons in the target geos or in the source geos (overlay sum > 1), or that the target geos coverage of the overlay geos is incomplete (overlay sum < 1).  The greatest overlay sum is {0} and the smallest overlay sum is {1}. Assess the severity of the discrepancy and troubleshoot the geometries if necessary prior to proceeding.".format(groupSums["SOURCE_SHARE"].max(), groupSums["SOURCE_SHARE"].min()))
+
+    # Sum the target shares by target geography and verify that they sum to 1.  This indicates that there are no overlapping polygons in the
+    # target geos or source geos and that there are no portions of the target geos that did not overlap with the source geos. If the shares do 
+    # not sum to 1 for one or more target geos, warn the user.
+    groupSums = intersectGeos.groupby("targetIndex")[["TARGET_SHARE"]].sum()
+    if(targetShareTolerance is not None):
+        groupSums["TARGET_SHARE"] = groupSums["TARGET_SHARE"].round(decimals=targetShareTolerance)
+    if((groupSums["TARGET_SHARE"].max() != 1) | (groupSums["TARGET_SHARE"].min() != 1)):
+        print("morpc.reapportion_by_area | WARNING | The target shares of the intersection geographies should sum to 1, however they sum to another value in at least one case.  This could mean that there are overlapping polygons in the target geos or in the source geos (overlay sum > 1), or that portions of the target geos did not overlap the source geos (overlay sum < 1).  The greatest overlay sum is {0} and the smallest overlay sum is {1}. Assess the severity of the discrepancy and troubleshoot the geometries if necessary prior to proceeding.".format(groupSums["TARGET_SHARE"].max(), groupSums["TARGET_SHARE"].min()))
         
     # For each of the variables to be reapportioned, compute the reapportioned values
     for column in apportionColumns:
