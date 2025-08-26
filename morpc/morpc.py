@@ -2738,26 +2738,26 @@ def reapportion_by_area(targetGeos, sourceGeos, apportionColumns=None, summaryTy
 
     # Make a list of the source geo IDs that appeared in the original source data but do not appear in the intersection data.  
     # These are source geos that had zero overlap with the target geos. If there are entries in the list, throw an error if appropriate.
-    zeroOverlapSourceGeoList = list(set(list(mySourceGeos["sourceIndex"].unique())).difference(set(list(intersectGeos["sourceIndex"].unique()))))
-    if(len(zeroOverlapSourceGeoList) > 0):
-        if(zeroCoverageStrategy == "error"):
-            print("morpc.reapportion_by_area | ERROR | One or more source geographies is not overlapped by any target geographies. If this is expected, you can suppress this error by setting zeroCoverageStrategy to 'ignore' or 'distribute'.")
-            raise RuntimeError         
-        elif(zeroCoverageStrategy == "ignore"):
-            print("morpc.reapportion_by_area | INFO | Ignoring zero coverage of some source geographies. See zeroCoverageStrategy argument.")                
-        elif(zeroCoverageStrategy == "distribute"):
-            print("morpc.reapportion_by_area | INFO | Distributing variable(s) from zero-coverage source geographies to target geographies.  See zeroCoverageStrategy argument.")
-        else:
-            print("morpc.reapportion_by_area | ERROR | Argument value for zeroCoverageStrategy is not supported: {}".format(zeroCoverageStrategy))
-            raise RuntimeError            
+    if(summaryType == "sum"):
+        zeroOverlapSourceGeoList = list(set(list(mySourceGeos["sourceIndex"].unique())).difference(set(list(intersectGeos["sourceIndex"].unique()))))
+        if(len(zeroOverlapSourceGeoList) > 0):
+            if(zeroCoverageStrategy == "error"):
+                print("morpc.reapportion_by_area | ERROR | One or more source geographies is not overlapped by any target geographies. If this is expected, you can suppress this error by setting zeroCoverageStrategy to 'ignore' or 'distribute'.")
+                raise RuntimeError         
+            elif(zeroCoverageStrategy == "ignore"):
+                print("morpc.reapportion_by_area | INFO | Ignoring zero coverage of some source geographies. See zeroCoverageStrategy argument.")                
+            elif(zeroCoverageStrategy == "distribute"):
+                print("morpc.reapportion_by_area | INFO | Distributing variable(s) from zero-coverage source geographies to target geographies.  See zeroCoverageStrategy argument.")
+            else:
+                print("morpc.reapportion_by_area | ERROR | Argument value for zeroCoverageStrategy is not supported: {}".format(zeroCoverageStrategy))
+                raise RuntimeError            
 
-    if(roundPreserveSum is not None):
-        if(type(roundPreserveSum) == int):
-            print("morpc.reapportion_by_area | INFO | Rounding variable(s) to {} digits while preserving sum.".format(roundPreserveSum))
-        else:
-            print("morpc.reapportion_by_area | ERROR | Argument value for roundPreserveSum is not supported: {}".format(roundPreserveSum))
-            raise RuntimeError       
-
+        if(roundPreserveSum is not None):
+            if(type(roundPreserveSum) == int):
+                print("morpc.reapportion_by_area | INFO | Rounding variable(s) to {} digits while preserving sum.".format(roundPreserveSum))
+            else:
+                print("morpc.reapportion_by_area | ERROR | Argument value for roundPreserveSum is not supported: {}".format(roundPreserveSum))
+                raise RuntimeError       
     
     # Sum the source shares by source geography and verify that they sum to 1.  This indicates that there are no overlapping polygons 
     # in the target geos or source geos and that the coverage of the source geos by the target geos is complete.  If the shares do not 
@@ -2771,17 +2771,18 @@ def reapportion_by_area(targetGeos, sourceGeos, apportionColumns=None, summaryTy
     sourceShareMin = sourceGroupSums["SOURCE_SHARE_SUM"].min()
     if((sourceShareMax != 1) | (sourceShareMin != 1)):
         print("morpc.reapportion_by_area | WARNING | The source shares of the intersection geographies should sum to 1, however they sum to another value in at least one case.  This could mean that the there are overlapping polygons in the target geos or in the source geos (overlay sum > 1), or that the target geos coverage of the overlay geos is incomplete (overlay sum < 1).  The greatest overlay sum is {0} and the smallest overlay sum is {1}. Assess the severity of the discrepancy and troubleshoot the geometries if necessary prior to proceeding.".format(sourceShareMax, sourceShareMin))
-        if(sourceShareMin < 1):
-            if(partialCoverageStrategy == "error"):
-                print("morpc.reapportion_by_area | ERROR | One or more source geographies is not fully covered by target geographies. If this is expected, you can suppress this error by setting partialCoverageStrategy to 'ignore' or 'distribute'.")
-                raise RuntimeError
-            elif(partialCoverageStrategy == "ignore"):
-                print("morpc.reapportion_by_area | INFO | Ignoring partial coverage of some source geographies. See partialCoverageStrategy argument.")                
-            elif(partialCoverageStrategy == "distribute"):
-                print("morpc.reapportion_by_area | INFO | Distributing variable(s) from non-covered portion of source geographies to covered portions. See partialCoverageStrategy argument.")
-            else:
-                print("morpc.reapportion_by_area | ERROR | Argument value for partialCoverageStrategy is not supported: {}".format(partialCoverageStrategy))
-                raise RuntimeError
+        if(summaryType == "sum"):
+            if(sourceShareMin < 1):
+                if(partialCoverageStrategy == "error"):
+                    print("morpc.reapportion_by_area | ERROR | One or more source geographies is not fully covered by target geographies. If this is expected, you can suppress this error by setting partialCoverageStrategy to 'ignore' or 'distribute'.")
+                    raise RuntimeError
+                elif(partialCoverageStrategy == "ignore"):
+                    print("morpc.reapportion_by_area | INFO | Ignoring partial coverage of some source geographies. See partialCoverageStrategy argument.")                
+                elif(partialCoverageStrategy == "distribute"):
+                    print("morpc.reapportion_by_area | INFO | Distributing variable(s) from non-covered portion of source geographies to covered portions. See partialCoverageStrategy argument.")
+                else:
+                    print("morpc.reapportion_by_area | ERROR | Argument value for partialCoverageStrategy is not supported: {}".format(partialCoverageStrategy))
+                    raise RuntimeError
     
     # Sum the target shares by target geography and verify that they sum to 1.  This indicates that there are no overlapping polygons in the
     # target geos or source geos and that there are no portions of the target geos that did not overlap with the source geos. If the shares do 
