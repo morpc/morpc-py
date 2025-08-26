@@ -110,7 +110,15 @@ def cast_field_types(df, schema, forceInteger=False, forceInt64=False, nullBoolV
                 else:
                     outDF[fieldName] = outDF[fieldName].fillna(0)
                 outDF[fieldName] = outDF[fieldName].astype("bool")
-            elif(outDF[fieldName].dtype == "string"):
+            elif((outDF[fieldName].dtype == "string") | (outDF[fieldName].dtype == "object")):
+                # If the field is object type, make sure we can interpret it as a string
+                if(outDF[fieldName].dtype == "object"):
+                    try:
+                        outDF[fieldName] = outDF[fieldName].astype("string")
+                    except:
+                        print("morpc.frictionless.cast_field_types | ERROR | Failed to convert field {} from object type to string type prior to interpretation of boolean values.".format(fieldName))
+                        raise RuntimeError
+
                 print("morpc.frictionless.cast_field_types | WARNING | Field {} is string type. Will interpret using truth values specified in schema (or Frictionless defaults). Nulls will be interpreted as {}. To change this, set nullBoolValue.".format(fieldName, nullBoolValue))
                 # The field definition in the schema may contain properties trueValues and/or falseValues which specify what values
                 # represent True and False, respectively. If trueVales or falseValues are unspecified, Frictionless recognizes the 
@@ -140,9 +148,9 @@ def cast_field_types(df, schema, forceInteger=False, forceInt64=False, nullBoolV
 
                 # Fill nulls will the first of the specified true values or false values, depending on the setting of nullBoolValue
                 if(nullBoolValue == True):
-                    outDF[fieldName] = outDF.fillna(trueValues[0])
+                    outDF[fieldName] = outDF[fieldName].fillna(trueValues[0])
                 else:
-                    outDF[fieldName] = outDF.fillna(falseValues[0])
+                    outDF[fieldName] = outDF[fieldName].fillna(falseValues[0])
                 outDF[fieldName] = outDF[fieldName].astype("bool")                
                             
                 # Finally, make the change official by changing the pandas field type to "bool".
