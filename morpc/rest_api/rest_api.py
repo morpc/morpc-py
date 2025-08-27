@@ -50,8 +50,6 @@ def resource(name, url, where='1=1', outfields='*', max_record_count=None):
     from morpc.rest_api import totalRecordCount, schema
     import urllib.parse
     import requests
-    
-
             
     # Construct the query parameters
     query = {
@@ -246,9 +244,7 @@ def gdf_from_resource(resource):
     
     """
     import frictionless
-    import pandas as pd
     import geopandas as gpd
-    import geojson
     from pyproj import CRS
 
     # Check if the resource is a string or a frictionless Resource object
@@ -267,10 +263,10 @@ def gdf_from_resource(resource):
     wkt = esri_wkid_to_wkt2(wkid) ## Convert ESRI WKID to wkt2  
       
     # Convert GeoJSON features to GeoDataFrame
-    gdf = gpd.GeoDataFrame.from_features(features)
+    gdf = gpd.GeoDataFrame.from_features(features, crs='EPSG:4326') # Start with EPSG:4326
     
     # Set the coordinate reference system of the GeoDataFrame
-    gdf = gpd.GeoDataFrame(gdf, geometry='geometry', crs=CRS.from_wkt(wkt))
+    gdf = gpd.GeoDataFrame(gdf, geometry='geometry')
 
     return(gdf)
 
@@ -462,9 +458,6 @@ def get_layer_url(year, layer_name, survey='ACS'):
     return mapserver_url
 
 
-
-
-
 def totalRecordCount(url, where, outfields='*'):
     """Fetches the total number of records from an ArcGIS REST API service.
     Parameters:
@@ -509,7 +502,6 @@ def esri_wkid_to_wkt2(esri_wkid):
     
 
     """
-    import json
     import requests
 
     r = requests.get(f"https://spatialreference.org/ref/esri/{esri_wkid}/prettywkt2.txt")

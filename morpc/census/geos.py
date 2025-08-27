@@ -15,7 +15,7 @@ SCOPES = {
     "us-states": {"desc": "all states in the United States",
                   "for": "state:*"
                  },
-
+    
     "ohio": {"desc": "the State of Ohio",
              "for": "state:39"},
     "ohio-counties": {"desc": "all counties in the State of Ohio",
