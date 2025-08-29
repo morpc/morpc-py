@@ -49,7 +49,6 @@ def resource(name, url, where='1=1', outfields='*', max_record_count=None):
     import re
     from morpc.rest_api import totalRecordCount, schema
     import urllib.parse
-    import requests
             
     # Construct the query parameters
     query = {
@@ -68,19 +67,6 @@ def resource(name, url, where='1=1', outfields='*', max_record_count=None):
             max_record_count = 500
         else:
             max_record_count = total_record_count
-
-    # Get WKID from the properties of the service
-    r = requests.get(f"{url}?f=pjson")
-    pjson = r.json()
-    r.close()
-
-    if 'spatialReference' in pjson:
-        wkid = pjson['spatialReference']['wkid']
-    elif 'sourceSpatialReference' in pjson:
-        wkid = pjson['sourceSpatialReference']['wkid']
-    else:
-        print("No spatial reference found in the service metadata. Using default WKID 4326.")
-        wkid = 4326
 
     # Construct list of source urls to account for max record counts
     sources = []
@@ -106,7 +92,6 @@ def resource(name, url, where='1=1', outfields='*', max_record_count=None):
             "type": "arcgis_service",
             "params": query,
             "total_records": total_record_count,
-            "wkid": wkid
         }
     }
 
@@ -245,7 +230,6 @@ def gdf_from_resource(resource):
     """
     import frictionless
     import geopandas as gpd
-    from pyproj import CRS
 
     # Check if the resource is a string or a frictionless Resource object
     if isinstance(resource, str):
@@ -257,10 +241,6 @@ def gdf_from_resource(resource):
 
     # Fetch the GeoJSON data from the resource
     features = query(resource)
-
-    # Get the spatial reference system (WKID) from the resource metadata
-    wkid = resource.to_dict()['_metadata']['wkid']
-    wkt = esri_wkid_to_wkt2(wkid) ## Convert ESRI WKID to wkt2  
       
     # Convert GeoJSON features to GeoDataFrame
     gdf = gpd.GeoDataFrame.from_features(features, crs='EPSG:4326') # Start with EPSG:4326
@@ -483,31 +463,6 @@ def totalRecordCount(url, where, outfields='*'):
 
     return total_count
 
-
-def esri_wkid_to_wkt2(esri_wkid):
-    """Converts an ESRI WKID to an EPSG code.
-
-    Parameters:
-    -----------
-    esri_wkid : int
-        The ESRI WKID to be converted.  
-    Returns:
-    --------
-    wkt : int
-        The corresponding Well-Known Text string.
-    Example:
-    --------
-    >>> wkt = esri_wkid_to_wkt2(4326)
-    >>> print(wkt)
-    
-
-    """
-    import requests
-
-    r = requests.get(f"https://spatialreference.org/ref/esri/{esri_wkid}/prettywkt2.txt")
-    wkt = r.text
-    r.close()
-    return wkt
 
 # Depreciated for wkt2
 # def esri_wkid_to_epsg(esri_wkid):

@@ -243,7 +243,10 @@ def api_get(url, params, varBatchSize=20, verbose=True):
     import json         # We need json to make a deep copy of the params dict
     import requests
     import pandas as pd
-    
+
+    # Add headers to request to look like a browser.
+    headers = {"User-Agent": "Mozilla/5.0 (X11; CrOS x86_64 12871.102.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/81.0.4044.141 Safari/537.36"}
+
     # We need to reserve one variable in each batch for GEO_ID.  If the user requests more than 49 variables per
     # batch, reduce the batch size to 49 to respect the API limit
     if(varBatchSize > 49):
@@ -282,7 +285,7 @@ def api_get(url, params, varBatchSize=20, verbose=True):
         shortListParams["get"] = ",".join(shortList)
 
         # Send the API request. Throw an error if the resulting status code indicates a failure condition.
-        r = requests.get(url, params=shortListParams)
+        r = requests.get(url, params=shortListParams, headers=headers)
         if(r.status_code != 200):
             print("ERROR: Request finished with status {}.".format(r.status_code))
             print("Request URL: " + r.url)
@@ -317,7 +320,7 @@ class ACS:
     def __init__(self, group, year, survey, verbose=True):
         """
         Class for working with ACS Survey Data. Creates an object representing data for a variable by year by survey. 
-        Use .query() method to retrive data for a specific geography.
+        Use .query() method to retrieve data for a specific geography.
 
 
         Parameters
@@ -398,6 +401,32 @@ class ACS:
 
         return self
     
+    def scope(self, scale, scope):
+        """
+        Creates a list of geoidsfq before querying.
+
+        Parameters:
+        -----------
+        scale : str
+            The scale of geography to return from the query.
+
+        scope : str
+            The scope of the query. See morpc.census.geos.SCOPES
+
+        """
+        import morpc
+
+        geoids = morpc.census.geos.geoids(scale, scope)
+
+        ucgid_param = f"{",".join(geoids)}"
+
+        scope_name = f"{scale}-{scope}"
+
+        self.query(ucgid_param=ucgid_param, scope=scope_name)
+
+        return self
+
+    
     def query(self, for_param=None, in_param=None, get_param=None, ucgid_param = None, scope=None, verbose=True):
         """
         Method for retrieving data. Relies on morpc.census.api_get().
@@ -405,7 +434,7 @@ class ACS:
         Parameters
         ----------
         for_param : str
-            The parameters for the "for" parameter for the api_get() call. Typically, the ACS geographic sumlevel name and an astrick. ex. "county subivision:*"
+            The parameters for the "for" parameter for the api_get() call. Typically, the ACS geographic sumlevel name and an asterisk. ex. "county subdivision:*"
 
         in_param : list (optional)
             The parameters for the "in" parameter for the api_get() call. Typically, a parameter to filter the for_param with. ex. "state:39" for all the for geographies in the state of Ohio. For for all geographies in Franklin County pass ["state:39", "county:049"]
@@ -413,8 +442,6 @@ class ACS:
         get_param : list (optional)
             The field names to retrieve from the Census. Defaults to all available variables for variable group number.
 
-        scope : str
-            The name of a default scope. See morpc.census.SCOPES
         """
 
         import morpc
@@ -422,17 +449,7 @@ class ACS:
 
         if verbose:
             print(f"MESSAGE | morpc.census.ACS.query | Querying data for {self.GROUP} for {self.SURVEY}-year survey in {self.YEAR}...")
-        # Define scope and build query based on scopes. See morpc.census.SCOPES
-        self.SCOPE = scope
-        if scope is not None:
-            # Name will be used later in frictionless as resource name
-            self.NAME = f"morpc-acs{self.SURVEY}-{self.YEAR}-{scope}-{self.GROUP}".lower()
-            if "for" in morpc.census.SCOPES[scope]:
-                for_param = morpc.census.SCOPES[scope]['for']
-            if "in" in morpc.census.SCOPES[scope]:
-                in_param = morpc.census.SCOPES[scope]['in']
-            if "ucgid" in morpc.census.SCOPES[scope]:
-                ucgid_param = morpc.census.SCOPES[scope]['ucgid']
+
 
         # Check to make sure that 
         if get_param is not None:
@@ -447,12 +464,17 @@ class ACS:
                     temp[VAR] = self.VARS[VAR]
             self.VARS = temp
 
+        # If using scope pass name to SCOPE
+        self.SCOPE = scope
+
         # If custom query parameters are passed to .query then the name of the resource is custom and includes date.
         # TODO: Find a better way of naming custom queries, possibly by passing a custom parameter.
         # Issue URL: https://github.com/morpc/morpc-py/issues/46
+
         if scope is None:
             self.NAME = f"morpc-acs{self.SURVEY}-{self.YEAR}-custom-{self.GROUP}-{datetime.now().strftime(format='%Y%m%d')}".lower()
-        if verbose:
+        else:
+            self.NAME = f"morpc-acs{self.SURVEY}-{self.YEAR}-{self.SCOPE}-{self.GROUP}-{datetime.now().strftime(format='%Y%m%d')}".lower()
             print(f"MESSAGE | morpc.census.ACS.query | NAME set to {self.NAME}...")
 
         # Build the schema from the list of variables.
@@ -473,7 +495,9 @@ class ACS:
         self.API_URL = f"https://api.census.gov/data/{self.YEAR}/acs/acs{self.SURVEY}"
 
         if verbose:
-            print(f"MESSAGE | morpc.census.ACS.query | Querying data from {self.API_URL} with parameters: /n/n {self.API_PARAMS}...")
+            print(f"MESSAGE | morpc.census.ACS.query | Querying data from {self.API_URL} with parameters:")
+            print(f"{self.API_PARAMS}...")
+
         # Query the data
         self.DATA = morpc.census.api_get(self.API_URL, self.API_PARAMS)
 
@@ -692,7 +716,7 @@ class ACS:
           # Issue URL: https://github.com/morpc/morpc-py/issues/43
           "title": f"{self.YEAR} American Community Survey {self.SURVEY}-Year Estimates for {'Custom Geography' if self.SCOPE == None else morpc.census.geos.SCOPES[self.SCOPE]['desc']}.".title(),
           # A full description of the data. 
-          "description": f"Selected variables from {self.YEAR} ACS {self.SURVEY}-Year estimates for {'custom geography (see sources._params)' if self.SCOPE == None else SCOPES[self.SCOPE]['desc']}. Data was retrieved {datetime.datetime.today().strftime('%Y-%m-%d')}",
+          "description": f"Selected variables from {self.YEAR} ACS {self.SURVEY}-Year estimates for {'custom geography (see sources._params)' if self.SCOPE == None else morpc.census.geos.SCOPES[self.SCOPE]['desc']}. Data was retrieved {datetime.datetime.today().strftime('%Y-%m-%d')}",
           "format": "csv",
           "mediatype": "text/csv",
           "encoding": "utf-8",
