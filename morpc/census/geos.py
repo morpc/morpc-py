@@ -11,9 +11,11 @@ import morpc
 
 import requests
 
-STATE_SCOPES = [{key: f"state: {value}"} for key, value in morpc.CONST_STATE_NAME_TO_ID.items()]
+import morpc.census
 
-COUNTY_SCOPES = [{key.lower(): {"state: 39", f"county: {value[2:6]}"}} for key, value in morpc.CONST_COUNTY_NAME_TO_ID.items()]
+STATE_SCOPES = [{key: f"state: {int(value):02d}"} for key, value in morpc.CONST_STATE_NAME_TO_ID.items()]
+
+COUNTY_SCOPES = [{key.lower(): {"state: 39", f"county: {int(value[2:6]):03d}"}} for key, value in morpc.CONST_COUNTY_NAME_TO_ID.items()]
 
 SCOPES = {
     "us": {
@@ -86,6 +88,48 @@ def get_query_req(sumlevel):
                 query_requirements['wildcard'] = None
 
     return query_requirements
+
+def pseudo(scale, scope):
+    """
+    Creates a query string for CENSUS API using ucgid=pseudo(). 
+
+    See https://www.census.gov/data/developers/guidance/api-user-guide/ucgid-predicate.html
+
+    Parameters:
+    -----------
+    scale : str
+        The geographic scale (e.g., 'county', 'tract', 'block group').
+    scope : str
+        The geographic scope (e.g., 'us', 'state', 'region15').
+
+    Returns:
+    str
+        A string to pass to ucgid parameter in morpc.census.ACS.query()
+    """
+
+    import morpc
+
+    # Get available scales from morpc SUMLEVEL_DESCRIPTIONS
+    available_scales = [morpc.SUMLEVEL_DESCRIPTIONS[x]['censusQueryName'] for x in morpc.SUMLEVEL_DESCRIPTIONS]
+
+    # Validate inputs
+    if scale not in available_scales:
+        raise ValueError(f"Scale '{scale}' is not recognized. Available scales: {available_scales}")
+    
+    if scope not in SCOPES:
+        raise ValueError(f"Scope '{scope}' is not recognized. Available scopes: {list(SCOPES.keys())}")
+    
+    # Map scale to sumlevel code
+    sumlevel = morpc.SUMLEVEL_FROM_CENSUSQUERY[scale]
+
+    child = f"{sumlevel}0000"
+
+    parents = []
+    if "state" in morpc.census.geos.SCOPE[scope]:
+        if not "county" in morpc.census.geos.SCOPE[scope]:
+            
+        
+    
 
 def geoids(scale, scope):
     """
