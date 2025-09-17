@@ -337,7 +337,7 @@ class ACS:
 
         if verbose:
             print(f"MESSAGE | morpc.census.ACS.init | Initializing ACS object for {group} for {year} ACS {survey}-year survey ...")
-        self.GROUP = group
+        self.GROUP = group.upper()
         self.YEAR = year
         self.SURVEY = survey
 
@@ -416,13 +416,11 @@ class ACS:
         """
         import morpc
 
-        geoids = morpc.census.geos.geoids(scale, scope)
-
-        ucgid_param = f"{",".join(geoids)}"
+        params = morpc.census.geos.params_from_scale_scope(scale, scope)
 
         scope_name = f"{scale}-{scope}"
 
-        self.query(ucgid_param=ucgid_param, scope=scope_name)
+        self.query(for_param=params[0], in_param=params[1], scope=scope_name)
 
         return self
 
