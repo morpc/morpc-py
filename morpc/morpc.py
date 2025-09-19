@@ -542,6 +542,63 @@ SUMLEVEL_DESCRIPTIONS = {
         "nameField":None,
         "censusQueryName": None
     },
+    # Sumlevels M23 to M29 correspond to sumlevels defined above, but are
+    # derived from MORPC-maintained geographies rather than Census-maintained
+    # geographies
+    'M23': {  # Corresponds to 050 (COUNTY)
+        "singular":"county",
+        "plural":"counties",
+        "hierarchy_string":"COUNTY-MORPC",
+        "authority":"morpc",
+        "idField":"COUNTYFP",
+        "nameField":"COUNTY",
+        "censusQueryName": None,
+    },
+    'M24': {  # Corresponds to M10 (JURIS)
+        "singular":"Jurisdiction",
+        "plural":"Jurisdictions",
+        "hierarchy_string":"JURIS-MORPC",
+        "authority":"morpc",
+        "idField":"JURISID",
+        "nameField":"JURIS",
+        "censusQueryName": None
+    },
+    'M25': {  # Corresponds to M11 (JURIS-COUNTY)
+        "singular":"Jurisdiction county part",
+        "plural":"Jurisdiction county parts",
+        "hierarchy_string":"JURIS-COUNTY-MORPC",
+        "authority":"morpc",
+        "idField":"JURISPARTID",
+        "nameField":"JURISPART",
+        "censusQueryName": None
+    },
+    'M26': {  # Corresponds to M16 (REGIONMPO)
+        "singular":"MORPC MPO region",
+        "plural":"MORPC MPO region",
+        "hierarchy_string":"REGIONMPO-MORPC",
+        "authority":"morpc",
+        "idField":"REGIONMPOID",
+        "nameField":"REGIONMPO",
+        "censusQueryName": None
+    },
+    'M27': {  # Corresponds to M17 (REGIONTDM)
+        "singular":"MORPC TDM region",
+        "plural":"MORPC TDM region",
+        "hierarchy_string":"REGIONTDM-MORPC",
+        "authority":"morpc",
+        "idField":"REGIONTDMID",
+        "nameField":"REGIONTDM",
+        "censusQueryName": None
+    },
+    'M30': {
+        "singular":"SWACO region",
+        "plural":"SWACO region",
+        "hierarchy_string":"REGIONSWACO",
+        "authority":"morpc",
+        "idField":"REGIONSWACOID",
+        "nameField":"REGIONSWACO",
+        "censusQueryName": None
+    },    
 }
 
 # TODO: include the following sumlevels
