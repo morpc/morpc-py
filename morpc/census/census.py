@@ -1,13 +1,6 @@
-import json
-from re import I
-from tabnanny import verbose
-
-import IPython
-
 import morpc
+import json
 from importlib.resources import files
-
-import morpc.census
 
 # Import the variable groups dimensions using import lib.
 try:
@@ -334,16 +327,22 @@ class ACS:
         survey : str
             Number of years representing the ACS Survey, "1" or "5"
         """
-
-        if verbose:
-            print(f"MESSAGE | morpc.census.ACS.init | Initializing ACS object for {group} for {year} ACS {survey}-year survey ...")
+        from datetime import datetime
+        self.LOG = []
+        self.VERBOSE = verbose
+        logstr = f"{datetime.now()} | INFO | morpc.census.ACS | Initializing ACS object for {group} for {year} ACS {survey}-year survey."
+        self.LOG.append(logstr)
+        if self.VERBOSE:
+            print(logstr)
         self.GROUP = group.upper()
         self.YEAR = year
         self.SURVEY = survey
 
-        if verbose:
-            print(f"MESSAGE | morpc.census.ACS.init | Loading variable dictionary for {self.GROUP} for {self.SURVEY}-year survey in {self.YEAR}...")
         self.VARS = get_variable_dict(year, survey, group)
+        logstr = f"{datetime.now()} | INFO | morpc.census.ACS | Concept '{self.VARS[[x for x in self.VARS][1]]['concept']}' has {len(self.VARS)} variables."
+        self.LOG.append(logstr)
+        if self.VERBOSE:
+            print(logstr)
 
     def load(self, resource_path, verbose = True):
         """
@@ -366,6 +365,7 @@ class ACS:
 
         import morpc
         import os
+        import datetime
 
         # Define the path to the resource file and extract the directory and filename.
         self.RESOURCE_PATH = resource_path
@@ -379,8 +379,10 @@ class ACS:
         os.chdir(self.DIRNAME)
 
         # Load data and store some of the constants from resource.
-        if verbose:
-            print(f"MESSAGE | morpc.census.ACS.load | Loading data from {self.RESOURCE_PATH}...")
+        logstr = f"{datetime.now()} | INFO | morpc.census.ACS.load | Loading data from {self.RESOURCE_PATH}..."
+        self.LOG.append(logstr)
+        if self.VERBOSE:
+            print(logstr)
         self.DATA, self.RESOURCE, self.SCHEMA = morpc.frictionless.load_data(os.path.basename(self.RESOURCE_PATH), verbose=True)
         self.NAME = self.RESOURCE.get_defined('name')
         self.API_PARAMS = self.RESOURCE.get_defined('sources')[0]['_params']
@@ -390,12 +392,12 @@ class ACS:
         os.chdir(cwd)
 
         # Rebuild dimension tables and store geographies
-        if verbose:
+        if self.VERBOSE:
             print("MESSAGE | morpc.census.ACS.load | Wrangling data types and rebuilding dimension tables...")
 
         self.DATA = self.DATA.set_index('GEO_ID')
         self.DIM_TABLE = morpc.census.DimensionTable(self.DATA, self.SCHEMA, self.YEAR)
-        if verbose:
+        if self.VERBOSE:
             print("MESSAGE | morpc.census.ACS.load | Fetching geometries...")
         self.GEOS = self.define_geos()
 
@@ -445,7 +447,7 @@ class ACS:
         import morpc
         from datetime import datetime
 
-        if verbose:
+        if self.VERBOSE:
             print(f"MESSAGE | morpc.census.ACS.query | Querying data for {self.GROUP} for {self.SURVEY}-year survey in {self.YEAR}...")
 
 
@@ -492,7 +494,7 @@ class ACS:
         # Construct the url
         self.API_URL = f"https://api.census.gov/data/{self.YEAR}/acs/acs{self.SURVEY}"
 
-        if verbose:
+        if self.VERBOSE:
             print(f"MESSAGE | morpc.census.ACS.query | Querying data from {self.API_URL} with parameters:")
             print(f"{self.API_PARAMS}...")
 
@@ -505,11 +507,11 @@ class ACS:
         self.DATA = self.DATA.set_index('GEO_ID')
 
         # Construct the dimension tables.
-        if verbose:
+        if self.VERBOSE:
             print("MESSAGE | morpc.census.ACS.query | Wrangling data types and building dimension tables...")
         self.DIM_TABLE = morpc.census.DimensionTable(self.DATA, self.SCHEMA, self.YEAR, self.GROUP, self.SURVEY)
 
-        if verbose:
+        if self.VERBOSE:
             print("MESSAGE | morpc.census.ACS.query | Fetching geometries...")
         self.GEOS = fetch_geos(self.DATA.index, self.YEAR, 'ACS')
         return self
@@ -544,14 +546,14 @@ class ACS:
             map_data.columns = [", ".join(filter(None, x)) for x in map_data.columns]
 
         # Join the geometries to the data
-        if verbose:
+        if self.VERBOSE:
             print("MESSAGE | morpc.census.ACS.explore | Joining geometries to data...")
         if not isinstance(map_data, gpd.GeoDataFrame):
             map_data['geometry'] = [self.GEOS.loc[x, 'geometry'] for x in map_data.reset_index()['GEO_ID']]
             map_data = gpd.GeoDataFrame(map_data, geometry='geometry', crs=self.GEOS.crs)
 
         # Create the map object and return the folium map
-        if verbose:
+        if self.VERBOSE:
             print("MESSAGE | morpc.census.ACS.explore | Creating map...")
         self.MAP = morpc.plot.map.MAP(map_data, id_col='NAME')
         
@@ -585,7 +587,7 @@ class ACS:
         self.DATA_PATH = os.path.join(output_dir, self.DATA_FILENAME)
 
         # Save the data
-        if verbose:
+        if self.VERBOSE:
             print(f"MESSAGE | morpc.census.ACS.save | Saving data to {self.DATA_PATH}...")
         self.DATA.reset_index().to_csv(self.DATA_PATH, index=False)
 
@@ -605,7 +607,7 @@ class ACS:
 
         # Write the resource
         dummy = self.RESOURCE.to_yaml(self.RESOURCE_FILENAME)
-        if verbose:
+        if self.VERBOSE:
             print(f"MESSAGE | morpc.census.ACS.save | Resource saved to {self.RESOURCE_PATH}. Validating resource...")
         validation = frictionless.Resource(self.RESOURCE_FILENAME).validate()
 
@@ -635,7 +637,7 @@ class ACS:
         import morpc
         import IPython
 
-        if verbose:
+        if self.VERBOSE:
             print(f"MESSAGE | morpc.census.ACS.define_schema | Defining schema for {self.GROUP} for {self.SURVEY}-year survey in {self.YEAR}...")
         variables = self.VARS
 
@@ -678,7 +680,7 @@ class ACS:
         # Validate
         results = frictionless.Schema.validate_descriptor(acsSchema)
         if(results.valid == True):
-            if verbose:
+            if self.VERBOSE:
                 print(f"MESSAGE | morpc.census.ACS.define_schema | Schema is valid.")
         else:
             print("ERROR | morpc.census.ACS.define_schema | Schema is NOT valid. Errors follow.")
@@ -702,7 +704,7 @@ class ACS:
 
 
         # Build the resource dictionary
-        if verbose:
+        if self.VERBOSE:
             print(f"MESSAGE | morpc.census.ACS | Defining resource for {self.GROUP} for {self.SURVEY}-year survey in {self.YEAR}...")
 
         acsResource = {
@@ -809,6 +811,7 @@ class DimensionTable:
         --------
         morpc.census.DimensionTable
         """
+        self.VERBOSE = verbose
         self.GROUP = group
         self.SURVEY = survey
         self.YEAR = year
@@ -819,13 +822,13 @@ class DimensionTable:
         else:
             self.DIMENSIONS = None
 
-        self.LONG = self.define_long(verbose=verbose)
+        self.LONG = self.define_long()
         # self.LONG_SCHEMA = self.define_long_schema(schema, dimensions, year)
-        self.WIDE = self.define_wide(verbose=verbose)
-        self.PERCENT = self.define_percent(verbose=verbose)
+        self.WIDE = self.define_wide()
+        self.PERCENT = self.define_percent()
 
 
-    def define_long(self, verbose=verbose):
+    def define_long(self):
         """Creates a dataframe in long format showing the variables as dimensions of the data.
 
         Parameters:
@@ -847,7 +850,7 @@ class DimensionTable:
         else:
             index = ['GEO_ID', 'NAME']
 
-        if verbose:
+        if self.VERBOSE:
             print(f"MESSAGE | morpc.census.DimensionTable.define_long | Creating long format table.")
 
         # Pivot the data long
@@ -856,7 +859,7 @@ class DimensionTable:
         # Add variable type column
         long['VAR_TYPE'] = long['VARIABLE'].apply(lambda x:'Estimate' if x[-1] == 'E' else 'MOE')
 
-        if verbose:
+        if self.VERBOSE:
             print(f"MESSAGE | morpc.census.DimensionTable.define_long | Creating description table.")
         # Create the table with a column for each dimension in the the descriptions.
         self.DESC_TABLE = self.get_desc_table()
@@ -864,13 +867,13 @@ class DimensionTable:
 
         # Name each column in the description table as a dimension
         if self.DIMENSIONS is not None:
-            if verbose:
+            if self.VERBOSE:
                 print(f"MESSAGE | morpc.census.DimensionTable.define_long | Using custom dimension names: {self.DIMENSIONS}")
                 self.DESC_TABLE.columns = self.DIMENSIONS[0:len(self.DESC_TABLE.columns)]
         else:
             
             self.DIMENSIONS = [f"DIM_{x}" for x in range(len(self.DESC_TABLE.columns))]
-            if verbose:
+            if self.VERBOSE:
                 print(f"MESSAGE | morpc.census.DimensionTable.define_long | Using default dimension names: {", ".join(self.DIMENSIONS)}.")
             self.DESC_TABLE.columns = self.DIMENSIONS
 
@@ -887,7 +890,7 @@ class DimensionTable:
         long['REFERENCE_YEAR'] = self.YEAR
 
         # Replace missing values with np.nan
-        if verbose:
+        if self.VERBOSE:
             print(f"MESSAGE | morpc.census.DimensionTable.define_long | Replacing missing values with NaN...")
         for missing in [pd.to_numeric(x) for x in self.SCHEMA.missing_values]:
             long['VALUE'] = long['VALUE'].replace(missing, np.nan)
@@ -964,17 +967,17 @@ class DimensionTable:
             }]
         }
 
-    def define_wide(self, verbose=verbose):
+    def define_wide(self):
 
-        if verbose:
+        if self.VERBOSE:
             print(f"MESSAGE | morpc.census.DimensionTable.define_wide | Creating wide format table.")   
         wide = self.LONG.loc[self.LONG['VAR_TYPE']=='Estimate'] \
             .drop(columns = ['VARIABLE', 'VAR_TYPE']) \
             .pivot_table(values = 'VALUE', columns = ['GEO_ID', 'NAME', 'REFERENCE_YEAR'], index = self.DIMENSIONS).T
         return wide.T
 
-    def define_percent(self, verbose=verbose):
-        if verbose:
+    def define_percent(self):
+        if self.VERBOSE:
             print(f"MESSAGE | morpc.census.DimensionTable.define_percent | Creating percent table.")
         total = self.WIDE.T.iloc[:,0].copy()
         percent = self.WIDE.T.iloc[:,1:].copy()

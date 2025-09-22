@@ -35,7 +35,7 @@ SCOPES = {
         "state": "39",
         "county": [morpc.CONST_COUNTY_NAME_TO_ID[x][2:6] for x in morpc.CONST_REGIONS["CORPO Region"]]
         },
-    "regionmpo-parts": {
+    "regionmpo-members": {
         "ucgid": [
             '1550000US3902582041',
             '0700000US390410577499999',
@@ -155,70 +155,6 @@ def get_query_req(sumlevel):
 
     return query_requirements
 
-def pseudos_from_scale_scope(scale, scope):
-    """
-    Creates a query string for CENSUS API using ucgid=pseudo(). 
-
-    See https://www.census.gov/data/developers/guidance/api-user-guide/ucgid-predicate.html
-
-    Parameters:
-    -----------
-    scale : str
-        The geographic scale (e.g., 'county', 'tract', 'block group').
-    scope : str
-        The geographic scope (e.g., 'us', 'ohio', 'region15').
-
-    Returns:
-    str
-        A string to pass to ucgid parameter in morpc.census.ACS.query()
-    """
-
-    import morpc
-
-    # Get available scales from morpc SUMLEVEL_DESCRIPTIONS
-    available_scales = [morpc.SUMLEVEL_DESCRIPTIONS[x]['censusQueryName'] for x in morpc.SUMLEVEL_DESCRIPTIONS]
-
-    # Validate inputs
-    if scale not in available_scales:
-        raise ValueError(f"Scale '{scale}' is not recognized. Available scales: {available_scales}")
-    
-    if scope not in SCOPES:
-        raise ValueError(f"Scope '{scope}' is not recognized. Available scopes: {list(SCOPES.keys())}")
-    
-    # Map scale to sumlevel code
-    sumlevel = morpc.SUMLEVEL_FROM_CENSUSQUERY[scale]
-
-    scope_dict = morpc.census.geos.SCOPES[scope]
-
-    child = f"{sumlevel}0000"
-
-    parents = []
-    if "county" in scope_dict:
-        if "state" not in scope_dict:
-            print('Scope not valid.')
-            raise ValueError
-        if "state" in scope_dict:
-            if isinstance(scope_dict['state'], str):
-                state_id = scope_dict['state']
-            else:
-                print("Scope not valid")
-                raise ValueError
-        for county_id in scope_dict['county']:
-            parents.append(f'050000US{state_id}{county_id}')
-    if "county" not in scope_dict:
-        if "state" in scope_dict:
-            if isinstance(scope_dict['state'], str):
-                parents.append(f'0400000US{scope_dict['state']}')
-            if isinstance(scope_dict['state'], list):
-                for state_id in scope_dict['state']:
-                    parents.append(f'0400000US{state_id}')
-    
-    pseudos = []
-    for parent in parents:
-        pseudos.append(f"{parent}${child}")
-
-    return pseudos
-
 def in_param_from_scope(scope):
     params = []
     for key in morpc.census.SCOPES[scope]:
@@ -327,7 +263,5 @@ def geoids_from_params(for_params, in_params):
     # Extract UCGIDs from the response
     ucgids = [x[0] for x in json[1:]]
     return ucgids
-
-
 
 
