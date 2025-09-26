@@ -1131,12 +1131,6 @@ def load_spatial_data(sourcePath, layerName=None, driverName=None, archiveDir=No
     else:
         gdf = gpd.read_file(sourcePath, layer=layerName, driver=driverName, engine="pyogrio", fid_as_index=True)
 
-    # When reading a File Geodatabase, Geopandas automatically sets the FID (OBJECTID) field to the index.
-    # In this case, reset the index, preserving the name of this field.
-    if(driverName == "OpenFileGDB"):
-        gdf.index.name="OBJECTID"
-        gdf = gdf.reset_index()
-
     # If the user has specified an archive directory, create an archival copy of the data as a layer in a GeoPackage
     if(archiveDir != None):
         # If no file name was specified, we need to assign one
