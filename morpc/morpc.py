@@ -1060,7 +1060,15 @@ def wget(url, archive_dir = './input_data', verbose=True):
     if not os.path.exists(archive_dir):
         os.mkdir(archive_dir)
 
-    subprocess.run(cmd, check=True, capture_output=verbose, text=verbose)
+    try:
+        results = subprocess.run(cmd, check=True, capture_output=True, text=True)
+        if verbose:
+            print(results.stdout)
+    except subprocess.CalledProcessError as e:
+        print(f"Failed to download file: {e}")
+        print(f"Stdout: {e.stdout}")
+        print(f"Stderr: {e.stderr}")
+
 
 
 # Load spatial data

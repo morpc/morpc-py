@@ -365,7 +365,7 @@ class ACS:
 
         import morpc
         import os
-        import datetime
+        from datetime import datetime
 
         # Define the path to the resource file and extract the directory and filename.
         self.RESOURCE_PATH = resource_path
@@ -423,7 +423,7 @@ class ACS:
 
         """
         import morpc
-        import datetime
+        from datetime import datetime
 
         params = morpc.census.geos.params_from_scale_scope(scale, scope)
 
@@ -729,9 +729,9 @@ class ACS:
           # A title with basic data and scope
           # TODO: Implement a custom description for the scope here as well as in .query().
           # Issue URL: https://github.com/morpc/morpc-py/issues/43
-          "title": f"{self.YEAR} American Community Survey {self.SURVEY}-Year Estimates for {'Custom Geography' if self.SCOPE == None else morpc.census.geos.SCOPES[self.SCOPE]['desc']}.".title(),
+          "title": f"{self.YEAR} American Community Survey {self.SURVEY}-Year Estimates for {'custom geography (see sources._params)' if self.SCOPE == None else self.SCOPE}.".title(),
           # A full description of the data. 
-          "description": f"Selected variables from {self.YEAR} ACS {self.SURVEY}-Year estimates for {'custom geography (see sources._params)' if self.SCOPE == None else morpc.census.geos.SCOPES[self.SCOPE]['desc']}. Data was retrieved {datetime.datetime.today().strftime('%Y-%m-%d')}",
+          "description": f"Selected variables from {self.YEAR} ACS {self.SURVEY}-Year estimates for {'custom geography (see sources._params)' if self.SCOPE == None else self.SCOPE}. Data was retrieved {datetime.datetime.today().strftime('%Y-%m-%d')}",
           "format": "csv",
           "mediatype": "text/csv",
           "encoding": "utf-8",

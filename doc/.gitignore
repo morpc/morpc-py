@@ -1,4 +1,5 @@
 # MyST build outputs
 _build
 temp_data/
+output_data/
 api_key.txt
