@@ -202,17 +202,21 @@ def params_from_scale_scope(scale, scope):
     # Map scale to sumlevel code
     sumlevel = morpc.SUMLEVEL_FROM_CENSUSQUERY[scale]
 
-    # Get query requirements for the specified sumlevel
-    query_requirements = get_query_req(sumlevel)
-
     for_params = f"{morpc.SUMLEVEL_DESCRIPTIONS[sumlevel]['censusQueryName']}:*"
 
     in_params = in_param_from_scope(scope)
 
     in_list = [x.split(':')[0] for x in in_params]
 
-    req_list = [value for values in query_requirements.values() for value in values]
-    req_list.append(morpc.SUMLEVEL_DESCRIPTIONS[sumlevel]['censusQueryName'])
+    # Get query requirements for the specified sumlevel
+    query_requirements = get_query_req(sumlevel)
+
+    # Check if the requirements are more than None
+    if len([x for x in query_requirements.values() if x != None]) > 0:
+        req_list = [value for values in query_requirements.values() for value in values]
+        req_list.append(morpc.SUMLEVEL_DESCRIPTIONS[sumlevel]['censusQueryName'])
+    else:
+        req_list = [None]
 
     for x in in_list:
         if x not in req_list:

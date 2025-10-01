@@ -375,7 +375,9 @@ class ACS:
         # Need to change directories to location of file to read using load data.
         cwd = os.getcwd()
         if not os.path.exists(self.RESOURCE_PATH):
-            raise FileNotFoundError(f"ERROR | morpc.census.ACS.load |File {self.RESOURCE_PATH} does not exist. Please check the path and try again.")
+            logstr = f"{datetime.now()} | ERROR | morpc.census.ACS.load |File {self.RESOURCE_PATH} does not exist. Please check the path and try again."
+            self.LOG.append(logstr)
+            raise FileNotFoundError(logstr)
         os.chdir(self.DIRNAME)
 
         # Load data and store some of the constants from resource.
@@ -392,14 +394,18 @@ class ACS:
         os.chdir(cwd)
 
         # Rebuild dimension tables and store geographies
-        if self.VERBOSE:
-            print("MESSAGE | morpc.census.ACS.load | Wrangling data types and rebuilding dimension tables...")
-
         self.DATA = self.DATA.set_index('GEO_ID')
         self.DIM_TABLE = morpc.census.DimensionTable(self.DATA, self.SCHEMA, self.YEAR)
+
+        logstr = f"{datetime.now()} | INFO | morpc.census.ACS.load | Creating tables from data. {len(self.DIM_TABLE.LONG)} observations."
+        self.LOG.append(logstr)
+        if self.VERBOSE:
+            print(logstr)
+
+        self.GEOS = self.define_geos()
+        logstr = f"{datetime.now()} | INFO | Retrieving geometries. {len(self.GEOS)} total geometries."
         if self.VERBOSE:
             print("MESSAGE | morpc.census.ACS.load | Fetching geometries...")
-        self.GEOS = self.define_geos()
 
         return self
     
@@ -417,11 +423,16 @@ class ACS:
 
         """
         import morpc
+        import datetime
 
         params = morpc.census.geos.params_from_scale_scope(scale, scope)
 
         scope_name = f"{scale}-{scope}"
 
+        logstr = f"{datetime.now()} | INFO | Using scale and scope to retrieve all {scale} in {scope}."
+        self.LOG.append(logstr)
+        if self.VERBOSE:
+            print(logstr)
         self.query(for_param=params[0], in_param=params[1], scope=scope_name)
 
         return self
@@ -447,14 +458,18 @@ class ACS:
         import morpc
         from datetime import datetime
 
+        logstr = f"{datetime.now()} | INFO | morpc.census.ACS.query | Querying data for {self.GROUP} for {self.SURVEY}-year survey in {self.YEAR}..."
+        self.LOG.append(logstr)
         if self.VERBOSE:
-            print(f"MESSAGE | morpc.census.ACS.query | Querying data for {self.GROUP} for {self.SURVEY}-year survey in {self.YEAR}...")
+            print(logstr)
 
-
-        # Check to make sure that 
+        # Check to make sure that variables in the get parameters are in the data.
         if get_param is not None:
             if not isinstance(get_param, list):
-                print('get_param must be a list')
+                logstr = f"{datetime.now()} | ERROR | Get parameters {get_param} must be a list."
+                self.LOG.append(logstr)
+                if self.VERBOSE:
+                    print(logstr)
             temp = {}
             for VAR in self.VARS:
                 if VAR not in get_param:
