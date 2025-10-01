@@ -1038,7 +1038,7 @@ def avro_cast_field_types(df, schema, forceInteger=False, forceInt64=False, verb
 
     return outDF
 
-def wget(url, archive_dir = './input_data'):
+def wget(url, archive_dir = './input_data', verbose=True):
     """
     This function uses wget within a subprocess call to retrieve a file from an ftp site. This is used as a means of retrieving Census TigerLine shapefiles.
 
@@ -1060,7 +1060,7 @@ def wget(url, archive_dir = './input_data'):
     if not os.path.exists(archive_dir):
         os.mkdir(archive_dir)
 
-    subprocess.run(cmd, check=True)
+    subprocess.run(cmd, check=True, capture_output=verbose, text=verbose)
 
 
 # Load spatial data
