@@ -325,7 +325,7 @@ class ACS:
             The year of the survey. For 5 year survey it is the ending year
 
         survey : str
-            Number of years representing the ACS Survey, "1" or "5"
+            type of survey - acs1, acs5 currently impemented
         """
         from datetime import datetime
         self.LOG = []
@@ -339,7 +339,7 @@ class ACS:
         self.SURVEY = survey
 
         self.VARS = get_variable_dict(year, survey, group)
-        logstr = f"{datetime.now()} | INFO | morpc.census.ACS | Concept '{self.VARS[[x for x in self.VARS][1]]['concept']}' has {len(self.VARS)} variables."
+        logstr = f"{datetime.now()} | INFO | morpc.census.ACS | Concept '{self.VARS[[x for x in self.VARS][0]]['concept']}' has {len(self.VARS)} variables."
         self.LOG.append(logstr)
         if self.VERBOSE:
             print(logstr)
@@ -487,9 +487,9 @@ class ACS:
         # Issue URL: https://github.com/morpc/morpc-py/issues/46
 
         if scope is None:
-            self.NAME = f"morpc-acs{self.SURVEY}-{self.YEAR}-custom-{self.GROUP}-{datetime.now().strftime(format='%Y%m%d')}".lower()
+            self.NAME = f"morpc-{self.SURVEY}-{self.YEAR}-custom-{self.GROUP}-{datetime.now().strftime(format='%Y%m%d')}".lower()
         else:
-            self.NAME = f"morpc-acs{self.SURVEY}-{self.YEAR}-{self.SCOPE}-{self.GROUP}-{datetime.now().strftime(format='%Y%m%d')}".lower()
+            self.NAME = f"morpc-{self.SURVEY}-{self.YEAR}-{self.SCOPE}-{self.GROUP}-{datetime.now().strftime(format='%Y%m%d')}".lower()
             print(f"MESSAGE | morpc.census.ACS.query | NAME set to {self.NAME}...")
 
         # Build the schema from the list of variables.
@@ -507,7 +507,7 @@ class ACS:
             self.API_PARAMS['ucgid'] = ucgid_param
 
         # Construct the url
-        self.API_URL = f"https://api.census.gov/data/{self.YEAR}/acs/acs{self.SURVEY}"
+        self.API_URL = f"https://api.census.gov/data/{self.YEAR}/acs/{self.SURVEY}"
 
         if self.VERBOSE:
             print(f"MESSAGE | morpc.census.ACS.query | Querying data from {self.API_URL} with parameters:")
@@ -576,8 +576,8 @@ class ACS:
         """
         Method for exploring the data using a folium map. Leverages morpc.plot.map.MAP class.
         """
-        if not hasattr(self, 'MAP'):
-            self.MAP = self.map(table=table, verbose=verbose)
+        self.MAP = self.map(table=table, verbose=verbose)
+
         return self.MAP.explore()
     
     def save(self, output_dir="./output_data", verbose=True):
@@ -799,7 +799,8 @@ def get_variable_dict(year, survey, group):
     """
     import requests
 
-    varlist_url = f"https://api.census.gov/data/{year}/acs/acs{survey}/variables.json"
+    varlist_url = f"https://api.census.gov/data/{year}/acs/{survey}/variables.json"
+    print(varlist_url)
     r = requests.get(varlist_url)
     json = r.json()
     variables = {}
@@ -923,7 +924,7 @@ class DimensionTable:
         import pandas as pd
         from numpy import nan
 
-        r = requests.get(f'https://api.census.gov/data/{self.YEAR}/acs/acs{self.SURVEY}/variables.json')
+        r = requests.get(f'https://api.census.gov/data/{self.YEAR}/acs/{self.SURVEY}/variables.json')
         try:
             varjson = r.json()
         except:
