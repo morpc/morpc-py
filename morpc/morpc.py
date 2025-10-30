@@ -1,4 +1,6 @@
 import json
+import pandas as pd
+
 
 # PANDAS_EXPORT_ARGS_OVERRIDE is a dictionary indexed by tabular output format (csv, xlsx, etc.) whose
 # keys contain overrides for the default values for the arguments for the pandas functions used to
@@ -26,6 +28,83 @@ CONST_COLUMBUS_MSA_ID = '18140'
 CONST_OHIO_STATE_ID = '39'
 CONST_OHIO_REGION_ID = '2'      # Midwest
 CONST_OHIO_DIVISION_ID = '3'    # East North Central
+
+# Functions to fetch and define geographic identifiers and scopes
+def get_state_ids():
+    """
+    Returns a list of all state FIPS codes.
+    """
+    import requests
+    url = 'https://api.census.gov/data/2023/geoinfo?get=NAME&for=state:*'
+
+    r = requests.get(url)
+    data = r.json()
+    # convert to dictionary
+    state_dict = {item[0].lower(): pd.to_numeric(item[1]) for item in data[1:]}
+    r.close()
+
+    return state_dict
+
+# State name and abbreviation lookups
+CONST_STATE_NAME_TO_ID = get_state_ids()
+CONST_STATE_ID_TO_NAME = {value: key for key, value in CONST_STATE_NAME_TO_ID.items()}
+CONST_STATE_NAME_TO_ABBR = {
+    "alabama": "al",
+    "alaska": "ak",
+    "arizona": "az",
+    "arkansas": "ar",
+    "california": "ca",
+    "colorado": "co",
+    "connecticut": "ct",
+    "delaware": "de",
+    "florida": "fl",
+    "georgia": "ga",
+    "hawaii": "hi",
+    "idaho": "id",
+    "illinois": "il",
+    "indiana": "in",
+    "iowa": "ia",
+    "kansas": "ks",
+    "kentucky": "ky",
+    "louisiana": "la",
+    "maine": "me",
+    "maryland": "md",
+    "massachusetts": "ma",
+    "michigan": "mi",
+    "minnesota": "mn",
+    "mississippi": "ms",
+    "missouri": "mo",
+    "montana": "mt",
+    "nebraska": "ne",
+    "nevada": "nv",
+    "new hampshire": "nh",
+    "new jersey": "nj",
+    "new mexico": "nm",
+    "new york": "ny",
+    "north carolina": "nc",
+    "north dakota": "nd",
+    "ohio": "oh",
+    "oklahoma": "ok",
+    "oregon": "or",
+    "pennsylvania": "pa",
+    "rhode island": "ri",
+    "south carolina": "sc",
+    "south dakota": "sd",
+    "tennessee": "tn",
+    "texas": "tx",
+    "utah": "ut",
+    "vermont": "vt",
+    "virginia": "va",
+    "washington": "wa",
+    "west virginia": "wv",
+    "wisconsin": "wi",
+    "wyoming": "wy",
+    "district of columbia": "dc"
+}
+CONST_STATE_ABBR_TO_NAME = {value: key for key, value in CONST_STATE_NAME_TO_ABBR.items()}
+
+CONST_STATE_ABBR_TO_ID = {value: CONST_STATE_NAME_TO_ID[key] for key, value in CONST_STATE_NAME_TO_ABBR.items()}
+
 
 # Region definitions
 # The following lists represent various definitions for "Central Ohio" based on collections of counties.
@@ -175,7 +254,7 @@ SUMLEVEL_DESCRIPTIONS = {
         "idField":"NATIONID",
         "nameField":"NATION",
         "censusQueryName": "us",
-        "censusQuery" : "us:*"
+        "censusRestAPI_layername": None
     },
     '020': {
         "singular":"Census region",
@@ -185,7 +264,7 @@ SUMLEVEL_DESCRIPTIONS = {
         "idField":"REGIONID",
         "nameField":"REGION",
         "censusQueryName": "region",
-        "censusQuery": "region:*"
+        "censusRestAPI_layername": 'regions'
     },
     '030': {
         "singular":"division",
@@ -195,7 +274,7 @@ SUMLEVEL_DESCRIPTIONS = {
         "idField":"DIVISONID",
         "nameField":"DIVISION",
         "censusQueryName": "division",
-        "censusQuery": "division:*"
+        "censusRestAPI_layername": 'divisions'
     },
     '040': {
         "singular":"state",
@@ -205,7 +284,7 @@ SUMLEVEL_DESCRIPTIONS = {
         "idField":"STATEFP",
         "nameField":"STATE",
         "censusQueryName": "state",
-        "censusQuery": "state:*"
+        "censusRestAPI_layername": 'states'
     },
     '050': {
         "singular":"county",
@@ -215,7 +294,8 @@ SUMLEVEL_DESCRIPTIONS = {
         "idField":"COUNTYFP",
         "nameField":"COUNTY",
         "censusQueryName": "county",
-        "censusQuery": "county:*"
+        "censusRestAPI_layername": 'counties'
+        
     },
     '060': {
         "singular":"county subdivision",
@@ -225,7 +305,7 @@ SUMLEVEL_DESCRIPTIONS = {
         "idField":"COUSUBFP",
         "nameField":"COUSUB",
         "censusQueryName": "county subdivision",
-        "censusQuery": "county subdivision:*"
+        "censusRestAPI_layername": 'county subdivisions'
     },
     '070': {
         "singular":"county subdivision part/remainder",
@@ -235,7 +315,7 @@ SUMLEVEL_DESCRIPTIONS = {
         "idField":"COUSUBPARTID",
         "nameField":"COUSUBPART",
         "censusQueryName": "place/remainder (or part)",
-        "censusQuery": "place/remainder (or part):*"
+        "censusRestAPI_layername": None
     },
     # NOTE: Some references use SUMLEVEL 750 for block in the PL94 data, but the API
     # uses SUMLEVEL 100
@@ -246,7 +326,8 @@ SUMLEVEL_DESCRIPTIONS = {
         "authority":"census",
         "idField":"BLOCKCE",
         "nameField":None,
-        "censusQueryName": None
+        "censusQueryName": None,
+        "censusRestAPI_layername": 'blocks'
     },
     '140': {
         "singular":"tract",
@@ -256,7 +337,7 @@ SUMLEVEL_DESCRIPTIONS = {
         "idField":"TRACTCE",
         "nameField":None,
         "censusQueryName": "tract",
-        "censusQuery": "tract:*"
+        "censusRestAPI_layername": 'tracts'
     },
     '150': {
         "singular":"block group",
@@ -266,7 +347,7 @@ SUMLEVEL_DESCRIPTIONS = {
         "idField":"BLKGRPCE",
         "nameField":None,
         "censusQueryName": "block group",
-        "censusQuery": "block group:*"
+        "censusRestAPI_layername": 'block groups'
     },
     '155': {
         "singular":"place county part",
@@ -276,7 +357,7 @@ SUMLEVEL_DESCRIPTIONS = {
         "idField":"PLACEPARTID",
         "nameField":"PLACEPART",
         "censusQueryName": "county (or part)",
-        "censusQuery": "county (or part):*"
+        "censusRestAPI_layername": None
     },
     '160': {
         "singular":"place",
@@ -286,7 +367,7 @@ SUMLEVEL_DESCRIPTIONS = {
         "idField":"PLACEFP",
         "nameField":"PLACE",
         "censusQueryName": "place",
-        "censusQuery": "place:*"
+        "censusRestAPI_layername": 'incorporated places'
     },
     '310': {
         "singular":"core-based statistical area",
@@ -296,7 +377,7 @@ SUMLEVEL_DESCRIPTIONS = {
         "idField":"CBAFP",
         "nameField":"CBSA",
         "censusQueryName": "metropolitan statistical area/micropolitan statistical area",
-        "censusQuery": "metropolitan statistical area/micropolitan statistical area:*"
+        "censusRestAPI_layername": 'metropolitan statistical areas'
     },
     '330': {
         "singular":"combined statistical area",
@@ -306,7 +387,7 @@ SUMLEVEL_DESCRIPTIONS = {
         "idField":"CSAFP",
         "nameField":"CSA",
         "censusQueryName": "combined statistical area",
-        "censusQuery": "combined statistical area:*"
+        "censusRestAPI_layername": 'combined statistical areas'
     },
     '400': {
         "singular":"urban area",
@@ -316,7 +397,7 @@ SUMLEVEL_DESCRIPTIONS = {
         "idField":"UACE",
         "nameField":"URBANAREA",
         "censusQueryName": "urban area",
-        "censusQuery": "urban area:*"
+        "censusRestAPI_layername": 'urban areas'
     },
     '500': {
         "singular":"congressional district",
@@ -326,8 +407,7 @@ SUMLEVEL_DESCRIPTIONS = {
         "idField":"CDFP",  # Census uses CDNNNFP where NNN is the congressional session number
         "nameField":"CONGRESS",
         "censusQueryName": "congressional district",
-        "censusQuery": "congressional district:*"
-
+        "censusRestAPI_layername": 'congressional districts'
     },
     '610': {
         "singular":"state senate district",
@@ -337,7 +417,7 @@ SUMLEVEL_DESCRIPTIONS = {
         "idField":"SLDUST",
         "nameField":None,
         "censusQueryName": "state legislative district (upper chamber)",
-        "censusQuery": "state legislative district (upper chamber):*"
+        "censusRestAPI_layername": 'state legislative districts - upper'
     },
     '620': {
         "singular":"state house district",
@@ -347,7 +427,8 @@ SUMLEVEL_DESCRIPTIONS = {
         "idField":"SLDLST",
         "nameField":None,
         "censusQueryName": "state legislative district (lower chamber)",
-        "censusQuery": "state legislative district (lower chamber):*"
+        "censusRestAPI_layername": 'state legislative districts - lower'    
+
     },
     '795': {
         "singular":"public use microdata area",
@@ -357,7 +438,7 @@ SUMLEVEL_DESCRIPTIONS = {
         "idField":"PUMACE",
         "nameField":"PUMA",
         "censusQueryName": "public use microdata area",
-        "censusQuery": "public use microdata area:*"
+        "censusRestAPI_layername": 'public use microdata areas'
     },
     '850': {
         "singular":"zip code tabulation area",
@@ -366,17 +447,18 @@ SUMLEVEL_DESCRIPTIONS = {
         "authority":"census",
         "idField":"ZCTA3CE",
         "nameField":None,
-        "censusQueryName": None
+        "censusQueryName": None,
+        "censusRestAPI_layername": None
     },
     '860': {
         "singular":"zip code tabulation area",
-        "plural":"zip code tabulation area",
+        "plural":"zip code tabulation areas",
         "hierarchy_string":"ZCTA5",
         "authority":"census",
         "idField":"ZCTA5CE",
         "nameField":None,
         "censusQueryName": "zip code tabulation area",
-        "censusQuery": "zip code tabulation area:*"
+        "censusRestAPI_layername": 'zip code tabulation areas'
     },
     '930': {
         "singular":"MPO region",
@@ -385,7 +467,8 @@ SUMLEVEL_DESCRIPTIONS = {
         "authority":"census",
         "idField":"MPOREGIONID",
         "nameField":"MPOREGION",
-        "censusQueryName": None
+        "censusQueryName": None,
+        "censusRestAPI_layername": None
     },
     '950': {
         "singular":"elementary school district",
@@ -395,7 +478,7 @@ SUMLEVEL_DESCRIPTIONS = {
         "idField":"ELSDLEA",
         "nameField":"SCHOOLDELEM",
         "censusQueryName": "school district (elementry)",
-        "censusQuery": "school district (elementry):*"
+        "censusRestAPI_layername": 'elementary school districts'
     },
     '960': {
         "singular":"high school district",
@@ -405,7 +488,7 @@ SUMLEVEL_DESCRIPTIONS = {
         "idField":"SCSDLEA",
         "nameField":"SCHOOLDHIGH",
         "censusQueryName": "school district (secondary)",
-        "censusQuery": "school district (secondary):*"
+        "censusRestAPI_layername": 'secondary school districts'
     },
     '970': {
         "singular":"unified school district",
@@ -415,7 +498,7 @@ SUMLEVEL_DESCRIPTIONS = {
         "idField":"UNSDLEA",
         "nameField":"SCHOOLD",
         "censusQueryName": "school district (unified)",
-        "censusQuery": "school district (unified):*"
+        "censusRestAPI_layername": 'unified school districts'
     },
     'M01': {
         "singular":"MORPC 15-county region",
@@ -425,7 +508,7 @@ SUMLEVEL_DESCRIPTIONS = {
         "idField":"REGION15ID",
         "nameField":"REGION15",
         "censusQueryName": "region15",
-        "censusQuery": ["state:39", f"county:{(','.join([CONST_COUNTY_NAME_TO_ID[x][2:6] for x in CONST_REGIONS['15-County Region']]))}"]
+        "censusRestAPI_layername": None
     },
     'M02': {
         "singular":"MORPC 10-county region",
@@ -435,7 +518,7 @@ SUMLEVEL_DESCRIPTIONS = {
         "idField":"REGION10ID",
         "nameField":"REGION10",
         "censusQueryName": "region10",
-        "censusQuery": ["state:39", f"county:{','.join([CONST_COUNTY_NAME_TO_ID[x][2:6] for x in CONST_REGIONS['10-County Region']])}"]
+        "censusRestAPI_layername": None
     },
     'M03': {
         "singular":"MORPC 7-county region",
@@ -445,7 +528,7 @@ SUMLEVEL_DESCRIPTIONS = {
         "idField":"REGION7ID",
         "nameField":"REGION7",
         "censusQueryName": "region7",
-        "censusQuery": ["state:39", f"county:{','.join([CONST_COUNTY_NAME_TO_ID[x][2:6] for x in CONST_REGIONS['7-County Region']])}"]
+        "censusRestAPI_layername": None
 
     },
     'M04': {
@@ -456,7 +539,7 @@ SUMLEVEL_DESCRIPTIONS = {
         "idField":"REGIONCORPOID",
         "nameField":"REGIONCORPO",
         "censusQueryName": "regioncorpo",
-        "censusQuery": ["state:39", f"county:{','.join([CONST_COUNTY_NAME_TO_ID[x][2:6] for x in CONST_REGIONS['CORPO Region']])}"]
+        "censusRestAPI_layername": None
     },
     'M05': {
         "singular":"MORPC CEDS region",
@@ -466,7 +549,7 @@ SUMLEVEL_DESCRIPTIONS = {
         "idField":"REGIONCEDSID",
         "nameField":"REGIONCEDS",
         "censusQueryName": "regionceds",
-        "censusQuery": ["state:39", f"county:{','.join([CONST_COUNTY_NAME_TO_ID[x][2:6] for x in CONST_REGIONS['CEDS Region']])}"]
+        "censusRestAPI_layername": None
     },
     'M06': {
         "singular":"MORPC MPO region",
@@ -476,7 +559,7 @@ SUMLEVEL_DESCRIPTIONS = {
         "idField":"REGIONMPOID",
         "nameField":"REGIONMPO",
         "censusQueryName": "regionmpo",
-        "censusQuery":  None
+        "censusRestAPI_layername": None
     },
     'M07': {
         "singular":"MORPC TDM region",
@@ -485,7 +568,8 @@ SUMLEVEL_DESCRIPTIONS = {
         "authority":"morpc",
         "idField":"REGIONTDMID",
         "nameField":"REGIONTDM",
-        "censusQueryName": "regiontdm"
+        "censusQueryName": "regiontdm",
+        "censusRestAPI_layername": None
     },
     'M08': {
         "singular":"OneColumbus region",
@@ -495,7 +579,7 @@ SUMLEVEL_DESCRIPTIONS = {
         "idField":"REGIONONECBUSID",
         "nameField":"REGIONONECBUS",
         "censusQueryName": 'regiononecbus',
-        "censusQuery": ["state:39", f"county:{','.join([CONST_COUNTY_NAME_TO_ID[x][2:6] for x in CONST_REGIONS['OneColumbus Region']])}"]
+        "censusRestAPI_layername": None
     },
     'M10': {
         "singular":"Jurisdiction",
@@ -504,7 +588,8 @@ SUMLEVEL_DESCRIPTIONS = {
         "authority":"morpc",
         "idField":"JURISID",
         "nameField":"JURIS",
-        "censusQueryName": None
+        "censusQueryName": None,
+        "censusRestAPI_layername": None
     },
     'M11': {
         "singular":"Jurisdiction county part",
@@ -513,7 +598,8 @@ SUMLEVEL_DESCRIPTIONS = {
         "authority":"morpc",
         "idField":"JURISPARTID",
         "nameField":"JURISPART",
-        "censusQueryName": None
+        "censusQueryName": None,
+        "censusRestAPI_layername": None
     },
     'M20': {
         "singular":"Traffic analysis zone",
@@ -522,7 +608,8 @@ SUMLEVEL_DESCRIPTIONS = {
         "authority":"morpc",
         "idField":"TAZ2020",
         "nameField":None,
-        "censusQueryName": None
+        "censusQueryName": None,
+        "censusRestAPI_layername": None
     },
     'M21': {
         "singular":"Micro analysis zone",
@@ -531,7 +618,8 @@ SUMLEVEL_DESCRIPTIONS = {
         "authority":"morpc",
         "idField":"MAZ2020",
         "nameField":None,
-        "censusQueryName": None
+        "censusQueryName": None,
+        "censusRestAPI_layername": None
     },
     'M22': {
         "singular":"GridMAZ zone",
@@ -540,7 +628,8 @@ SUMLEVEL_DESCRIPTIONS = {
         "authority":"morpc",
         "idField":"GridMAZ20",
         "nameField":None,
-        "censusQueryName": None
+        "censusQueryName": None,
+        "censusRestAPI_layername": None
     },
     # Sumlevels M23 to M29 correspond to sumlevels defined above, but are
     # derived from MORPC-maintained geographies rather than Census-maintained
@@ -616,6 +705,7 @@ SUMLEVEL_DESCRIPTIONS = {
 # to its sumlevel code.  For example, SUMLEVEL_LOOKUP["CBSA"] == '310'.
 SUMLEVEL_LOOKUP = {value["hierarchy_string"]:key for key, value in zip(SUMLEVEL_DESCRIPTIONS.keys(), SUMLEVEL_DESCRIPTIONS.values())}
 
+SUMLEVEL_FROM_CENSUSQUERY = {value['censusQueryName']:key for key, value in SUMLEVEL_DESCRIPTIONS.items() if value['censusQueryName'] is not None}  
 # HIERARCHY_STRING_LOOKUP provides a dictionary that maps each sumlevel code to its hierarchy string (as defined in
 # SUMLEVEL_DESCRIPTIONS) For example, HIERARCHY_STRING_LOOKUP["310"] = "CBSA".
 HIERARCHY_STRING_LOOKUP = {key:value["hierarchy_string"] for key, value in zip(SUMLEVEL_DESCRIPTIONS.keys(), SUMLEVEL_DESCRIPTIONS.values())}
@@ -1005,29 +1095,43 @@ def avro_cast_field_types(df, schema, forceInteger=False, forceInt64=False, verb
 
     return outDF
 
-def wget(url, archive_dir = './input_data'):
+def wget(url, archive_dir = './input_data', filename = None, verbose=True):
     """
     This function uses wget within a subprocess call to retrieve a file from an ftp site. This is used as a means of retrieving Census TigerLine shapefiles.
 
     Parameters
     ----------
     url : string
-        The url for the location of the file, should begin with "https://www2.census.gov/geo/tiger/"
+        The url for the location of the file.
 
     archive_dir : string, path like
         The location to save the file.
+
+    filename : string
+        Optional: filename for archived file
 
     """
     import subprocess
     import os
 
+    if not filename:
+        filename = os.path.basename(url)
+
     cmd = ['wget', url]
-    cmd.extend(['-O', os.path.normpath(f'./{archive_dir}/{os.path.basename(url)}')])
+    cmd.extend(['-O', os.path.normpath(f'./{archive_dir}/{filename}')])
 
     if not os.path.exists(archive_dir):
         os.mkdir(archive_dir)
 
-    subprocess.run(cmd, check=True)
+    try:
+        results = subprocess.run(cmd, check=True, capture_output=True, text=True)
+        if verbose:
+            print(results.stdout)
+    except subprocess.CalledProcessError as e:
+        print(f"Failed to download file: {e}")
+        print(f"Stdout: {e.stdout}")
+        print(f"Stderr: {e.stderr}")
+
 
 
 # Load spatial data

@@ -6,8 +6,6 @@ from ArcGIS services.
 """
 
 
-
-
 def resource(name, url, where='1=1', outfields='*', max_record_count=None):
     """Creates a frictionless Resource object from an ArcGIS REST API service URL.
 
@@ -51,9 +49,6 @@ def resource(name, url, where='1=1', outfields='*', max_record_count=None):
     import re
     from morpc.rest_api import totalRecordCount, schema
     import urllib.parse
-    import requests
-    
-
             
     # Construct the query parameters
     query = {
@@ -72,19 +67,6 @@ def resource(name, url, where='1=1', outfields='*', max_record_count=None):
             max_record_count = 500
         else:
             max_record_count = total_record_count
-
-    # Get WKID from the properties of the service
-    r = requests.get(f"{url}?f=pjson")
-    pjson = r.json()
-    r.close()
-
-    if 'spatialReference' in pjson:
-        wkid = pjson['spatialReference']['wkid']
-    elif 'sourceSpatialReference' in pjson:
-        wkid = pjson['sourceSpatialReference']['wkid']
-    else:
-        print("No spatial reference found in the service metadata. Using default WKID 4326.")
-        wkid = 4326
 
     # Construct list of source urls to account for max record counts
     sources = []
@@ -110,7 +92,6 @@ def resource(name, url, where='1=1', outfields='*', max_record_count=None):
             "type": "arcgis_service",
             "params": query,
             "total_records": total_record_count,
-            "wkid": wkid
         }
     }
 
@@ -248,10 +229,7 @@ def gdf_from_resource(resource):
     
     """
     import frictionless
-    import pandas as pd
     import geopandas as gpd
-    import geojson
-    from pyproj import CRS
 
     # Check if the resource is a string or a frictionless Resource object
     if isinstance(resource, str):
@@ -263,16 +241,12 @@ def gdf_from_resource(resource):
 
     # Fetch the GeoJSON data from the resource
     features = query(resource)
-
-    # Get the spatial reference system (WKID) from the resource metadata
-    wkid = resource.to_dict()['_metadata']['wkid']
-    wkt = esri_wkid_to_wkt2(wkid) ## Convert ESRI WKID to wkt2  
       
     # Convert GeoJSON features to GeoDataFrame
-    gdf = gpd.GeoDataFrame.from_features(features)
+    gdf = gpd.GeoDataFrame.from_features(features, crs='EPSG:4326') # Start with EPSG:4326
     
     # Set the coordinate reference system of the GeoDataFrame
-    gdf = gpd.GeoDataFrame(gdf, geometry='geometry', crs=CRS.from_wkt(wkt))
+    gdf = gpd.GeoDataFrame(gdf, geometry='geometry')
 
     return(gdf)
 
@@ -325,7 +299,8 @@ def get_tigerweb_layers_map(year, survey='ACS'):
     year : int
         The year of the TIGERweb layer (e.g., 2024).
     survey : str, optional
-        The survey type, either 'ACS' (American Community Survey) or 'DEC' for Decennial Census.
+        The survey type, either 'ACS' (American Community Survey) or 'DEC' for Decennial Census
+        or 'Current' for the most current geometries.
         Default is 'ACS'.
 
     Returns:
@@ -340,16 +315,19 @@ def get_tigerweb_layers_map(year, survey='ACS'):
     """
     import pandas as pd
     import requests
+    import re
 
 
     if survey not in ['ACS', 'DEC']:
         raise ValueError("Invalid survey type. Must be 'ACS' or 'DEC'.")
-    if survey == 'DEC' and year not in [2010, 2020]:
+    if survey == 'DEC' and year not in ['2010', '2020']:
         raise ValueError("Invalid year for Decennial Census. Must be 2010 or 2020.")
-    if survey == 'ACS' and year < 2012:
+    if survey == 'ACS' and pd.to_numeric(year) < 2012:
         raise ValueError("Invalid year for ACS. Must be 2012 or later.")
     if survey == 'DEC':
         survey = 'Census'
+    if survey == 'Current':
+        year == ""
 
     baseurl = f"https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/"
     mapserver_path = f"tigerWMS_{survey}{year}/MapServer/"
@@ -383,6 +361,11 @@ def get_tigerweb_layers_map(year, survey='ACS'):
     layers = {k.lower(): v for k, v in layers.items()}  # Normalize layer names to lowercase
     # remove census from keys in layers
     layers = {k.replace('census ', ''): v for k, v in layers.items()}
+    # remove years from keys in layers
+    layers = {re.sub(r"^(19|20)\d{2}$ ", '', k): v for k, v in layers.items()}
+    # remove the 11Xth from congressional districts
+    layers = {re.sub(r"^(11)\d{1}$th ", '', k): v for k, v in layers.items()}
+
 
     return layers
     
@@ -419,13 +402,14 @@ def get_layer_url(year, layer_name, survey='ACS'):
     
     import requests
     from morpc.rest_api import get_tigerweb_layers_map
+    import pandas as pd
     
     # Validate inputs
     if survey not in ['ACS', 'DEC']:
         raise ValueError("Invalid survey type. Must be 'ACS' or 'DEC'.")
-    if survey == 'DEC' and year not in [2010, 2020]:
+    if survey == 'DEC' and year not in ['2010', '2020']:
         raise ValueError("Invalid year for Decennial Census. Must be 2010 or 2020.")
-    if survey == 'ACS' and year < 2012:
+    if survey == 'ACS' and pd.to_numeric(year) < 2012:
         raise ValueError("Invalid year for ACS. Must be 2012 or later.")    
     if survey == 'DEC':
         survey = 'Census'
@@ -454,9 +438,6 @@ def get_layer_url(year, layer_name, survey='ACS'):
     return mapserver_url
 
 
-
-
-
 def totalRecordCount(url, where, outfields='*'):
     """Fetches the total number of records from an ArcGIS REST API service.
     Parameters:
@@ -482,32 +463,6 @@ def totalRecordCount(url, where, outfields='*'):
 
     return total_count
 
-
-def esri_wkid_to_wkt2(esri_wkid):
-    """Converts an ESRI WKID to an EPSG code.
-
-    Parameters:
-    -----------
-    esri_wkid : int
-        The ESRI WKID to be converted.  
-    Returns:
-    --------
-    wkt : int
-        The corresponding Well-Known Text string.
-    Example:
-    --------
-    >>> wkt = esri_wkid_to_wkt2(4326)
-    >>> print(wkt)
-    
-
-    """
-    import json
-    import requests
-
-    r = requests.get(f"https://spatialreference.org/ref/esri/{esri_wkid}/prettywkt2.txt")
-    wkt = r.text
-    r.close()
-    return wkt
 
 # Depreciated for wkt2
 # def esri_wkid_to_epsg(esri_wkid):

@@ -1030,7 +1030,7 @@
       "concept": "Place of Birth for the Foreign-Born Population in the United States",
       "dimensions": [
          "TOTAL",
-         "Contenient",
+         "Continent",
          "Region",
          "Country",
          "UK Countries"
