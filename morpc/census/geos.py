@@ -242,6 +242,18 @@ def params_from_scale_scope(scale, scope):
     return (for_params, in_params)
 
 def geoids_from_params(for_params, in_params):
+    """
+    returns a list of GEOIDFQs from for and in parameters. 
+
+    Parameters
+    ----------
+    for_param :  string
+        A string formatted according the Census API.
+    
+    in_params : string
+        
+    
+    """
     
     # Fetch UCGIDs from the Census API
     r = requests.get(
