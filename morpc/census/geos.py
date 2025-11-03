@@ -1,3 +1,5 @@
+from attr import validate
+from idna import valid_contextj
 import morpc
 
 # TODO (jinskeep_morpc): Develop function for fetching census geographies leveraging scopes
@@ -34,97 +36,7 @@ SCOPES = {
     "region-corpo": {
         "state": "39",
         "county": [morpc.CONST_COUNTY_NAME_TO_ID[x][2:6] for x in morpc.CONST_REGIONS["CORPO Region"]]
-        },
-    "regionmpo-members": {
-        "ucgid": [
-            '1550000US3902582041',
-            '0700000US390410577499999',
-            '0700000US390410578899999',
-            '0700000US390410942899999',
-            '1550000US3918000041',
-            '0700000US390411814099999',
-            '1550000US3921434041',
-            '0700000US390412144899999',
-            '1550000US3922694041',
-            '1550000US3929148041',
-            '0700000US390412969499999',
-            '0700000US390413351699999',
-            '0700000US390414036299999',
-            '0700000US390414310699999',
-            '0700000US390414790899999',
-            '0700000US390415861899999',
-            '1550000US3958940041',
-            '0700000US390415926299999',
-            '0700000US390416417899999',
-            '1550000US3964486041',
-            '0700000US390416531299999',
-            '0700000US390417084299999',
-            '1550000US3971976041',
-            '1550000US3975602041',
-            '0700000US390417661799999',
-            '0700000US390417733699999',
-            '0700000US390417756099999',
-            '1550000US3983342041',
-            '0700000US390450695099999',
-            '1550000US3911332045',
-            '1550000US3918000045',
-            '1550000US3944086045',
-            '1550000US3962498045',
-            '1550000US3966390045',
-            '0700000US390458020699999',
-            '1550000US3906278049',
-            '0700000US390490692299999',
-            '1550000US3908532049',
-            '0700000US390490944299999',
-            '1550000US3911332049',
-            '0700000US390491611299999',
-            '1550000US3918000049',
-            '1550000US3922694049',
-            '0700000US390492828099999',
-            '1550000US3929106049',
-            '1550000US3931304049',
-            '1550000US3932592049',
-            '1550000US3932606049',
-            '0700000US390493302699999',
-            '1550000US3933740049',
-            '1550000US3935476049',
-            '0700000US390493777299999',
-            '0700000US390493861299999',
-            '1550000US3944086049',
-            '1550000US3944310049',
-            '0700000US390494641099999',
-            '1550000US3947474049',
-            '0700000US390495006499999',
-            '1550000US3950862049',
-            '1550000US3953970049',
-            '0700000US390495734499999',
-            '1550000US3957862049',
-            '0700000US390496184099999',
-            '1550000US3962498049',
-            '0700000US390496297499999',
-            '0700000US390496325499999',
-            '0700000US390496457099999',
-            '1550000US3966390049',
-            '1550000US3967440049',
-            '0700000US390497178799999',
-            '0700000US390497771499999',
-            '1550000US3979002049',
-            '1550000US3979100049',
-            '1550000US3979282049',
-            '0700000US390498124299999',
-            '1550000US3983342049',
-            '1550000US3984742049',
-            '1550000US3986604049',
-            '0700000US390892569099999',
-            '1550000US3939340089',
-            '1550000US3953970089',
-            '1550000US3961112089',
-            '1550000US3966390089',
-            '1550000US3963030097',
-            '1550000US3922694159',
-            '0700000US391593904699999',
-            '1550000US3963030159'
-            ]}
+        }
 }
 
 for x in STATE_SCOPES:
@@ -133,11 +45,43 @@ for x in STATE_SCOPES:
 for x in COUNTY_SCOPES:
     SCOPES.update(x)
 
-def get_query_req(sumlevel):
+def validate_scale(scale):
+    import morpc
+
+    if scale != None:
+    # Get available scales from morpc SUMLEVEL_DESCRIPTIONS
+        available_scales = [morpc.SUMLEVEL_DESCRIPTIONS[x]['censusQueryName'] for x in morpc.SUMLEVEL_DESCRIPTIONS]
+
+        # Validate inputs
+        if scale not in available_scales:
+            raise ValueError(f"Scale '{scale}' is not recognized. Available scales: {available_scales}")
+        else:
+            return True
+        
+def validate_scope(scope):
+    if scope != None:
+        if scope not in SCOPES:
+            raise ValueError(f"Scope '{scope}' is not recognized. Available scopes: {list(SCOPES.keys())}")
+        else:
+            return True
+
+def psuedo_from_scale_scope(scale, scope):
+    import morpc
+
+    if validate_scale(scale):
+        child = f"{morpc.SUMLEVEL_FROM_CENSUSQUERY[scale]}0000"
+    
+    if validate_scope(scope):
+        params = param_from_scope(scope)
+
+    parents = geoids_from_params(for_params=params)
+    
+    
+def get_query_req(sumlevel, year='2023'):
     """
     Fetches the query requirements for various geographic levels from the Census API.
     """
-    r = requests.get("https://api.census.gov/data/2023/geoinfo/geography.json")
+    r = requests.get(f"https://api.census.gov/data/{year}/geoinfo/geography.json")
     json = r.json()
     r.close()
 
@@ -155,7 +99,7 @@ def get_query_req(sumlevel):
 
     return query_requirements
 
-def in_param_from_scope(scope):
+def param_from_scope(scope):
     params = []
     for key in morpc.census.SCOPES[scope]:
         value = morpc.census.SCOPES[scope][key]
@@ -165,7 +109,7 @@ def in_param_from_scope(scope):
             params.append(f"{key}: {",".join(value)}")
     return params
         
-def params_from_scale_scope(scale, scope):
+def params_from_scale_scope(scale=None, scope=None):
     """
     Fetches UCGIDs from the Census API based on the specified geographic scale and scope.
     Parameters:
@@ -189,22 +133,23 @@ def params_from_scale_scope(scale, scope):
     """
     import morpc
 
-   # Get available scales from morpc SUMLEVEL_DESCRIPTIONS
-    available_scales = [morpc.SUMLEVEL_DESCRIPTIONS[x]['censusQueryName'] for x in morpc.SUMLEVEL_DESCRIPTIONS]
+    if scale != None:
+    # Get available scales from morpc SUMLEVEL_DESCRIPTIONS
+        available_scales = [morpc.SUMLEVEL_DESCRIPTIONS[x]['censusQueryName'] for x in morpc.SUMLEVEL_DESCRIPTIONS]
 
-    # Validate inputs
-    if scale not in available_scales:
-        raise ValueError(f"Scale '{scale}' is not recognized. Available scales: {available_scales}")
+        # Validate inputs
+        if scale not in available_scales:
+            raise ValueError(f"Scale '{scale}' is not recognized. Available scales: {available_scales}")
     
-    if scope not in SCOPES:
-        raise ValueError(f"Scope '{scope}' is not recognized. Available scopes: {list(SCOPES.keys())}")
+    if scope != None:
+        if scope not in SCOPES:
+            raise ValueError(f"Scope '{scope}' is not recognized. Available scopes: {list(SCOPES.keys())}")
     
-    # Map scale to sumlevel code
     sumlevel = morpc.SUMLEVEL_FROM_CENSUSQUERY[scale]
 
     for_params = f"{morpc.SUMLEVEL_DESCRIPTIONS[sumlevel]['censusQueryName']}:*"
 
-    in_params = in_param_from_scope(scope)
+    in_params = param_from_scope(scope)
 
     in_list = [x.split(':')[0] for x in in_params]
 
@@ -241,7 +186,7 @@ def params_from_scale_scope(scale, scope):
 
     return (for_params, in_params)
 
-def geoids_from_params(for_params, in_params):
+def geoids_from_params(for_params, in_params = None, year = 2023):
     """
     returns a list of GEOIDFQs from for and in parameters. 
 
@@ -251,18 +196,23 @@ def geoids_from_params(for_params, in_params):
         A string formatted according the Census API.
     
     in_params : string
-        
     
     """
+
+    params = {
+        'get': 'GEO_ID',
+        'for': for_params
+    }
+
+    if in_params != None:
+        params.update({
+            'in': in_params
+        })
     
     # Fetch UCGIDs from the Census API
     r = requests.get(
-        "https://api.census.gov/data/2023/geoinfo",
-        params={
-            "get": "GEO_ID",
-            "for": for_params,
-            "in": in_params
-        }
+        f"https://api.census.gov/data/{year}/geoinfo",
+        params=params
     )
 
     if r.status_code != 200:

@@ -1,3 +1,12 @@
+import logging
+
+import frictionless.errors
+import frictionless.errors
+import frictionless.errors
+import frictionless.errors 
+
+logger = logging.getLogger(__name__)
+
 import morpc
 import json
 from importlib.resources import files
@@ -199,7 +208,7 @@ ACS_AGEGROUP_SORT_ORDER = {
     '85 years and over': 18
 }
 
-def api_get(url, params, varBatchSize=20, verbose=True):
+def api_get(url, params, varBatchSize=20):
     """
     api_get() is a low-level wrapper for Census API requests that returns the results as a pandas dataframe. If necessary, it
     splits the request into several smaller requests to bypass the 50-variable limit imposed by the API.  The resulting dataframe
@@ -224,9 +233,6 @@ def api_get(url, params, varBatchSize=20, verbose=True):
         representing the number of variables to request in each batch. 
         Defaults to 20, Limited to 49.
 
-    verbose : boolean
-        If True, the function will display text updates of its status, otherwise it will be silent.
-
     Returns
     -------
     pandas.Dataframe
@@ -243,19 +249,17 @@ def api_get(url, params, varBatchSize=20, verbose=True):
     # We need to reserve one variable in each batch for GEO_ID.  If the user requests more than 49 variables per
     # batch, reduce the batch size to 49 to respect the API limit
     if(varBatchSize > 49):
-        print("WARNING: Requested variable batch size exceeds API limit. Reducing batch size to 50 (including GEO_ID).")
+        logger.warning("Requested variable batch size exceeds API limit. Reducing batch size to 50 (including GEO_ID).")
         varBatchSize = 49
     
     # Extract a list of all of the requested variables from the request parameters
     allVars = params["get"].split(",")
-    if(verbose == True):
-        print("Total variables requested: {}".format(len(allVars)))
+    logger.info("Total variables requested: {}".format(len(allVars)))
        
     remainingVars = allVars   
     requestCount = 1
     while(len(remainingVars) > 0):
-        if(verbose == True):
-            print("Starting request #{0}. {1} variables remain.".format(requestCount, len(remainingVars)))
+        logger.info("Starting request #{0}. {1} variables remain.".format(requestCount, len(remainingVars)))
 
         # Create a short list of variables to download in this batch. Reserve one place for GEO_ID
         shortList = remainingVars[0:varBatchSize-2]
@@ -280,9 +284,9 @@ def api_get(url, params, varBatchSize=20, verbose=True):
         # Send the API request. Throw an error if the resulting status code indicates a failure condition.
         r = requests.get(url, params=shortListParams, headers=headers)
         if(r.status_code != 200):
-            print("ERROR: Request finished with status {}.".format(r.status_code))
-            print("Request URL: " + r.url)
-            print("Response text: " + r.text)
+            logger.error("ERROR: Request finished with status {}.".format(r.status_code))
+            logger.error("Request URL: " + r.url)
+            logger.error("Response text: " + r.text)
             raise RuntimeError
 
         # Extract the JSON-formatted records from the response
@@ -310,7 +314,8 @@ def api_get(url, params, varBatchSize=20, verbose=True):
     return censusData
 
 class ACS:
-    def __init__(self, group, year, survey, verbose=True):
+    _ACS_logger = logging.getLogger(__name__).getChild(__qualname__)
+    def __init__(self, group, year, survey):
         """
         Class for working with ACS Survey Data. Creates an object representing data for a variable by year by survey. 
         Use .query() method to retrieve data for a specific geography.
@@ -327,24 +332,18 @@ class ACS:
         survey : str
             type of survey - acs1, acs5 currently impemented
         """
+        self.logger = logging.getLogger(__name__).getChild(self.__class__.__name__).getChild(str(id(self)))
+
         from datetime import datetime
-        self.LOG = []
-        self.VERBOSE = verbose
-        logstr = f"{datetime.now()} | INFO | morpc.census.ACS | Initializing ACS object for {group} for {year} ACS {survey}-year survey."
-        self.LOG.append(logstr)
-        if self.VERBOSE:
-            print(logstr)
+        self.logger.info(f"Initializing ACS object for {group} for {year} ACS {survey}-year survey.")
         self.GROUP = group.upper()
         self.YEAR = year
         self.SURVEY = survey
 
         self.VARS = get_variable_dict(year, survey, group)
-        logstr = f"{datetime.now()} | INFO | morpc.census.ACS | Concept '{self.VARS[[x for x in self.VARS][0]]['concept']}' has {len(self.VARS)} variables."
-        self.LOG.append(logstr)
-        if self.VERBOSE:
-            print(logstr)
+        self.logger.info(f"Concept '{self.VARS[[x for x in self.VARS][0]]['concept']}' has {len(self.VARS)} variables.")
 
-    def load(self, resource_path, verbose = True):
+    def load(self, resource_path):
         """
         Method for loading ACS data from a cached file. Will load all variables from the resource file, schema, and data.
 
@@ -375,17 +374,13 @@ class ACS:
         # Need to change directories to location of file to read using load data.
         cwd = os.getcwd()
         if not os.path.exists(self.RESOURCE_PATH):
-            logstr = f"{datetime.now()} | ERROR | morpc.census.ACS.load |File {self.RESOURCE_PATH} does not exist. Please check the path and try again."
-            self.LOG.append(logstr)
+            self.logger.error(f"File {self.RESOURCE_PATH} does not exist. Please check the path and try again.")
             raise FileNotFoundError(logstr)
         os.chdir(self.DIRNAME)
 
         # Load data and store some of the constants from resource.
-        logstr = f"{datetime.now()} | INFO | morpc.census.ACS.load | Loading data from {self.RESOURCE_PATH}..."
-        self.LOG.append(logstr)
-        if self.VERBOSE:
-            print(logstr)
-        self.DATA, self.RESOURCE, self.SCHEMA = morpc.frictionless.load_data(os.path.basename(self.RESOURCE_PATH), verbose=True)
+        self.logger.info(f"Loading data from {self.RESOURCE_PATH}...")
+        self.DATA, self.RESOURCE, self.SCHEMA = morpc.frictionless.load_data(os.path.basename(self.RESOURCE_PATH))
         self.NAME = self.RESOURCE.get_defined('name')
         self.API_PARAMS = self.RESOURCE.get_defined('sources')[0]['_params']
         self.API_URL = self.RESOURCE.get_defined('sources')[0]['path']
@@ -395,17 +390,12 @@ class ACS:
 
         # Rebuild dimension tables and store geographies
         self.DATA = self.DATA.set_index('GEO_ID')
-        self.DIM_TABLE = morpc.census.DimensionTable(self.DATA, self.SCHEMA, self.YEAR)
+        self.DIM_TABLE = morpc.census.DIMTABLE(self.DATA, self.SCHEMA, self.YEAR)
 
-        logstr = f"{datetime.now()} | INFO | morpc.census.ACS.load | Creating tables from data. {len(self.DIM_TABLE.LONG)} observations."
-        self.LOG.append(logstr)
-        if self.VERBOSE:
-            print(logstr)
+        self.logger.info(f"Creating tables from data. {len(self.DIM_TABLE.LONG)} observations.")
 
         self.GEOS = self.define_geos()
-        logstr = f"{datetime.now()} | INFO | Retrieving geometries. {len(self.GEOS)} total geometries."
-        if self.VERBOSE:
-            print("MESSAGE | morpc.census.ACS.load | Fetching geometries...")
+        self.logger.info(f"Retrieving geometries. {len(self.GEOS)} total geometries.")
 
         return self
     
@@ -429,16 +419,14 @@ class ACS:
 
         scope_name = f"{scale}-{scope}"
 
-        logstr = f"{datetime.now()} | INFO | Using scale and scope to retrieve all {scale} in {scope}."
-        self.LOG.append(logstr)
-        if self.VERBOSE:
-            print(logstr)
+        self.logger.info(f" Using scale and scope to retrieve all {scale} in {scope}.")
+
         self.query(for_param=params[0], in_param=params[1], scope=scope_name)
 
         return self
 
     
-    def query(self, for_param=None, in_param=None, get_param=None, ucgid_param = None, scope=None, verbose=True):
+    def query(self, for_param=None, in_param=None, get_param=None, ucgid_param = None, scope=None):
         """
         Method for retrieving data. Relies on morpc.census.api_get().
 
@@ -458,22 +446,16 @@ class ACS:
         import morpc
         from datetime import datetime
 
-        logstr = f"{datetime.now()} | INFO | morpc.census.ACS.query | Querying data for {self.GROUP} for {self.SURVEY}-year survey in {self.YEAR}..."
-        self.LOG.append(logstr)
-        if self.VERBOSE:
-            print(logstr)
+        self.logger.info(f"Querying data for {self.GROUP} for {self.SURVEY}-year survey in {self.YEAR}...")
 
         # Check to make sure that variables in the get parameters are in the data.
         if get_param is not None:
             if not isinstance(get_param, list):
-                logstr = f"{datetime.now()} | ERROR | Get parameters {get_param} must be a list."
-                self.LOG.append(logstr)
-                if self.VERBOSE:
-                    print(logstr)
+                self.logger.error(f"Get parameters {get_param} must be a list.")
             temp = {}
             for VAR in self.VARS:
                 if VAR not in get_param:
-                    print(f"ERROR | {VAR} not in list of variables for {self.GROUP}")
+                    self.logger.error(f"{VAR} not in list of variables for {self.GROUP}")
                     raise RuntimeError
                 if VAR in get_param:
                     temp[VAR] = self.VARS[VAR]
@@ -490,7 +472,7 @@ class ACS:
             self.NAME = f"morpc-{self.SURVEY}-{self.YEAR}-custom-{self.GROUP}-{datetime.now().strftime(format='%Y%m%d')}".lower()
         else:
             self.NAME = f"morpc-{self.SURVEY}-{self.YEAR}-{self.SCOPE}-{self.GROUP}-{datetime.now().strftime(format='%Y%m%d')}".lower()
-            print(f"MESSAGE | morpc.census.ACS.query | NAME set to {self.NAME}...")
+            self.logger.info(f"NAME set to {self.NAME}...")
 
         # Build the schema from the list of variables.
         self.SCHEMA = self.define_schema()
@@ -509,29 +491,25 @@ class ACS:
         # Construct the url
         self.API_URL = f"https://api.census.gov/data/{self.YEAR}/acs/{self.SURVEY}"
 
-        if self.VERBOSE:
-            print(f"MESSAGE | morpc.census.ACS.query | Querying data from {self.API_URL} with parameters:")
-            print(f"{self.API_PARAMS}...")
+        self.logger.info(f"Querying data from {self.API_URL} with parameters: {self.API_PARAMS}")
 
         # Query the data
         self.DATA = morpc.census.api_get(self.API_URL, self.API_PARAMS)
 
         # Wrangle data types and index
-        self.DATA = morpc.cast_field_types(self.DATA.reset_index(), self.SCHEMA, verbose=False)
+        self.DATA = morpc.cast_field_types(self.DATA.reset_index(), self.SCHEMA)
         self.DATA = self.DATA.filter(items=self.SCHEMA.field_names, axis='columns')
         self.DATA = self.DATA.set_index('GEO_ID')
 
         # Construct the dimension tables.
-        if self.VERBOSE:
-            print("MESSAGE | morpc.census.ACS.query | Wrangling data types and building dimension tables...")
-        self.DIM_TABLE = morpc.census.DimensionTable(self.DATA, self.SCHEMA, self.YEAR, self.GROUP, self.SURVEY)
+        self.logger.info("Wrangling data types and building dimension tables...")
+        self.DIM_TABLE = morpc.census.DIMTABLE(self.DATA, self.SCHEMA, self.YEAR, self.GROUP, self.SURVEY)
 
-        if self.VERBOSE:
-            print("MESSAGE | morpc.census.ACS.query | Fetching geometries...")
+        self.logger.info("Fetching geometries...")
         self.GEOS = fetch_geos(self.DATA.index, self.YEAR, 'ACS')
         return self
     
-    def map(self, table='TOTALS', verbose=True):
+    def map(self, table='TOTALS'):
         """
         Method for exploring the data using a folium map. Leverages morpc.plot.map.MAP class.
 
@@ -551,6 +529,8 @@ class ACS:
         import morpc
 
         # Get the data to plot
+        self.logger.info(f"Table type set to {table}")
+
         if table == 'TOTALS':
             map_data = self.DIM_TABLE.WIDE.T.copy()
         if table == 'PERCENTS':
@@ -561,26 +541,24 @@ class ACS:
             map_data.columns = [", ".join(filter(None, x)) for x in map_data.columns]
 
         # Join the geometries to the data
-        if self.VERBOSE:
-            print("MESSAGE | morpc.census.ACS.explore | Joining geometries to data...")
+        self.logger.info("Joining geometries to data...")
         if not isinstance(map_data, gpd.GeoDataFrame):
             map_data['geometry'] = [self.GEOS.loc[x, 'geometry'] for x in map_data.reset_index()['GEO_ID']]
             map_data = gpd.GeoDataFrame(map_data, geometry='geometry', crs=self.GEOS.crs)
 
         # Create the map object and return the folium map
-        if self.VERBOSE:
-            print("MESSAGE | morpc.census.ACS.explore | Creating map...")
+        self.logger.info("Creating map...")
         self.MAP = morpc.plot.map.MAP(map_data, id_col='NAME')
         
-    def explore(self, table='TOTALS', verbose=True):
+    def explore(self, table='TOTALS'):
         """
         Method for exploring the data using a folium map. Leverages morpc.plot.map.MAP class.
         """
-        self.MAP = self.map(table=table, verbose=verbose)
+        self.MAP = self.map(table=table)
 
         return self.MAP.explore()
     
-    def save(self, output_dir="./output_data", verbose=True):
+    def save(self, output_dir="./output_data"):
         """
         Saves data in an output directory as a frictionless resource and validates the resource.
 
@@ -592,6 +570,7 @@ class ACS:
         
         import os
         import frictionless
+        from frictionless import errors
 
         # Make the output directory if it doesn't exist
         if not os.path.exists(output_dir):
@@ -602,18 +581,20 @@ class ACS:
         self.DATA_PATH = os.path.join(output_dir, self.DATA_FILENAME)
 
         # Save the data
-        if self.VERBOSE:
-            print(f"MESSAGE | morpc.census.ACS.save | Saving data to {self.DATA_PATH}...")
+        self.logger.info(f"Saving data to {self.DATA_PATH}...")
         self.DATA.reset_index().to_csv(self.DATA_PATH, index=False)
 
         # Save the schema
         self.SCHEMA_FILENAME = f"{self.NAME}.schema.yaml"
         self.SCHEMA_PATH = os.path.join(output_dir, self.SCHEMA_FILENAME)
+        self.logger.info(f"Saving schema to {self.SCHEMA_PATH}")
+
         dummy = self.SCHEMA.to_yaml(self.SCHEMA_PATH)
 
         # Create the resource file
         self.RESOURCE_FILENAME = f"{self.NAME}.resource.yaml"
         self.RESOURCE_PATH = os.path.join(output_dir, self.RESOURCE_FILENAME)
+        self.logger.info(f"Saving resource file to {self.RESOURCE_PATH} in {output_dir}")
         self.RESOURCE = self.define_resource()
 
         # Change the working directory to the output directory due to write_resource and validation behavior
@@ -622,8 +603,7 @@ class ACS:
 
         # Write the resource
         dummy = self.RESOURCE.to_yaml(self.RESOURCE_FILENAME)
-        if self.VERBOSE:
-            print(f"MESSAGE | morpc.census.ACS.save | Resource saved to {self.RESOURCE_PATH}. Validating resource...")
+        self.logger.info(f"Validating resource...")
         validation = frictionless.Resource(self.RESOURCE_FILENAME).validate()
 
         # Return to the current working directory
@@ -631,14 +611,13 @@ class ACS:
     
         # Validate the resource
         if validation.valid == True:
-            print(f"MESSAGE | morpc.census.ACS.save | Resource is valid and saved to {self.RESOURCE_PATH}.")
+            self.logger.info(f"Resource is valid and saved to {self.RESOURCE_PATH}.")
         else:
-            print('ERROR | morpc.census.ACS.save | Resource is NOT valid. Errors follow.')
-            print(validation)
-            raise RuntimeError
+            print(f'Resource is NOT valid. Errors follow. {validation}')
+            raise errors.ResourceError()
 
         
-    def define_schema(self, verbose=True):
+    def define_schema(self):
         """
         Creates a frictionless schema for ACS data for a specified group and year. 
 
@@ -649,11 +628,11 @@ class ACS:
             frictionless.Schema: A schema representing the fields in the acs data. 
         """
         import frictionless
+        from frictionless import errors
         import morpc
         import IPython
 
-        if self.VERBOSE:
-            print(f"MESSAGE | morpc.census.ACS.define_schema | Defining schema for {self.GROUP} for {self.SURVEY}-year survey in {self.YEAR}...")
+        self.logger.info(f"Defining schema for {self.GROUP} for {self.SURVEY}-year survey in {self.YEAR}...")
         variables = self.VARS
 
         allFields = []
@@ -695,18 +674,16 @@ class ACS:
         # Validate
         results = frictionless.Schema.validate_descriptor(acsSchema)
         if(results.valid == True):
-            if self.VERBOSE:
-                print(f"MESSAGE | morpc.census.ACS.define_schema | Schema is valid.")
+            self.logger.info(f"Schema is valid.")
         else:
-            print("ERROR | morpc.census.ACS.define_schema | Schema is NOT valid. Errors follow.")
-            print(results)
-            raise RuntimeError
+            self.logger.error("Schema is NOT valid. Errors follow. {results}")
+            raise errors.SchemaError
 
         schema = frictionless.Schema.from_descriptor(acsSchema)
 
         return schema
     
-    def define_resource(self, verbose=True):
+    def define_resource(self):
         """Create a frictionless resource for ACS data with sane defaults.
 
         Returns:
@@ -719,8 +696,7 @@ class ACS:
 
 
         # Build the resource dictionary
-        if self.VERBOSE:
-            print(f"MESSAGE | morpc.census.ACS | Defining resource for {self.GROUP} for {self.SURVEY}-year survey in {self.YEAR}...")
+        self.logger.info(f"Defining resource for {self.GROUP} for {self.SURVEY}-year survey in {self.YEAR}...")
 
         acsResource = {
           "profile": "tabular-data-resource",
@@ -750,7 +726,7 @@ class ACS:
         resource = frictionless.Resource(acsResource)
         return resource
 
-def fetch_geos(geoidfqs, year, survey, verbose=True):
+def fetch_geos(geoidfqs, year, survey):
     """
     Fetches a table of geometries from a list of Census GEOIDFQs using the Rest API.
 
@@ -761,6 +737,7 @@ def fetch_geos(geoidfqs, year, survey, verbose=True):
     year : str
         The year of the data to ret
     """
+
     import morpc.rest_api
     import pandas as pd
     import geopandas as gpd
@@ -768,25 +745,32 @@ def fetch_geos(geoidfqs, year, survey, verbose=True):
     # Get sum levels in the data
     sumlevels = set([x[0:3] for x in geoidfqs])
 
+    logger.info(f"Sum levels {', '.join(sumlevels)} are in data.")
+
     geometries = []
     for sumlevel in sumlevels: # Get geometries for each sumlevel iteratively
-        if verbose:
-            print(f"MESSAGE | morpc.census.fetch_geos | Fetching geometries for {morpc.SUMLEVEL_DESCRIPTIONS[sumlevel]['censusRestAPI_layername']} ({sumlevel})...")
         # Get rest api layer name and get url
         layerName = morpc.SUMLEVEL_DESCRIPTIONS[sumlevel]['censusRestAPI_layername']
+
         url = morpc.rest_api.get_layer_url(year, layer_name=layerName, survey=survey)
+        logger.info(f"Fetching geometries for {layerName} ({sumlevel}) from {url}")
 
         # Construct a list of geoids from data to us to query API
         geoids = ",".join([f"'{x.split('US')[-1]}'" for x in geoidfqs if x.startswith(sumlevel)])
 
+        logger.info(f"There are {len(geoids)} geographies in {layerName}")
+        logger.debug(f"{', '.join(geoidfqs)}")
+
         # Build resource file and query API
+        logger.info(f"Building resource file to fetch from RestAPI.")
         resource = morpc.rest_api.resource(name='temp', url=url, where= f"GEOID in ({geoids})")
+
+        logger.info(f"Fetching geographies from RestAPI.")
         geos = morpc.rest_api.gdf_from_resource(resource)
         geos['GEOIDFQ'] = [f"{sumlevel}0000US{x}" for x in geos['GEOID']]
 
         geometries.append(geos[['GEOIDFQ', 'geometry']])
-    if verbose:
-        print("MESSAGE | morpc.census.fetch_geos | Combining geometries...")
+    logger.info("Combining geometries...")
     geometries = pd.concat(geometries)
     geometries = geometries.rename(columns={'GEOIDFQ': 'GEO_ID'})
     geometries = geometries.set_index('GEO_ID')
@@ -810,8 +794,9 @@ def get_variable_dict(year, survey, group):
     
     return variables
 
-class DimensionTable:
-    def __init__(self, data, schema, year, group, survey, dimension_names = None, verbose=True):
+class DIMTABLE:
+    _DIMTABLE_logger = logging.getLogger(__name__).getChild(__qualname__)
+    def __init__(self, data, schema, year, group, survey, dimension_names = None):
         """
         A class for dimension table for ACS census data.
 
@@ -825,9 +810,12 @@ class DimensionTable:
 
         Returns:
         --------
-        morpc.census.DimensionTable
+        morpc.census.DIMTABLE
         """
-        self.VERBOSE = verbose
+        import logging
+        self.logger = logging.getLogger(__name__).getChild(self.__class__.__name__).getChild(str(id(self)))
+
+
         self.GROUP = group
         self.SURVEY = survey
         self.YEAR = year
@@ -866,8 +854,7 @@ class DimensionTable:
         else:
             index = ['GEO_ID', 'NAME']
 
-        if self.VERBOSE:
-            print(f"MESSAGE | morpc.census.DimensionTable.define_long | Creating long format table.")
+        self.logger.info(f"Creating long format table.")
 
         # Pivot the data long
         long = self.DATA.reset_index().melt(id_vars=index, value_name="VALUE", var_name='VARIABLE')
@@ -875,22 +862,18 @@ class DimensionTable:
         # Add variable type column
         long['VAR_TYPE'] = long['VARIABLE'].apply(lambda x:'Estimate' if x[-1] == 'E' else 'MOE')
 
-        if self.VERBOSE:
-            print(f"MESSAGE | morpc.census.DimensionTable.define_long | Creating description table.")
+        self.logger.info(f"Creating description table.")
         # Create the table with a column for each dimension in the the descriptions.
         self.DESC_TABLE = self.get_desc_table()
         
 
         # Name each column in the description table as a dimension
         if self.DIMENSIONS is not None:
-            if self.VERBOSE:
-                print(f"MESSAGE | morpc.census.DimensionTable.define_long | Using custom dimension names: {self.DIMENSIONS}")
-                self.DESC_TABLE.columns = self.DIMENSIONS[0:len(self.DESC_TABLE.columns)]
+            self.logger.info(f"MESSAGE | morpc.census.DimensionTable.define_long | Using custom dimension names: {self.DIMENSIONS}")
+            self.DESC_TABLE.columns = self.DIMENSIONS[0:len(self.DESC_TABLE.columns)]
         else:
-            
             self.DIMENSIONS = [f"DIM_{x}" for x in range(len(self.DESC_TABLE.columns))]
-            if self.VERBOSE:
-                print(f"MESSAGE | morpc.census.DimensionTable.define_long | Using default dimension names: {", ".join(self.DIMENSIONS)}.")
+            self.logger.info(f"Using default dimension names: {", ".join(self.DIMENSIONS)}.")
             self.DESC_TABLE.columns = self.DIMENSIONS
 
         # Rejoin the dimensions and descriptions to the table
@@ -906,8 +889,7 @@ class DimensionTable:
         long['REFERENCE_YEAR'] = self.YEAR
 
         # Replace missing values with np.nan
-        if self.VERBOSE:
-            print(f"MESSAGE | morpc.census.DimensionTable.define_long | Replacing missing values with NaN...")
+        self.logger.info(f"Replacing missing values with NaN...")
         for missing in [pd.to_numeric(x) for x in self.SCHEMA.missing_values]:
             long['VALUE'] = long['VALUE'].replace(missing, np.nan)
 
@@ -985,16 +967,14 @@ class DimensionTable:
 
     def define_wide(self):
 
-        if self.VERBOSE:
-            print(f"MESSAGE | morpc.census.DimensionTable.define_wide | Creating wide format table.")   
+        self.logger.info(f"Creating wide format table.")   
         wide = self.LONG.loc[self.LONG['VAR_TYPE']=='Estimate'] \
             .drop(columns = ['VARIABLE', 'VAR_TYPE']) \
             .pivot_table(values = 'VALUE', columns = ['GEO_ID', 'NAME', 'REFERENCE_YEAR'], index = self.DIMENSIONS).T
         return wide.T
 
     def define_percent(self):
-        if self.VERBOSE:
-            print(f"MESSAGE | morpc.census.DimensionTable.define_percent | Creating percent table.")
+        self.logger.info(f"Creating percent table.")
         total = self.WIDE.T.iloc[:,0].copy()
         percent = self.WIDE.T.iloc[:,1:].copy()
         for column in percent:

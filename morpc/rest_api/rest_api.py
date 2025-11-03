@@ -1,10 +1,14 @@
 # morpc-py/morpc/rest_api/rest_api.py
+
 """REST API module for MORPC.
 This module provides functions to interact with ArcGIS REST API services,
 including fetching data, converting ESRI WKID to WKT2, and creating frictionless resources
 from ArcGIS services.
 """
 
+import logging
+
+logger = logging.getLogger(__name__)
 
 def resource(name, url, where='1=1', outfields='*', max_record_count=None):
     """Creates a frictionless Resource object from an ArcGIS REST API service URL.
@@ -33,17 +37,6 @@ def resource(name, url, where='1=1', outfields='*', max_record_count=None):
     resource : frictionless.Resource
         A frictionless Resource object containing the schema and metadata of the service.
 
-    Example:
-    --------
-    >>> resource = resource(
-    ...     name = 'morpc-franklin-tracts',
-    ...     url = 'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/tigerWMS_ACS2024/MapServer/8',
-    ...     where = "STATE = '39' and COUNTY = '049'",
-    ...     outfields = '*',
-    ...     max_record_count = 500
-    ... )
-    >>> print(resource.to_dict())
-
     """
     import frictionless
     import re
@@ -58,17 +51,24 @@ def resource(name, url, where='1=1', outfields='*', max_record_count=None):
         'f': 'geojson'
     }
 
+    logger.info(f"Query Params: where = {where}, outFields = {outfields}")
+
     # Get the total record count
     total_record_count = totalRecordCount(url, where=where, outfields=outfields)
+    logger.info(f"Total number of geographies: {total_record_count}")
     
     # Determine the max record count
     if max_record_count is None:
         if total_record_count > 500:
             max_record_count = 500
+            logger.info(f"Splitting query into fetch ")
         else:
             max_record_count = total_record_count
+    logger.info(f"Fetching {max_record_count} at a time.")
+
 
     # Construct list of source urls to account for max record counts
+    logger.info(f"Saving source urls in resource.")
     sources = []
     offsets = [x for x in range(0, total_record_count, max_record_count)]
     for i in range(len(offsets)):
@@ -80,6 +80,7 @@ def resource(name, url, where='1=1', outfields='*', max_record_count=None):
         source['params']['resultOffset'] = start
         path = source['url'] + urllib.parse.urlencode(query)
         sources.append(path)
+    logger.debug(f"all sources: {', '.join(sources)}")
 
     # Construct the frictionless Resource object
     resource = {
@@ -123,12 +124,6 @@ def query(resource, api_key=None, recordcount_override=None):
     Raises:
     ---------
     RuntimeError: If the provided field_ids are not available in the resource.  
-
-    Example:
-    ---------
-    >>> gdf = get("path/to/resource.json", 
-                  field_ids=['OBJECTID', 'NAME'], 
-                  api_key=get_api_key('path/to/api_key.txt'))
     """
 
     import requests
@@ -148,48 +143,51 @@ def query(resource, api_key=None, recordcount_override=None):
 
     # Fetch the GeoJSON data in chunks via source urls constructed above
     features = []
+    logger.info(f"Sending {len(sources)} requests.")
     with requests.Session() as s:
         # Check if sources is None or empty
         if sources is None or len(sources) == 0:
-            print("No sources found in the resource. Check the resource file or URL.")
+            logger.error("No sources found in the resource. Check the resource file or URL.")
             raise RuntimeError("No sources found in the resource. Check the resource file or URL.")\
         # If there is only one source, fetch it directly
         if len(sources) == 1:
             r = s.get(sources[0], headers=headers)
             # Check if the request was successful
             if r.status_code != 200:
-                print(f"Error fetching data from {sources[0]}: {r.status_code}")
+                logger.error(f"Error fetching data from {sources[0]}: {r.status_code}")
                 raise RuntimeError(f"Failed to fetch data from {sources[0]}")
             # Parse the JSON response
             try:
+                logger.info(f"Decoding json data.")
                 features = [r.json()]
             except:
-                print(f"CONTENTS OF REQUESTS {r.content}")
+                logger.error(f"CONTENTS OF REQUESTS {r.content}")
         # If there are multiple sources, iterate over them
         if len(sources) > 1:
+
             for i in range(len(sources)):
                 print_bar(i, len(sources))
                 r = s.get(sources[i], headers=headers)
                 try:
                     result = r.json()
                 except:
-                    print(f"CONTENTS OF REQUESTS {r.content}")
+                    logger.error(f"Failed to decode json. CONTENTS OF REQUESTS {r.content}")
 
                 # Check if the request was successful
                 if 'error' in result:
-                    print(f"Error fetching data: {result['error']['message']}")
+                    logger.error(f"Error fetching data: {result['error']['message']}")
                     raise RuntimeError
                 
                 # Check if the result contains features
                 if 'features' not in result:
-                    print(f"No features found in the response. Check the URL or parameters.")
+                    logger.error(f"No features found in the response. Check the URL or parameters.")
                     raise RuntimeError
             
                 features.append(result)
     try:
     # Combine list of feature collections into a single feature collection
         if len(features) == 0:
-            print("No features found in the response. Check the URL or parameters.")
+            logger.error("No features found in the response. Check the URL or parameters.")
             raise RuntimeError
         elif len(features) == 1:
             feature_collection = features[0]
@@ -200,7 +198,7 @@ def query(resource, api_key=None, recordcount_override=None):
                 "features": features
             }
     except Exception as e:
-        print(f"Error combining features: {e}", len(features))
+        logger.error(f"Error combining features: {e}", len(features))
         raise RuntimeError("Failed to combine features from the response.")
 
     return feature_collection
@@ -222,17 +220,13 @@ def gdf_from_resource(resource):
     --------
     RuntimeError: If the provided resource is not a valid ArcGIS REST API service or if there are issues with the request.  
 
-    Example:
-    --------
-    >>> gdf = gdf_from_resource("path/to/example.resource.yaml")
-    >>> print(gdf.head())
-    
     """
     import frictionless
     import geopandas as gpd
 
     # Check if the resource is a string or a frictionless Resource object
     if isinstance(resource, str):
+        logger.info(f"Loading file at {resource} as resource file.")
         # If it's a string, create a frictionless Resource object from the URL or file path
         resource = frictionless.Resource(path=resource)
     elif isinstance(resource, frictionless.Resource):
@@ -240,6 +234,7 @@ def gdf_from_resource(resource):
         pass    
 
     # Fetch the GeoJSON data from the resource
+    logger.info(f"Fetching geometry data from {resource}")
     features = query(resource)
       
     # Convert GeoJSON features to GeoDataFrame
@@ -267,6 +262,7 @@ def schema(url):
 
 
         # Fetch the service metadata
+    logger.info(f"Fetching metadata for schema from {url}?f=pjson")
     r = requests.get(f"{url}?f=pjson")
     pjson = r.json()
     r.close()
@@ -318,11 +314,15 @@ def get_tigerweb_layers_map(year, survey='ACS'):
     import re
 
 
+
     if survey not in ['ACS', 'DEC']:
+        logger.error(f"Invalid survey type {survey}. Must be 'ACS' or 'DEC'.")
         raise ValueError("Invalid survey type. Must be 'ACS' or 'DEC'.")
     if survey == 'DEC' and year not in ['2010', '2020']:
+        logger.error(f"Invalid year {year} for Decennial Census. Must be 2010 or 2020.")
         raise ValueError("Invalid year for Decennial Census. Must be 2010 or 2020.")
     if survey == 'ACS' and pd.to_numeric(year) < 2012:
+        logger.error(f"Invalid year {year} for ACS. Must be 2012 or later.")
         raise ValueError("Invalid year for ACS. Must be 2012 or later.")
     if survey == 'DEC':
         survey = 'Census'
@@ -334,18 +334,21 @@ def get_tigerweb_layers_map(year, survey='ACS'):
     mapserver_url = baseurl + mapserver_path
 
     # Retrieve the layers from the map service
+    logger.info(f"Fetching metadata from {mapserver_url}?f=pjson")
     r = requests.get(f"{mapserver_url}?f=pjson")
     
     #   Check if the request was successful
     if r.status_code != 200:
-        print(f"Error fetching data from {mapserver_url}: {r.status_code}")
+        logger.error(f"Error fetching data from {mapserver_url}: {r.status_code}")
         raise RuntimeError(f"Failed to fetch data from {mapserver_url}")
+    else:
+        logger.info(f"successful fetch using {r.url}")
     
     # Parse the JSON response
     try:
         layers_json = r.json()
     except:
-        print(f"CONTENTS OF REQUESTS {r.content}")
+        logger.error(f"Failed to decode json: CONTENTS OF REQUESTS {r.content}")
         r.close()
         raise RuntimeError(f"Failed to parse JSON from {mapserver_url}")
     r.close()    
@@ -365,7 +368,6 @@ def get_tigerweb_layers_map(year, survey='ACS'):
     layers = {re.sub(r"^(19|20)\d{2}$ ", '', k): v for k, v in layers.items()}
     # remove the 11Xth from congressional districts
     layers = {re.sub(r"^(11)\d{1}$th ", '', k): v for k, v in layers.items()}
-
 
     return layers
     
@@ -404,6 +406,7 @@ def get_layer_url(year, layer_name, survey='ACS'):
     from morpc.rest_api import get_tigerweb_layers_map
     import pandas as pd
     
+    logger.info(f"Validating Survey {survey} and Year {year}")
     # Validate inputs
     if survey not in ['ACS', 'DEC']:
         raise ValueError("Invalid survey type. Must be 'ACS' or 'DEC'.")
@@ -420,12 +423,15 @@ def get_layer_url(year, layer_name, survey='ACS'):
     layer_name = layer_name.lower()
     
     # Check if the layer name exists in the layers dictionary
+
     if layer_name not in layers:
         raise ValueError(f"Layer '{layer_name}' not found for year {year} and survey '{survey}'. Available layers: {list(layers.keys())}")
 
     baseurl = f"https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/"
     mapserver_path = f"tigerWMS_{survey}{year}/MapServer/{layers[layer_name]}"
     mapserver_url = baseurl + mapserver_path
+
+    logger.info(f"url: {mapserver_url}")
 
     # Verify the constructed URL
     r = requests.get(f"{mapserver_url}?f=pjson")
@@ -453,6 +459,7 @@ def totalRecordCount(url, where, outfields='*'):
     import re
 
     # Find the total number of records
+    logger.info(f"Requesting metadata fo total record")
     r = requests.get(f"{url}/query/", params = {
         "outfields": "*",
         "where": where,

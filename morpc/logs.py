@@ -1,4 +1,10 @@
 
+"""
+This module is used to set up logging when developing a workflow. Call morpc.logs.config_logs() after importing wanted packages. 
+
+See https://stackoverflow.com/questions/42388844/where-to-configure-logging for logging set up for packages, modules, class, and instances. 
+"""
+
 import logging 
 
 logger = logging.getLogger(__name__)
