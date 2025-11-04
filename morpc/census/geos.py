@@ -1,5 +1,3 @@
-from attr import validate
-from idna import valid_contextj
 import morpc
 
 # TODO (jinskeep_morpc): Develop function for fetching census geographies leveraging scopes
@@ -13,29 +11,44 @@ import morpc
 
 import requests
 
-STATE_SCOPES = [{key: {f"state": f"{int(value):02d}"}} for key, value in morpc.CONST_STATE_NAME_TO_ID.items()]
+import morpc.req
 
-COUNTY_SCOPES = [{key.lower(): {"state": "39", "county": f"{int(value[2:6]):03d}"}} for key, value in morpc.CONST_COUNTY_NAME_TO_ID.items()]
+STATE_SCOPES = [
+    {
+        key: {"for": f"state:{int(value):02d}"}
+    } 
+    for key, value in morpc.CONST_STATE_NAME_TO_ID.items()
+    ]
+
+COUNTY_SCOPES = [
+    {
+    key.lower(): {
+        "in": "state:39", 
+        "for": f"county:{int(value[2:6]):03d}"
+        }
+    }
+    for key, value in morpc.CONST_COUNTY_NAME_TO_ID.items()
+    ]
 
 SCOPES = {
     "us": {
-        "state": [f"{x:02d}" for x in morpc.CONST_STATE_ID_TO_NAME.keys()]
+        'for': 'us:1'
         },
     "region15": {
-        "state": "39", 
-        "county": [morpc.CONST_COUNTY_NAME_TO_ID[x][2:6] for x in morpc.CONST_REGIONS['15-County Region']]
+        "in": "state:39", 
+        "for": f"county:{','.join([morpc.CONST_COUNTY_NAME_TO_ID[x][2:6] for x in morpc.CONST_REGIONS['15-County Region']])}"
         },
     "region10": {
-        "state": "39",
-        "county": [morpc.CONST_COUNTY_NAME_TO_ID[x][2:6] for x in morpc.CONST_REGIONS['10-County Region']]
+        "in": "state:39", 
+        "for": f"county:{','.join([morpc.CONST_COUNTY_NAME_TO_ID[x][2:6] for x in morpc.CONST_REGIONS['10-County Region']])}"
         },
     "region7": {
-        "state": "39",
-        "county": [morpc.CONST_COUNTY_NAME_TO_ID[x][2:6] for x in morpc.CONST_REGIONS['7-County Region']]
+        "in": "state:39", 
+        "for": f"county:{','.join([morpc.CONST_COUNTY_NAME_TO_ID[x][2:6] for x in morpc.CONST_REGIONS['7-County Region']])}"
         },
     "region-corpo": {
-        "state": "39",
-        "county": [morpc.CONST_COUNTY_NAME_TO_ID[x][2:6] for x in morpc.CONST_REGIONS["CORPO Region"]]
+        "in": "state:39", 
+        "for": f"county:{','.join([morpc.CONST_COUNTY_NAME_TO_ID[x][2:6] for x in morpc.CONST_REGIONS['CORPO Region']])}"
         }
 }
 
@@ -45,37 +58,20 @@ for x in STATE_SCOPES:
 for x in COUNTY_SCOPES:
     SCOPES.update(x)
 
-def validate_scale(scale):
-    import morpc
-
-    if scale != None:
-    # Get available scales from morpc SUMLEVEL_DESCRIPTIONS
-        available_scales = [morpc.SUMLEVEL_DESCRIPTIONS[x]['censusQueryName'] for x in morpc.SUMLEVEL_DESCRIPTIONS]
-
-        # Validate inputs
-        if scale not in available_scales:
-            raise ValueError(f"Scale '{scale}' is not recognized. Available scales: {available_scales}")
-        else:
-            return True
-        
-def validate_scope(scope):
-    if scope != None:
-        if scope not in SCOPES:
-            raise ValueError(f"Scope '{scope}' is not recognized. Available scopes: {list(SCOPES.keys())}")
-        else:
-            return True
-
-def psuedo_from_scale_scope(scale, scope):
+def psuedo_from_scale_scope(scale, scope, scope_scale):
     import morpc
 
     if validate_scale(scale):
         child = f"{morpc.SUMLEVEL_FROM_CENSUSQUERY[scale]}0000"
     
     if validate_scope(scope):
-        params = param_from_scope(scope)
+        params = params_from_scale_scope(scope_scale, scope)
 
-    parents = geoids_from_params(for_params=params)
-    
+    parents = geoids_from_params(params[0], params[1])
+
+    psuedos = [f"{parent}${child}" for parent in parents]
+
+    return psuedos
     
 def get_query_req(sumlevel, year='2023'):
     """
@@ -198,7 +194,7 @@ def geoids_from_params(for_params, in_params = None, year = 2023):
     in_params : string
     
     """
-
+    url = f"https://api.census.gov/data/{year}/geoinfo"
     params = {
         'get': 'GEO_ID',
         'for': for_params
@@ -209,25 +205,30 @@ def geoids_from_params(for_params, in_params = None, year = 2023):
             'in': in_params
         })
     
-    # Fetch UCGIDs from the Census API
-    r = requests.get(
-        f"https://api.census.gov/data/{year}/geoinfo",
-        params=params
-    )
-
-    if r.status_code != 200:
-        raise requests.ConnectionError(f"Error querying {r.url}: Status Code {r.status_code}")
-
-    # Handle potential JSON decoding errors
-    try:
-        json = r.json()
-    except Exception as e:
-        print(r.text)
-        raise ValueError(f"Error fetching data from {r.url}: {e}")
-    r.close()
+    json = morpc.req.get_json_safely(url, params = params)
 
     # Extract UCGIDs from the response
     ucgids = [x[0] for x in json[1:]]
     return ucgids
 
+def geoids_from_psuedo(psuedos, year=2023):
+    """
+    returns a list of GEOIDFQs from list of ucgid psuedos. 
 
+    Parameters
+    ----------
+    psuedos : list
+        a list of ucgid pseudo predicate. See https://www.census.gov/data/developers/guidance/api-user-guide/ucgid-predicate.html
+    
+    """
+    baseurl = f"https://api.census.gov/data/{year}/geoinfo"
+    params = {
+        'get': 'GEO_ID',
+        'ucgid': f"pseudo({",".join(psuedos)})"
+    }
+    
+    json = morpc.req.get_json_safely(baseurl,params = params)
+
+    # Extract UCGIDs from the response
+    ucgids = [x[0] for x in json[1:]]
+    return ucgids

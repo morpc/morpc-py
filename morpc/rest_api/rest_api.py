@@ -457,16 +457,18 @@ def totalRecordCount(url, where, outfields='*'):
     """
     import requests
     import re
-
+    from morpc.req import get_json_safely
     # Find the total number of records
-    logger.info(f"Requesting metadata fo total record")
-    r = requests.get(f"{url}/query/", params = {
+    logger.info(f"Requesting metadata for total record")
+    url= f"{url}/query/"
+    params = {
         "outfields": "*",
         "where": where,
         "f": "geojson",
-        "returnCountOnly": "true"})
-    total_count = int(re.findall('[0-9]+',str(r.json()))[0])
-    r.close()
+        "returnCountOnly": "true"}
+    json = get_json_safely(url, params = params)
+    total_count = int(re.findall('[0-9]+',str(json))[0])
+    logger.info(f"Total records: {total_count}")
 
     return total_count
 
