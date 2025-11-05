@@ -1,3 +1,7 @@
+import logging
+
+logger = logging.getLogger(__name__)
+
 ACS_HIGHLEVEL_GROUP_DESC = {
     "01": "Sex, Age, and Population",
     "02": "Race",

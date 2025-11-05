@@ -1,3 +1,7 @@
+import logging
+
+logger  = logging.getLogger(__name__)
+
 import morpc
 
 # TODO (jinskeep_morpc): Develop function for fetching census geographies leveraging scopes
@@ -7,9 +11,6 @@ import morpc
 #   limited to census geographies. 
 #   [ ]: Consider storing the data as a remote frictionless resource similar to the acs data class.
 #   [ ]: Define scale and scopes that are used. Possibly lists for benchmarking (i.e. Most populous cities)
-
-
-import requests
 
 import morpc.req
 
@@ -58,129 +59,115 @@ for x in STATE_SCOPES:
 for x in COUNTY_SCOPES:
     SCOPES.update(x)
 
-def psuedo_from_scale_scope(scale, scope, scope_scale):
-    import morpc
+## These are the available children sumelevels for the various parent level sumlevels when using the ucgid=psuedo() predicate.
+## https://www.census.gov/data/developers/guidance/api-user-guide/ucgid-predicate.html
+## See https://www2.census.gov/data/api-documentation/list-of-available-collections-of-geographies.xlsx for list of geographies.
+PSEUDOS = {'010': [
+    '0300000',
+    '0400000',
+    '04000S0',
+    '0500000',
+    '0600000',
+    '1400000',
+    '1500000',
+    '1600000',
+    '2500000',
+    '2510000',
+    '3100000',
+    '31000M1',
+    '31000M2',
+    '3140000',
+    '3300000',
+    '3500000',
+    '4000000',
+    '5000000',
+    '7950000',
+    '8600000',
+    '8610000',
+    '9500000',
+    '9600000',
+    '9700000',
+    '9800000',
+    'E330000',
+    'E600000',
+    'E800000',
+    'E810000'],
+ '040': [
+    '0500000',
+    '0600000',
+    '06V0000',
+    '1000000',
+    '1400000',
+    '1500000',
+    '1600000',
+    '1700000',
+    '2300000',
+    '2500000',
+    '3100000',
+    '3500000',
+    '4000000',
+    '4200000',
+    '5000000',
+    '6100000',
+    '6200000',
+    '7000000',
+    '7950000',
+    '8600000',
+    '8610000',
+    '8710000',
+    '9040000',
+    '9500000',
+    '9600000',
+    '9700000',
+    '9800000',
+    'E600000'],
+ '050': [
+    '0600000',
+    '06V0000',
+    '1000000',
+    '1400000',
+    '1500000',
+    '1600000',
+    '7000000',
+    '8600000',
+    '8710000'],
+ '060': ['1000000'],
+ '140': ['1000000', '1500000'],
+ '160': ['1000000', '1400000', '8600000', '8710000'],
+ '250': ['1000000', '2510000', '5000000'],
+ '310': [
+    '0500000',
+    '0600000',
+    '1400000',
+    '1500000',
+    '1600000',
+    '5000000',
+    '8600000',
+    'E600000'],
+ '314': ['0500000',
+    '0600000',
+    '1400000',
+    '1500000',
+    '1600000',
+    '5000000',
+    '8600000'],
+ '330': ['0500000',
+    '0600000',
+    '1400000',
+    '1500000',
+    '1600000',
+    '3100000',
+    '5000000'],
+ '335': ['0600000'],
+ '350': ['0500000', '0600000', '3520000'],
+ '355': ['0600000'],
+ '500': ['0500000', '0600000', '1400000', '1500000', '4000000'],
+ '610': ['0600000', '1600000'],
+ '620': ['0600000', '1600000'],
+ '950': ['1000000'],
+ '960': ['1000000'],
+ '970': ['1000000']}
 
-    if validate_scale(scale):
-        child = f"{morpc.SUMLEVEL_FROM_CENSUSQUERY[scale]}0000"
-    
-    if validate_scope(scope):
-        params = params_from_scale_scope(scope_scale, scope)
-
-    parents = geoids_from_params(params[0], params[1])
-
-    psuedos = [f"{parent}${child}" for parent in parents]
-
-    return psuedos
-    
-def get_query_req(sumlevel, year='2023'):
-    """
-    Fetches the query requirements for various geographic levels from the Census API.
-    """
-    r = requests.get(f"https://api.census.gov/data/{year}/geoinfo/geography.json")
-    json = r.json()
-    r.close()
-
-    query_requirements = {}
-    for item in json['fips']:
-        if item['geoLevelDisplay'] in sumlevel:
-            if 'requires' in item.keys():
-                query_requirements['requires'] = item['requires']
-            else:
-                query_requirements['requires'] = None
-            if 'wildcard' in item.keys():
-                query_requirements['wildcard'] = item['wildcard']
-            else:
-                query_requirements['wildcard'] = None
-
-    return query_requirements
-
-def param_from_scope(scope):
-    params = []
-    for key in morpc.census.SCOPES[scope]:
-        value = morpc.census.SCOPES[scope][key]
-        if isinstance(value, str):
-            params.append(f"{key}: {value}")
-        if isinstance(value, list):
-            params.append(f"{key}: {",".join(value)}")
-    return params
-        
-def params_from_scale_scope(scale=None, scope=None):
-    """
-    Fetches UCGIDs from the Census API based on the specified geographic scale and scope.
-    Parameters:
-    ----------
-    scale : str
-        The geographic scale (e.g., 'county', 'tract', 'block group').
-    scope : str
-        The geographic scope (e.g., 'us', 'ohio', 'region15').
-    
-    Returns:
-    -------
-    list
-        A list of UCGIDs corresponding to the specified scale and scope.
-    
-    Raises:
-    ------
-    ValueError
-        If the provided scale or scope is not recognized, or if the scope does not satisfy
-        the query requirements for the specified scale.
-
-    """
-    import morpc
-
-    if scale != None:
-    # Get available scales from morpc SUMLEVEL_DESCRIPTIONS
-        available_scales = [morpc.SUMLEVEL_DESCRIPTIONS[x]['censusQueryName'] for x in morpc.SUMLEVEL_DESCRIPTIONS]
-
-        # Validate inputs
-        if scale not in available_scales:
-            raise ValueError(f"Scale '{scale}' is not recognized. Available scales: {available_scales}")
-    
-    if scope != None:
-        if scope not in SCOPES:
-            raise ValueError(f"Scope '{scope}' is not recognized. Available scopes: {list(SCOPES.keys())}")
-    
-    sumlevel = morpc.SUMLEVEL_FROM_CENSUSQUERY[scale]
-
-    for_params = f"{morpc.SUMLEVEL_DESCRIPTIONS[sumlevel]['censusQueryName']}:*"
-
-    in_params = param_from_scope(scope)
-
-    in_list = [x.split(':')[0] for x in in_params]
-
-    # Get query requirements for the specified sumlevel
-    query_requirements = get_query_req(sumlevel)
-
-    # Check if the requirements are more than None
-    if len([x for x in query_requirements.values() if x != None]) > 0:
-        req_list = [value for values in query_requirements.values() for value in values]
-        req_list.append(morpc.SUMLEVEL_DESCRIPTIONS[sumlevel]['censusQueryName'])
-    else:
-        req_list = [None]
-
-    for x in in_list:
-        if x not in req_list:
-            print(f"{x} in 'in_params' but not in query requirements {req_list}. Invalid scope.")
-            raise ValueError
-
-
-    # Remove any overlapping parameters between 'for' and 'in'
-    if for_params.split(':')[0] in in_list:
-        for_params = in_params.pop(in_list.index(for_params.split(':')[0]))
-
-    #  Add in wildcards if not in parameters.
-    for wildcard in query_requirements['wildcard']:
-        if wildcard not in in_list:
-            in_params.append(f"{wildcard}:*")
-            in_list.append(wildcard)
-    
-    # Check if in parameters meet requirements for scope.
-    for req in query_requirements['requires']:
-        if req not in in_list:
-            raise ValueError(f"Parameter {in_list} does not satisfy the query requirement '{req}' for scale '{scale}'. Please choose a different scope.")
-
-    return (for_params, in_params)
 
 def geoids_from_params(for_params, in_params = None, year = 2023):
     """
@@ -205,13 +192,14 @@ def geoids_from_params(for_params, in_params = None, year = 2023):
             'in': in_params
         })
     
+    logger.info(f"Getting GEOIDS from {for_params} and {in_params}.")
     json = morpc.req.get_json_safely(url, params = params)
 
     # Extract UCGIDs from the response
     ucgids = [x[0] for x in json[1:]]
     return ucgids
 
-def geoids_from_psuedo(psuedos, year=2023):
+def geoids_from_pseudo(pseudos, year=2023):
     """
     returns a list of GEOIDFQs from list of ucgid psuedos. 
 
@@ -224,9 +212,10 @@ def geoids_from_psuedo(psuedos, year=2023):
     baseurl = f"https://api.census.gov/data/{year}/geoinfo"
     params = {
         'get': 'GEO_ID',
-        'ucgid': f"pseudo({",".join(psuedos)})"
+        'ucgid': f"pseudo({",".join(pseudos)})"
     }
     
+    logger.info("Getting GEOIDS from pseudo groups {pseudos}")
     json = morpc.req.get_json_safely(baseurl,params = params)
 
     # Extract UCGIDs from the response
