@@ -221,3 +221,54 @@ def geoids_from_pseudo(pseudos, year=2023):
     # Extract UCGIDs from the response
     ucgids = [x[0] for x in json[1:]]
     return ucgids
+
+def fetch_geos_from_geoids(geoidfqs, year, survey):
+    """
+    Fetches a table of geometries from a list of Census GEOIDFQs using the Rest API.
+
+    Parameters:
+    geoidfqs : list
+        A list of fully qualified Census GEOIDs, i.e. ['0550000US39049', '0550000US39045']
+
+    year : str
+        The year of the data to ret
+    """
+
+    import morpc.rest_api
+    import pandas as pd
+    import geopandas as gpd
+
+    # Get sum levels in the data
+    sumlevels = set([x[0:3] for x in geoidfqs])
+
+    logger.info(f"Sum levels {', '.join(sumlevels)} are in data.")
+
+    geometries = []
+    for sumlevel in sumlevels: # Get geometries for each sumlevel iteratively
+        # Get rest api layer name and get url
+        layerName = morpc.SUMLEVEL_DESCRIPTIONS[sumlevel]['censusRestAPI_layername']
+
+        url = morpc.rest_api.get_layer_url(year, layer_name=layerName, survey=survey)
+        logger.info(f"Fetching geometries for {layerName} ({sumlevel}) from {url}")
+
+        # Construct a list of geoids from data to us to query API
+        geoids = ",".join([f"'{x.split('US')[-1]}'" for x in geoidfqs if x.startswith(sumlevel)])
+
+        logger.info(f"There are {len(geoids)} geographies in {layerName}")
+        logger.debug(f"{', '.join(geoidfqs)}")
+
+        # Build resource file and query API
+        logger.info(f"Building resource file to fetch from RestAPI.")
+        resource = morpc.rest_api.resource(name='temp', url=url, where= f"GEOID in ({geoids})")
+
+        logger.info(f"Fetching geographies from RestAPI.")
+        geos = morpc.rest_api.gdf_from_resource(resource)
+        geos['GEOIDFQ'] = [f"{sumlevel}0000US{x}" for x in geos['GEOID']]
+
+        geometries.append(geos[['GEOIDFQ', 'geometry']])
+    logger.info("Combining geometries...")
+    geometries = pd.concat(geometries)
+    geometries = geometries.rename(columns={'GEOIDFQ': 'GEO_ID'})
+    geometries = geometries.set_index('GEO_ID')
+
+    return gpd.GeoDataFrame(geometries, geometry='geometry')

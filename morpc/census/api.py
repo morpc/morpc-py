@@ -120,9 +120,9 @@ def get_params(survey_table, year, group, variables=None):
     if valid_group(group, survey_table, year):
         if variables != None:
             if valid_variables(survey_table, year, group, variables):
-                get_param = f"NAME,GEO_ID,{",".join(variables)}"
+                get_param = f"{",".join(variables)}"
         else:
-            get_param = f"NAME,GEO_ID,group({group})"
+            get_param = f"group({group})"
     logger.info(f"'get=' parameters for query are {get_param}")
     
     return get_param
@@ -154,13 +154,13 @@ def geo_params_from_scope_scale(scope, scale=None):
     from morpc.census.geos import SCOPES
 
     logger.debug(f"Building parameters to pass for geographies Scope: {scope} and Scale: {scale}")
-    if scale == None:
-        if valid_scope:
-            params = {}
-            if scale == None:
-                logger.info(f"No scale specified. Using {scope} parameters. {SCOPES[scope]}")
-                params.update(SCOPES[scope])
-            else:
+    if valid_scope(scope):
+        params = {}
+        if scale == None:
+            logger.info(f"No scale specified. Using {scope} parameters. {SCOPES[scope]}")
+            params.update(SCOPES[scope])
+        else:
+            if valid_scale(scale):
                 logger.info(f"Scale {scale} specified for scope {scope}.")
                 if "in" in SCOPES[scope]:
                     logger.info(f"Scope {scope} already has 'in' parameter. Converting to ucgid=pseudo() type predicate.")
@@ -186,10 +186,12 @@ def geo_params_from_scope_scale(scope, scale=None):
                                     params['in'] = [params['in'], f"{req}:*"]
                                 else:
                                     params['in'].append(f"{req}:*")
-        else:
-            logger.error(f'{scope} is not a valid scope.')
+            
+        return params
+    else:
+        logger.error(f'{scope} is not a valid scope.')
 
-    return params
+
 
 def geoids_from_scope(scope):
     from morpc.req import get_json_safely
@@ -270,6 +272,122 @@ def get_api_request(survey_table, year, group, scope, variables=None, scale=None
 
     logger.info(f"api request as URL: {url} and PARAMETERS: {params}")
     return req
+
+def get(url, params, varBatchSize=20):
+    """
+    api_get() is a low-level wrapper for Census API requests that returns the results as a pandas dataframe. If necessary, it
+    splits the request into several smaller requests to bypass the 50-variable limit imposed by the API.  The resulting dataframe
+    is indexed by GEOID (regardless of whether it was requested) and omits other fields that are not requested but which are returned 
+    automatically with each API request (e.g. "state", "county")
+
+    Parameters
+    ----------
+    url : string
+        url is the base URL of the desired Census API endpoint.  For example: https://api.census.gov/data/2022/acs/acs1
+
+    params : dict 
+        (in requests format) the parameters for the query string to be sent to the Census API. For example:
+
+        {
+            "get": "GEO_ID,NAME,B01001_001E",
+            "for": "county:049,041",
+            "in": "state:39"
+        }
+
+    varBatchSize : integer, default = 20
+        representing the number of variables to request in each batch. 
+        Defaults to 20, Limited to 49.
+
+    Returns
+    -------
+    pandas.Dataframe
+        dataframe indexed by GEO_ID and having a column for each requested variable
+    """
+    
+    import json         # We need json to make a deep copy of the params dict
+    from morpc.req import get_json_safely
+    from morpc.census.api import get_group_variables
+    import pandas as pd
+    import re
+
+    if len(re.findall(r'group\((.+)\)', params['get'])) == 0:
+        # We need to reserve one variable in each batch for GEO_ID.  If the user requests more than 49 variables per
+        # batch, reduce the batch size to 49 to respect the API limit
+        if(varBatchSize > 49):
+            logger.warning("Requested variable batch size exceeds API limit. Reducing batch size to 50 (including GEO_ID).")
+            varBatchSize = 49
+        
+        # Extract a list of all of the requested variables from the request parameters
+        allVars = params["get"].split(",")
+        logger.info("Total variables requested: {}".format(len(allVars)))
+        
+        remainingVars = allVars
+        requestCount = 1
+        while(len(remainingVars) > 0):
+            logger.info("Starting request #{0}. {1} variables remain.".format(requestCount, len(remainingVars)))
+
+            # Create a short list of variables to download in this batch. Reserve one place for GEO_ID
+            shortList = remainingVars[0:varBatchSize-2]
+            # Check to see if GEO_ID was already included in the short list. If not, append it to the list.
+            # If so, try to append another variable from the list of remaining variables.  In either case,
+            # remove the items in the shortlist from the list of remaining variables.
+            if(not "GEO_ID" in shortList):
+                shortList.append("GEO_ID")
+                remainingVars = remainingVars[varBatchSize-2:]
+            else:
+                try:
+                    shortList.append(remainingVars[varBatchSize-2])
+                except:
+                    pass
+                remainingVars = remainingVars[varBatchSize-1:]            
+
+            # Create a set of API query parameters for this request. It will be a copy of the original parameters,
+            # but with the list of variables replaced by the short list
+            shortListParams = json.loads(json.dumps(params))
+            shortListParams["get"] = ",".join(shortList)
+
+            # Send the API request. Throw an error if the resulting status code indicates a failure condition.
+            records = get_json_safely(url, params=shortListParams)
+            
+            # The first record is actually the column headers. Remove this from the list of records and keep it.
+            columns = records.pop(0)
+            
+            # Construct a temporary pandas dataframe from the records
+            df = pd.DataFrame.from_records(records, columns=columns)
+
+            # Extract only the requested columns (plus GEO_ID) from the dataframe. This has the effect of removing
+            # unrequested variables like "state" and "county"
+            df = df.filter(items=shortList, axis="columns")
+            
+            # If this is our first request, construct the output dataframe by copying the temporary one. Otherwise,
+            # join the temporary dataframe to the existing one using the GEO_ID.
+            if(requestCount == 1):
+                censusData = df.set_index("GEO_ID").copy()
+            else:
+                censusData = censusData.join(df.set_index("GEO_ID"))
+            
+            requestCount += 1
+    else:
+        logger.info('Found group parameter. Ignoring variable limits.')
+
+        year = url.replace('https://api.census.gov/data/', '').replace('?','')[0:4]
+        survey_table = url.replace('https://api.census.gov/data/', '').replace('?','')[5:]
+        group = re.findall(r'group\((.+)\)', params['get'])[0]
+
+        variables = get_group_variables(survey_table, year, group)
+
+        vars = ['GEO_ID', 'NAME']
+        for x in variables:
+            vars.append(x) 
+
+        records = get_json_safely(url, params=params)
+        columns = records.pop(0)
+
+        censusData = pd.DataFrame.from_records(records, columns=columns)
+        censusData = censusData.filter(items=vars, axis='columns')
+
+    return censusData
+
     
 
     

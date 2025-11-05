@@ -2,7 +2,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-def get_text_safely(url, headers=None, params=None):
+def get_text_safely(url, params=None, headers=None):
     import requests
 
     logger.info(f"Getting data from {url} with parameters {params}.")
@@ -20,11 +20,11 @@ def get_text_safely(url, headers=None, params=None):
     return text
 
 
-def get_json_safely(url, headers=None, params=None):
+def get_json_safely(url, params=None, headers=None):
     import requests
 
     logger.info(f"Getting data from {url} with parameters {params}.")
-    r = requests.get(url, headers=headers, params=params)
+    r = requests.get(url, params=params, headers=headers)
     if r.status_code != 200:
         logger.error(f"Request content: {r.url}")
         raise requests.HTTPError
@@ -39,7 +39,7 @@ def get_json_safely(url, headers=None, params=None):
 
     return json
 
-def post_safely(url, headers=None, params=None):
+def post_safely(url, params=None, headers=None):
     import requests
 
     logger.info(f"Posting data to {url} with parameters {params}.")
@@ -58,7 +58,7 @@ def post_safely(url, headers=None, params=None):
 
     return json
 
-def delete_safely(url, headers=None, params=None):
+def delete_safely(url, params=None, headers=None):
     import requests
 
     logger.info(f"Deleting data at {url} with parameters {params}.")
