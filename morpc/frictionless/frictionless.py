@@ -285,7 +285,7 @@ def add_missing_fields(df, schema, fieldNames=None):
         
 
 
-def create_resource(dataPath, title=None, name=None, description=None, resourcePath=None, schemaPath=None, resFormat=None, 
+def create_resource(dataPath, title=None, name=None, description=None, sources=None, resourcePath=None, schemaPath=None, resFormat=None, 
                                  resProfile=None, resMediaType=None, computeHash=True, computeBytes=True, ignoreSchema=False, 
                                  writeResource=False, validate=False):
     """Create a Frictionless resource object using sane default values for some attributes.  Optionally, write the 
@@ -307,6 +307,10 @@ def create_resource(dataPath, title=None, name=None, description=None, resourceP
         Optional. The value for the description attribute in the resource file. A human-readable detailed description of the data and
         any interpretation or usage guidelines as required.  If unspecified, defaults to a generic description attributing
         the data to MORPC.
+    sources : list of dict
+        Optional. The value for the sources attribute in the resource file.  A list of dictionaries containing source information for the data
+        include name and path and _params.  If unspecified, no source information will be included in the resource.
+        ex. [{"name": "MORPC", "path": "https://www.morpc.org"}]
     resourcePath : str
         Optional. If you wish to write the resource object to disk as a resource file (see writeResource), you may specify the target 
         path here. Can be an absolute path or a path RELATIVE TO THE CURRENT WORKING DIRECTORY of the script. The values for dataPath 
@@ -437,7 +441,13 @@ def create_resource(dataPath, title=None, name=None, description=None, resourceP
         resourceDescription = description
     else:
         resourceDescription = "This dataset was produced by MORPC. For more information, please contact dataandmaps@morpc.org."
-        logger.info("morpc.frictionless.create_resource | INFO | Description not specified. Using boilerplate placeholder value: {}".format(resourceDescription))
+        logger.info("Description not specified. Using boilerplate placeholder value: {}".format(resourceDescription))
+
+    if sources != None:
+        resourceSources = sources
+    else:
+        resourceSources = None  
+        logger.info("Sources not specified. No source information will be included in the resource.")
 
     if resMediaType != None:
         resourceMediaType = resMediaType
@@ -538,7 +548,7 @@ def write_resource(resource, resourcePath):
         
     os.chdir(cwd)
 
-def validate_resource(resourcePath, verbose=True):
+def validate_resource(resourcePath):
     import os
     import frictionless
     cwd = os.getcwd()
