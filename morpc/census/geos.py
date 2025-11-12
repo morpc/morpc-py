@@ -234,7 +234,7 @@ def fetch_geos_from_geoids(geoidfqs, year, survey):
         The year of the data to ret
     """
 
-    import morpc.rest_api
+    from morpc.census.tigerweb import get_layer_url
     import pandas as pd
     import geopandas as gpd
 
@@ -248,7 +248,7 @@ def fetch_geos_from_geoids(geoidfqs, year, survey):
         # Get rest api layer name and get url
         layerName = morpc.SUMLEVEL_DESCRIPTIONS[sumlevel]['censusRestAPI_layername']
 
-        url = morpc.rest_api.get_layer_url(year, layer_name=layerName, survey=survey)
+        url = get_layer_url(year, layer_name=layerName, survey=survey)
         logger.info(f"Fetching geometries for {layerName} ({sumlevel}) from {url}")
 
         # Construct a list of geoids from data to us to query API
