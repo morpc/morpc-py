@@ -756,11 +756,10 @@ class DimensionTable:
         CensusAPI : morpc.census.CensusAPI
             The CensusAPI object to create dimension tables from.
         """
-
-        from uuid import uuid4
+        from datetime import datetime
         self.LONG = CensusAPI_LONG.copy() # Store a copy of the data
 
-        self.logger = logging.getLogger(__name__).getChild(self.__class__.__name__).getChild(str(uuid4()))
+        self.logger = logging.getLogger(__name__).getChild(self.__class__.__name__).getChild(str(datetime.now()))
         self.logger.info(f"Initializing DIMENSION_TABLE object.")
 
     def wide(self):
