@@ -631,6 +631,63 @@ SUMLEVEL_DESCRIPTIONS = {
         "censusQueryName": None,
         "censusRestAPI_layername": None
     },
+    # Sumlevels M23 to M29 correspond to sumlevels defined above, but are
+    # derived from MORPC-maintained geographies rather than Census-maintained
+    # geographies
+    'M23': {  # Corresponds to 050 (COUNTY)
+        "singular":"county",
+        "plural":"counties",
+        "hierarchy_string":"COUNTY-MORPC",
+        "authority":"morpc",
+        "idField":"COUNTYFP",
+        "nameField":"COUNTY",
+        "censusQueryName": None,
+    },
+    'M24': {  # Corresponds to M10 (JURIS)
+        "singular":"Jurisdiction",
+        "plural":"Jurisdictions",
+        "hierarchy_string":"JURIS-MORPC",
+        "authority":"morpc",
+        "idField":"JURISID",
+        "nameField":"JURIS",
+        "censusQueryName": None
+    },
+    'M25': {  # Corresponds to M11 (JURIS-COUNTY)
+        "singular":"Jurisdiction county part",
+        "plural":"Jurisdiction county parts",
+        "hierarchy_string":"JURIS-COUNTY-MORPC",
+        "authority":"morpc",
+        "idField":"JURISPARTID",
+        "nameField":"JURISPART",
+        "censusQueryName": None
+    },
+    'M26': {  # Corresponds to M16 (REGIONMPO)
+        "singular":"MORPC MPO region",
+        "plural":"MORPC MPO region",
+        "hierarchy_string":"REGIONMPO-MORPC",
+        "authority":"morpc",
+        "idField":"REGIONMPOID",
+        "nameField":"REGIONMPO",
+        "censusQueryName": None
+    },
+    'M27': {  # Corresponds to M17 (REGIONTDM)
+        "singular":"MORPC TDM region",
+        "plural":"MORPC TDM region",
+        "hierarchy_string":"REGIONTDM-MORPC",
+        "authority":"morpc",
+        "idField":"REGIONTDMID",
+        "nameField":"REGIONTDM",
+        "censusQueryName": None
+    },
+    'M30': {
+        "singular":"SWACO region",
+        "plural":"SWACO region",
+        "hierarchy_string":"REGIONSWACO",
+        "authority":"morpc",
+        "idField":"REGIONSWACOID",
+        "nameField":"REGIONSWACO",
+        "censusQueryName": None
+    },    
 }
 
 # TODO: include the following sumlevels
@@ -2725,9 +2782,7 @@ def write_table(df, path, format=None, index=None):
         print("morpc.write_table | ERROR | This function does not currently support format {}.  Add export arguments for this format in morpc.PANDAS_EXPORT_ARGS_OVERRIDE or use the native pandas export functions.".format(format))
         raise RuntimeError
 
-
-
-def reapportion_by_area(targetGeos, sourceGeos, apportionColumns=None, summaryType="sum", roundPreserveSum=None, sourceShareTolerance=6):
+def reapportion_by_area(targetGeos, sourceGeos, apportionColumns=None, summaryType="sum", roundPreserveSum=None, partialCoverageStrategy="error", zeroCoverageStrategy="error", sourceShareTolerance=6, targetShareTolerance=6):
     """
     Given you have some variable(s) summarized at one geography level, reapportion those variables to other geographies in proportion 
     # to the area of overlap of the target geographies with the source geographies.  This is accomplished by intersecting the target 
@@ -2754,15 +2809,28 @@ def reapportion_by_area(targetGeos, sourceGeos, apportionColumns=None, summaryTy
         Optional. If set to an integer, round the reapportioned values to the specified number of decimal places while preserving their 
         sum.  Uses morpc.round_preserve_sum().  Note that the sum for the entire collection of values is preserved, not the sums by target 
         geo.  Set to None to skip rounding. Ignored when summaryType == "mean".
-    summaryType: sum
+    summaryType: str
         Optional. The name of the function to use to summarize the variables for the target geos. The default is to sum the variables within 
         the target geos.  Supported functions include "sum", "mean"
+    partialCoverageStrategy: str
+        Optional. How to handle cases where the target geographies only partially cover a source geography. Use "error" to throw an error.
+        Use "ignore" to do nothing. This leaves some portion of the variable(s) unapportioned. Use "distribute" to distribute the remainder 
+        of the variable(s) to the target geographies in proportion to their area of overlap.  Ignored when summaryType == "mean".
+    zeroCoverageStrategy: str
+        Optional. How to handle cases where no target geographies overlap a source geography. Use "error" to throw an error. Use "ignore" 
+        to do nothing. This the full variable(s) for that source geography unapportioned. Use "distribute" to distribute the variable(s) 
+        to ALL target geographies in such a manner that their global shares of the variable remain constant. Ignored when summaryType == "mean".     
     sourceShareTolerance : int
         Optional. If set to an integer, warn the user if the source shares for intersection polygons associated with one or more source 
         geographies do not sum to 1.  Round the sums to the specified decimal place prior to evaluation.  Sum greater than 1 may indicate 
         that there are overlapping polygons in the target geos or source geos. Sum less than 1 may indicate that target geo coverage of 
         source geos is incomplete.  Set to None to allow no tolerance (warning will be generated if shares do not sum to exactly 1).
-
+    targetShareTolerance : int
+        Optional. If set to an integer, warn the user if the target shares for intersection polygons associated with one or more target 
+        geographies do not sum to 1.  Round the sums to the specified decimal place prior to evaluation.  Sum greater than 1 may indicate 
+        that there are overlapping polygons in the target geos or source geos. Sum less than 1 may indicate that portions of the target geos
+        do not overlap the source geos. Set to None to allow no tolerance (warning will be generated if shares do not sum to exactly 1).
+        
     Returns
     -------
     targetGeosUpdated :  geopandas.geodataframe.GeoDataFrame with polygon geometry type
@@ -2828,28 +2896,103 @@ def reapportion_by_area(targetGeos, sourceGeos, apportionColumns=None, summaryTy
 
     # Compute the share of the target geo that each intersection polygon represents
     intersectGeos["TARGET_SHARE"] = intersectGeos["INTERSECT_GEOS_AREA"] / intersectGeos["TARGET_GEOS_AREA"]
+
+    # Make a list of the source geo IDs that appeared in the original source data but do not appear in the intersection data.  
+    # These are source geos that had zero overlap with the target geos. If there are entries in the list, throw an error if appropriate.
+    if(summaryType == "sum"):
+        zeroOverlapSourceGeoList = list(set(list(mySourceGeos["sourceIndex"].unique())).difference(set(list(intersectGeos["sourceIndex"].unique()))))
+        if(len(zeroOverlapSourceGeoList) > 0):
+            if(zeroCoverageStrategy == "error"):
+                print("morpc.reapportion_by_area | ERROR | One or more source geographies is not overlapped by any target geographies. If this is expected, you can suppress this error by setting zeroCoverageStrategy to 'ignore' or 'distribute'.")
+                raise RuntimeError         
+            elif(zeroCoverageStrategy == "ignore"):
+                print("morpc.reapportion_by_area | INFO | Ignoring zero coverage of some source geographies. See zeroCoverageStrategy argument.")                
+            elif(zeroCoverageStrategy == "distribute"):
+                print("morpc.reapportion_by_area | INFO | Distributing variable(s) from zero-coverage source geographies to target geographies.  See zeroCoverageStrategy argument.")
+            else:
+                print("morpc.reapportion_by_area | ERROR | Argument value for zeroCoverageStrategy is not supported: {}".format(zeroCoverageStrategy))
+                raise RuntimeError            
+
+        if(roundPreserveSum is not None):
+            if(type(roundPreserveSum) == int):
+                print("morpc.reapportion_by_area | INFO | Rounding variable(s) to {} digits while preserving sum.".format(roundPreserveSum))
+            else:
+                print("morpc.reapportion_by_area | ERROR | Argument value for roundPreserveSum is not supported: {}".format(roundPreserveSum))
+                raise RuntimeError       
     
     # Sum the source shares by source geography and verify that they sum to 1.  This indicates that there are no overlapping polygons 
     # in the target geos or source geos and that the coverage of the source geos by the target geos is complete.  If the shares do not 
-    # sum to 1 for one or more source geos,
-    # warn the user.
-    groupSums = intersectGeos.groupby("sourceIndex")[["SOURCE_SHARE"]].sum()
+    # sum to 1 for one or more source geos, warn the user.  If source geographies are not fully covered, throw errors if appropriate.
+    sourceGroupSums = intersectGeos.groupby("sourceIndex")[["SOURCE_SHARE"]].sum()
+    sourceGroupSums = sourceGroupSums.rename(columns={"SOURCE_SHARE":"SOURCE_SHARE_SUM"})
+    intersectGeos = intersectGeos.merge(sourceGroupSums, on="sourceIndex")
     if(sourceShareTolerance is not None):
-        groupSums["SOURCE_SHARE"] = groupSums["SOURCE_SHARE"].round(decimals=sourceShareTolerance)
-    if((groupSums["SOURCE_SHARE"].max() != 1) | (groupSums["SOURCE_SHARE"].min() != 1)):
-        print("morpc.reapportion_by_area | WARNING | The source shares of the intersection geographies should sum to 1, however they sum to another value in at least one case.  This could mean that the there are overlapping polygons in the target geos or in the overlay geos (overlay sum > 1), or that the target geos coverage of the overlay geos is incomplete (overlay sum < 1).  The greatest overlay sum is {0} and the smallest overlay sum is {1}. Assess the severity of the discrepancy and troubleshoot the geometries if necessary prior to proceeding.".format(groupSums["SOURCE_SHARE"].max(), groupSums["SOURCE_SHARE"].min()))
+        sourceGroupSums["SOURCE_SHARE_SUM"] = sourceGroupSums["SOURCE_SHARE_SUM"].round(decimals=sourceShareTolerance)
+    sourceShareMax = sourceGroupSums["SOURCE_SHARE_SUM"].max()
+    sourceShareMin = sourceGroupSums["SOURCE_SHARE_SUM"].min()
+    if((sourceShareMax != 1) | (sourceShareMin != 1)):
+        print("morpc.reapportion_by_area | WARNING | The source shares of the intersection geographies should sum to 1, however they sum to another value in at least one case.  This could mean that the there are overlapping polygons in the target geos or in the source geos (overlay sum > 1), or that the target geos coverage of the overlay geos is incomplete (overlay sum < 1).  The greatest overlay sum is {0} and the smallest overlay sum is {1}. Assess the severity of the discrepancy and troubleshoot the geometries if necessary prior to proceeding.".format(sourceShareMax, sourceShareMin))
+        if(summaryType == "sum"):
+            if(sourceShareMin < 1):
+                if(partialCoverageStrategy == "error"):
+                    print("morpc.reapportion_by_area | ERROR | One or more source geographies is not fully covered by target geographies. If this is expected, you can suppress this error by setting partialCoverageStrategy to 'ignore' or 'distribute'.")
+                    raise RuntimeError
+                elif(partialCoverageStrategy == "ignore"):
+                    print("morpc.reapportion_by_area | INFO | Ignoring partial coverage of some source geographies. See partialCoverageStrategy argument.")                
+                elif(partialCoverageStrategy == "distribute"):
+                    print("morpc.reapportion_by_area | INFO | Distributing variable(s) from non-covered portion of source geographies to covered portions. See partialCoverageStrategy argument.")
+                else:
+                    print("morpc.reapportion_by_area | ERROR | Argument value for partialCoverageStrategy is not supported: {}".format(partialCoverageStrategy))
+                    raise RuntimeError
+    
+    # Sum the target shares by target geography and verify that they sum to 1.  This indicates that there are no overlapping polygons in the
+    # target geos or source geos and that there are no portions of the target geos that did not overlap with the source geos. If the shares do 
+    # not sum to 1 for one or more target geos, warn the user.
+    targetGroupSums = intersectGeos.groupby("targetIndex")[["TARGET_SHARE"]].sum()
+    targetGroupSums = targetGroupSums.rename(columns={"TARGET_SHARE":"TARGET_SHARE_SUM"})
+    targetShareMax = targetGroupSums["TARGET_SHARE_SUM"].max()
+    targetShareMin = targetGroupSums["TARGET_SHARE_SUM"].min()    
+    if(targetShareTolerance is not None):
+        targetGroupSums["TARGET_SHARE_SUM"] = targetGroupSums["TARGET_SHARE_SUM"].round(decimals=targetShareTolerance)
+    if((targetShareMax != 1) | (targetShareMin != 1)):
+        print("morpc.reapportion_by_area | WARNING | The target shares of the intersection geographies should sum to 1, however they sum to another value in at least one case.  This could mean that there are overlapping polygons in the target geos or in the source geos (overlay sum > 1), or that portions of the target geos did not overlap the source geos (overlay sum < 1).  The greatest overlay sum is {0} and the smallest overlay sum is {1}. Assess the severity of the discrepancy and troubleshoot the geometries if necessary prior to proceeding.".format(targetShareMax, targetShareMin))
         
     # For each of the variables to be reapportioned, compute the reapportioned values
     for column in apportionColumns:
         if(summaryType == "sum"):
             print("morpc.reapportion_by_area | INFO | Reapportioning variable {} by sum".format(column))
+
             # Apportion the total value for the source geography to the intersect polygons in proportion to how
             # much of the area of the source geography the intersection represents. For example, an intersection
             # polygon that covers 40% of the source geography will get 40% of the value associated with that geography
-            intersectGeos[column] = intersectGeos[column] * intersectGeos["SOURCE_SHARE"]
+            intersectGeos[column] = (intersectGeos[column] * intersectGeos["SOURCE_SHARE"])
+
+            # If any source geos were only partially overlapped by target geos, apply the strategy specified by the user
+            if((sourceShareMin < 1) & (partialCoverageStrategy == "distribute")):
+                intersectGeos[column] = (intersectGeos[column] / intersectGeos["SOURCE_SHARE_SUM"])
+
+            # If any source geos had zero overlap by target geos, apply the strategy specified by the user
+            if((len(zeroOverlapSourceGeoList) > 0) & (zeroCoverageStrategy == "distribute")):              
+                # Compute global shares of values in this column
+                intersectGeos["GLOBAL_SHARE"] = intersectGeos[column] / intersectGeos[column].sum()
+
+                # Compute the total of the values for zero-overlap source geos for this column
+                zeroOverlapSourceGeoTotal = mySourceGeos.loc[mySourceGeos["sourceIndex"].isin(zeroOverlapSourceGeoList)][column].sum()
+                print("morpc.reapportion_by_area | INFO | ---> Redistributing {} ({}% of total) for variable {} from {} zero-overlap source geographies.".format(zeroOverlapSourceGeoTotal, round(zeroOverlapSourceGeoTotal/mySourceGeos[column].sum()*100, 2), column, len(zeroOverlapSourceGeoList)))    
+                
+                # Multiply the global shares by the totals to get the portion to allocate to each intersect geo
+                intersectGeos["ADDITIONAL_PORTION"] = intersectGeos["GLOBAL_SHARE"] * zeroOverlapSourceGeoTotal 
+                
+                # Add the additional portion for each intersect geo
+                intersectGeos[column] = intersectGeos[column] + intersectGeos["ADDITIONAL_PORTION"]
+
+                # Delete temporary columns
+                intersectGeos = intersectGeos.drop(columns=["GLOBAL_SHARE","ADDITIONAL_PORTION"])
+                
             # If the user specified a value for roundPreserveSum, execute the rounding
             if(roundPreserveSum is not None):
                 intersectGeos[column] = round_preserve_sum(intersectGeos[column], digits=roundPreserveSum).astype("int")
+            
         elif(summaryType == "mean"):
             # In this case we want the intersect polygon to have the same value as the source geography, however we need to weight the
             # value according to the share of the target geo that the intersection represents.  That way when we summarize the values
