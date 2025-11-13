@@ -11,6 +11,7 @@ morpc.req.get_json_safely(req)
 """
 
 import logging
+from xml.dom import HIERARCHY_REQUEST_ERR
 
 logger = logging.getLogger(__name__)
 
@@ -133,6 +134,7 @@ IMPLEMENTED_ENDPOINTS = [
     'dec/sf1',
     'dec/sf2',
     'dec/sf3',
+    'geoinfo'
 ]
 
 def valid_survey_table(survey_table):
@@ -510,9 +512,9 @@ class CensusAPI:
             RuntimeError: Failed to validate parameters
 
         """
-        from morpc.census import api
+        from morpc import HIERARCHY_STRING_FROM_SINGULAR
         
-        self.NAME = f"census-{survey_table.replace("/","-")}-{year}-{"" if scale is None else scale + '-'}{scope}-{group}".lower()
+        self.NAME = f"census-{survey_table.replace("/","-")}-{year}-{"" if scale is None else HIERARCHY_STRING_FROM_SINGULAR[scale].lower() + '-'}{scope}-{group}{"-select-variables" if variables is not None else ""}".lower()
 
         self.logger = logging.getLogger(__name__).getChild(self.__class__.__name__).getChild(self.NAME)
 
@@ -521,7 +523,7 @@ class CensusAPI:
         self.SURVEY = survey_table
         self.YEAR = year
         self.GROUP = group.upper()
-        self.CONCEPT = api.get_table_groups(self.SURVEY, self.YEAR)[self.GROUP]['description']
+        self.CONCEPT = get_table_groups(self.SURVEY, self.YEAR)[self.GROUP]['description']
         self.SCOPE = scope.lower() 
         if scale is not None:
             self.SCALE = scale.lower()
@@ -535,16 +537,16 @@ class CensusAPI:
         self.validate()
 
         logger.info(f"Building Request URL and Parameters.")
-        self.REQUEST = api.get_api_request(self.SURVEY, self.YEAR, self.GROUP, self.SCOPE, self.VARIABLES, self.SCALE)
+        self.REQUEST = get_api_request(self.SURVEY, self.YEAR, self.GROUP, self.SCOPE, self.VARIABLES, self.SCALE)
 
         try:
             logger.info(f"Getting data from {self.REQUEST['url']} with parameters {self.REQUEST['params']}.")
-            self.DATA = api.get(self.REQUEST['url'], self.REQUEST['params'])
+            self.DATA = get(self.REQUEST['url'], self.REQUEST['params'])
         except Exception as e:
             self.logger.error(f"Error retrieving data: {e}")
             raise RuntimeError("Failed to retrieve data from Census API.")
         
-        self.VARS = api.get_group_variables(self.SURVEY, self.YEAR, self.GROUP)
+        self.VARS = get_group_variables(self.SURVEY, self.YEAR, self.GROUP)
         if self.VARIABLES is not None:
             temp = {}
             for VAR in self.VARS:
@@ -567,13 +569,13 @@ class CensusAPI:
             variable_label and reference_year.
         """
         import numpy as np
+        import pandas as pd
         import re
 
         logger.info(f"Melting data into long format.")
 
         long = self.DATA.melt(id_vars=['GEO_ID', 'NAME'], var_name='variable', value_name='value')
         long = long.loc[~long['value'].isna()]
-        long = long.loc[~long['value'].isin(MISSING_VALUES)]
         long['variable_type'] = [re.findall(r"[0-9]+([A-Z]+)", x)[0] for x in long['variable']]
         long = long.loc[~long['variable_type'].str.endswith('A')]
         long['variable_type'] = [VARIABLE_TYPES[x] for x in long['variable_type']]
@@ -584,7 +586,11 @@ class CensusAPI:
         long['reference_period'] = self.YEAR
 
         long = long.pivot(index=['GEO_ID', 'NAME', 'reference_period', 'variable_label', 'variable'], columns='variable_type', values='value').reset_index().rename_axis(None, axis=1)
-        long = long.sort_values(by=['GEO_ID', 'variable'])
+        long = long.sort_values(by=['GEO_ID', 'variable', 'reference_period'])
+
+        for column in long.columns:
+            if column in VARIABLE_TYPES.values():
+                long[column] = [pd.to_numeric(x) if x not in MISSING_VALUES else np.nan for x in long[column]]
 
         return long
     
@@ -764,11 +770,16 @@ class DimensionTable:
 
     def wide(self):
         import pandas as pd
+        import numpy as np
 
         self.logger.info(f"Pivoting data into wide format.")
         self.DESC_TABLE = self.create_description_table()
 
-        wide = self.LONG.pivot(index='variable', columns=['GEO_ID', 'NAME', 'reference_period'], values='estimate')
+        long = self.LONG
+        for column in long.columns:
+            long[column] = [np.nan if value in MISSING_VALUES else value for value in long[column]]
+
+        wide = long.pivot(index='variable', columns=['GEO_ID', 'NAME', 'reference_period'], values='estimate')
         columns_levels = wide.columns.names
         wide.columns = wide.columns.to_list()
         wide = wide.join(self.DESC_TABLE)
