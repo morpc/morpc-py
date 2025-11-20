@@ -138,6 +138,7 @@ def get_layer_url(year, layer_name, survey='ACS'):
     # Check if the layer name exists in the layers dictionary
 
     if layer_name not in layers:
+        logger.error(f"Layer '{layer_name}' not found for year {year} and survey '{survey}'. Available layers: {list(layers.keys())}")
         raise ValueError(f"Layer '{layer_name}' not found for year {year} and survey '{survey}'. Available layers: {list(layers.keys())}")
 
     baseurl = f"https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/"

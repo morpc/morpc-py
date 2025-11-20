@@ -458,7 +458,7 @@ SUMLEVEL_DESCRIPTIONS = {
         "idField":"ZCTA5CE",
         "nameField":None,
         "censusQueryName": "zip code tabulation area",
-        "censusRestAPI_layername": 'zip code tabulation areas'
+        "censusRestAPI_layername": '2020 zip code tabulation areas'
     },
     '930': {
         "singular":"MPO region",
