@@ -1118,7 +1118,7 @@ def wget(url, archive_dir = './input_data', filename = None, verbose=True):
         filename = os.path.basename(url)
 
     cmd = ['wget', url]
-    cmd.extend(['-O', os.path.normpath(f'./{archive_dir}/{filename}')])
+    cmd.extend(['-O', os.path.normpath(f'{archive_dir}/{filename}')])
 
     if not os.path.exists(archive_dir):
         os.mkdir(archive_dir)
