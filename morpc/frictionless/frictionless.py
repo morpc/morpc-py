@@ -84,7 +84,11 @@ def name_to_desc_map(schema):
     return {schema.fields[i].name:schema.fields[i].description for i in range(len(schema.fields))}
 
   
+<<<<<<< HEAD
 def cast_field_types(df, schema, forceInteger=False, forceInt64=False, nullBoolValue=False, handleMissingFields="error", verbose=False):
+=======
+def cast_field_types(df, schema, forceInteger=False, forceInt64=False, nullBoolValue=False, handleMissingFields="error", handleMissingValues=True, verbose=True):
+>>>>>>> 9ca98ecf8915c3511b11ce73cad936925701444f
     """
     Given a dataframe and the Frictionless Schema object (see load_schema), recast each of the fields in the 
     dataframe to the data type specified in the schema. s
@@ -115,6 +119,10 @@ def cast_field_types(df, schema, forceInteger=False, forceInt64=False, nullBoolV
         in the dataframe.  If "error", an error will be raised.  If "ignore", the field will be skipped.
         If "add", the field will be added to the dataframe with null values and the correct type.  Defaults to "error".
 
+    handleMissingValues : boolean
+        Optional. Specifies how to handle missing values as defined in the schema. 
+        If True, convert all values in missing values to np.nan.
+
     Returns:
     -------
     outDF : pandas.Dataframe
@@ -126,9 +134,16 @@ def cast_field_types(df, schema, forceInteger=False, forceInt64=False, nullBoolV
     import pandas as pd
     import shapely
     import json
+    import numpy as np
     outDF = df.copy()
 
+    if handleMissingValues:
+        logger.info(f"handleMissingValues set to True, converting {schema.missing_values} to np.nan")
+        for field in schema.fields:
+            outDF[field.name] = [np.nan if x in schema.missing_values else x for x in outDF[field.name]]
+
     for field in schema.fields:
+      
         fieldName = field.name
         fieldType = field.type 
         if(not fieldName in df.columns):
