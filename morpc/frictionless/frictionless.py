@@ -5,6 +5,8 @@ Reference: https://specs.frictionlessdata.io/table-schema/
 
 import logging
 
+from sqlalchemy import False_
+
 logger = logging.getLogger(__name__)
 
 import datetime
@@ -82,10 +84,10 @@ def name_to_desc_map(schema):
     return {schema.fields[i].name:schema.fields[i].description for i in range(len(schema.fields))}
 
   
-def cast_field_types(df, schema, forceInteger=False, forceInt64=False, nullBoolValue=False, handleMissingFields="error"):
+def cast_field_types(df, schema, forceInteger=False, forceInt64=False, nullBoolValue=False, handleMissingFields="error", verbose=False):
     """
     Given a dataframe and the Frictionless Schema object (see load_schema), recast each of the fields in the 
-    dataframe to the data type specified in the schema. 
+    dataframe to the data type specified in the schema. s
 
     Parameters:
     ----------
