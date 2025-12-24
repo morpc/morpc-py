@@ -1,7 +1,7 @@
 import logging
 logger = logging.getLogger(__name__)
 
-def geocode(addresses: list):
+def geocode(addresses: list, endpoint=None):
     """
     Geocode a list of adresses.
 
@@ -9,6 +9,9 @@ def geocode(addresses: list):
     -----------
     addresses : list
         A list of addresses to pass to geopy.
+
+    endpoint : str
+        Optional: str of the endpoint. Used for running nominatim in local docker container, then change to "localhost:8080".
 
     Returns:
     --------
@@ -25,14 +28,30 @@ def geocode(addresses: list):
 
     df = pd.DataFrame({'address': addresses})          # needs column 'address'
 
-    geolocator = Nominatim(user_agent="morpc-py", timeout=10)
+    if endpoint == None:
+        delay = 1
+        logging.info(f"Fetching from default public nominatim instance.")
+        geolocator = Nominatim(user_agent="morpc-py", timeout=10)
 
-    # Wrap with RateLimiter: min 1 sec between calls as per Nominatim policy
-    geocode = RateLimiter(geolocator.geocode, min_delay_seconds=1)
+        # Wrap with RateLimiter: min 1 sec between calls as per Nominatim policy
+        geocode = RateLimiter(geolocator.geocode, min_delay_seconds=delay)
+        
+        df["location"] = df["address"].progress_apply(geocode)
+        df["lat"] = df["location"].apply(lambda loc: loc.latitude if loc else None)
+        df["lon"] = df["location"].apply(lambda loc: loc.longitude if loc else None)
+    else:
+        delay = 0
+        geolocator = Nominatim(domain=endpoint, scheme='http', user_agent="local-nominatim")
 
-    df["location"] = df["address"].progress_apply(geocode)
-    df["lat"] = df["location"].apply(lambda loc: loc.latitude if loc else None)
-    df["lon"] = df["location"].apply(lambda loc: loc.longitude if loc else None)
+        geocode = geolocator.geocode
+
+        df["location"] = df["address"].progress_apply(geocode)
+        df["lat"] = df["location"].apply(lambda loc: loc.latitude if loc else None)
+        df["lon"] = df["location"].apply(lambda loc: loc.longitude if loc else None)
+
+
+
+
 
     return df
 

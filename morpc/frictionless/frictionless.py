@@ -185,6 +185,8 @@ def cast_field_types(df, schema, forceInteger=False, forceInt64=False, nullBoolV
             outDF[fieldName] = outDF[fieldName].astype("float")
         elif(fieldType == "date" or fieldType == "datetime"):
             outDF[fieldName] = pd.to_datetime(outDF[fieldName])
+        elif(fieldType == "year"):
+            outDF[fieldName] = [pd.to_datetime(x, format='%Y').year for x in outDF[fieldName]]
         elif(fieldType == "geojson"):
             try:
                 logger.info(f"Fieldname {fieldName} as geojson. Attempting to convert to geometry.")

@@ -50,7 +50,10 @@ SCOPES = {
     "region-corpo": {
         "in": "state:39", 
         "for": f"county:{','.join([morpc.CONST_COUNTY_NAME_TO_ID[x][2:6] for x in morpc.CONST_REGIONS['CORPO Region']])}"
-        }
+        },
+    "columbus-msa": {
+        "for": f"metropolitan statistical area/micropolitan statistical area:{morpc.CONST_COLUMBUS_MSA_ID}"
+    }
 }
 
 for x in STATE_SCOPES:
