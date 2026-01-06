@@ -84,11 +84,7 @@ def name_to_desc_map(schema):
     return {schema.fields[i].name:schema.fields[i].description for i in range(len(schema.fields))}
 
   
-<<<<<<< HEAD
-def cast_field_types(df, schema, forceInteger=False, forceInt64=False, nullBoolValue=False, handleMissingFields="error", verbose=False):
-=======
-def cast_field_types(df, schema, forceInteger=False, forceInt64=False, nullBoolValue=False, handleMissingFields="error", handleMissingValues=True, verbose=True):
->>>>>>> 9ca98ecf8915c3511b11ce73cad936925701444f
+def cast_field_types(df, schema, forceInteger=False, forceInt64=False, nullBoolValue=False, handleMissingFields="error", handleMissingValues=True, verbose=False):
     """
     Given a dataframe and the Frictionless Schema object (see load_schema), recast each of the fields in the 
     dataframe to the data type specified in the schema. s
@@ -189,6 +185,8 @@ def cast_field_types(df, schema, forceInteger=False, forceInt64=False, nullBoolV
             outDF[fieldName] = outDF[fieldName].astype("float")
         elif(fieldType == "date" or fieldType == "datetime"):
             outDF[fieldName] = pd.to_datetime(outDF[fieldName])
+        elif(fieldType == "year"):
+            outDF[fieldName] = [pd.to_datetime(x, format='%Y').year for x in outDF[fieldName]]
         elif(fieldType == "geojson"):
             try:
                 logger.info(f"Fieldname {fieldName} as geojson. Attempting to convert to geometry.")
@@ -256,7 +254,9 @@ def cast_field_types(df, schema, forceInteger=False, forceInt64=False, nullBoolV
             else:
                 logger.error("Field {} is a type that is not currently supported for casting to boolean. Convert it to boolean, numeric, or string types first.".format(fieldName))
                 raise RuntimeError
-            
+        elif(fieldType == 'any'):
+            logger.info(f"Field {fieldName} as type 'any' in schema. This may be due to the schema being produced automatically frictionless.Schema.describe(). Converting to string. ")
+            outDF[fieldName] = outDF[fieldName].astype('string')
         else:
             outDF[fieldName] = outDF[fieldName].astype(fieldType)
             

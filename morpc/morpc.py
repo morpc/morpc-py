@@ -254,7 +254,8 @@ SUMLEVEL_DESCRIPTIONS = {
         "idField":"NATIONID",
         "nameField":"NATION",
         "censusQueryName": "us",
-        "censusRestAPI_layername": None
+        "censusRestAPI_layername": None,
+        "geoidfq_format": "{SUMLEVEL}{VARIANT}{COMPONENT}US{NATION}"
     },
     '020': {
         "singular":"Census region",
@@ -264,7 +265,8 @@ SUMLEVEL_DESCRIPTIONS = {
         "idField":"REGIONID",
         "nameField":"REGION",
         "censusQueryName": "region",
-        "censusRestAPI_layername": 'regions'
+        "censusRestAPI_layername": 'regions',
+        "geoidfq_format": "{SUMLEVEL}{VARIANT}{COMPONENT}US{REGION}"
     },
     '030': {
         "singular":"division",
@@ -274,7 +276,8 @@ SUMLEVEL_DESCRIPTIONS = {
         "idField":"DIVISONID",
         "nameField":"DIVISION",
         "censusQueryName": "division",
-        "censusRestAPI_layername": 'divisions'
+        "censusRestAPI_layername": 'divisions',
+        "geoidfq_format": "{SUMLEVEL}{VARIANT}{COMPONENT}US{DIVISION}"
     },
     '040': {
         "singular":"state",
@@ -284,7 +287,8 @@ SUMLEVEL_DESCRIPTIONS = {
         "idField":"STATEFP",
         "nameField":"STATE",
         "censusQueryName": "state",
-        "censusRestAPI_layername": 'states'
+        "censusRestAPI_layername": 'states',
+        "geoidfq_format": "{SUMLEVEL}{VARIANT}{COMPONENT}US{STATE}"
     },
     '050': {
         "singular":"county",
@@ -294,8 +298,8 @@ SUMLEVEL_DESCRIPTIONS = {
         "idField":"COUNTYFP",
         "nameField":"COUNTY",
         "censusQueryName": "county",
-        "censusRestAPI_layername": 'counties'
-        
+        "censusRestAPI_layername": 'counties',
+        "geoidfq_format": "{SUMLEVEL}{VARIANT}{COMPONENT}US{STATE}{COUNTY}"
     },
     '060': {
         "singular":"county subdivision",
@@ -305,7 +309,8 @@ SUMLEVEL_DESCRIPTIONS = {
         "idField":"COUSUBFP",
         "nameField":"COUSUB",
         "censusQueryName": "county subdivision",
-        "censusRestAPI_layername": 'county subdivisions'
+        "censusRestAPI_layername": None,
+        "geoidfq_format": "{SUMLEVEL}{VARIANT}{COMPONENT}US{STATE}{COUNTY}{COUSUB}"
     },
     '070': {
         "singular":"county subdivision part/remainder",
@@ -314,8 +319,10 @@ SUMLEVEL_DESCRIPTIONS = {
         "authority":"census",
         "idField":"COUSUBPARTID",
         "nameField":"COUSUBPART",
-        "censusQueryName": "place/remainder (or part)",
-        "censusRestAPI_layername": None
+        "censusQueryName": "county subdivision/remainder (or part)",
+        "censusRestAPI_layername": 'county subdivisions',
+        "geoidfq_format": "{SUMLEVEL}{VARIANT}{COMPONENT}US{STATE}{COUNTY}{COUSUB}{PLACEREM}"
+
     },
     # NOTE: Some references use SUMLEVEL 750 for block in the PL94 data, but the API
     # uses SUMLEVEL 100
@@ -327,7 +334,8 @@ SUMLEVEL_DESCRIPTIONS = {
         "idField":"BLOCKCE",
         "nameField":None,
         "censusQueryName": None,
-        "censusRestAPI_layername": 'blocks'
+        "censusRestAPI_layername": 'blocks',
+        "geoidfq_format": "{SUMLEVEL}{VARIANT}{COMPONENT}US{STATE}{TRACT}{BLKGRP}{BLOCK}"
     },
     '140': {
         "singular":"tract",
@@ -337,7 +345,8 @@ SUMLEVEL_DESCRIPTIONS = {
         "idField":"TRACTCE",
         "nameField":None,
         "censusQueryName": "tract",
-        "censusRestAPI_layername": 'tracts'
+        "censusRestAPI_layername": 'tracts',
+        "geoidfq_format": "{SUMLEVEL}{VARIANT}{COMPONENT}US{STATE}{TRACT}"
     },
     '150': {
         "singular":"block group",
@@ -347,7 +356,8 @@ SUMLEVEL_DESCRIPTIONS = {
         "idField":"BLKGRPCE",
         "nameField":None,
         "censusQueryName": "block group",
-        "censusRestAPI_layername": 'block groups'
+        "censusRestAPI_layername": 'block groups',
+        "geoidfq_format": "{SUMLEVEL}{VARIANT}{COMPONENT}US{STATE}{TRACT}{BLKGRP}"
     },
     '155': {
         "singular":"place county part",
@@ -357,7 +367,8 @@ SUMLEVEL_DESCRIPTIONS = {
         "idField":"PLACEPARTID",
         "nameField":"PLACEPART",
         "censusQueryName": "county (or part)",
-        "censusRestAPI_layername": None
+        "censusRestAPI_layername": None,
+        "geoidfq_format": "{SUMLEVEL}{VARIANT}{COMPONENT}US{STATE}{PLACE}{COUNTY}"
     },
     '160': {
         "singular":"place",
@@ -367,7 +378,8 @@ SUMLEVEL_DESCRIPTIONS = {
         "idField":"PLACEFP",
         "nameField":"PLACE",
         "censusQueryName": "place",
-        "censusRestAPI_layername": 'incorporated places'
+        "censusRestAPI_layername": 'incorporated places',
+        "geoidfq_format": "{SUMLEVEL}{VARIANT}{COMPONENT}US{STATE}{PLACE}"
     },
     '310': {
         "singular":"core-based statistical area",
@@ -377,7 +389,8 @@ SUMLEVEL_DESCRIPTIONS = {
         "idField":"CBAFP",
         "nameField":"CBSA",
         "censusQueryName": "metropolitan statistical area/micropolitan statistical area",
-        "censusRestAPI_layername": 'metropolitan statistical areas'
+        "censusRestAPI_layername": 'metropolitan statistical areas',
+        "geoidfq_format": "{SUMLEVEL}{VARIANT}{COMPONENT}US{CBSA}"
     },
     '330': {
         "singular":"combined statistical area",
@@ -387,7 +400,8 @@ SUMLEVEL_DESCRIPTIONS = {
         "idField":"CSAFP",
         "nameField":"CSA",
         "censusQueryName": "combined statistical area",
-        "censusRestAPI_layername": 'combined statistical areas'
+        "censusRestAPI_layername": 'combined statistical areas',
+        "geoidfq_format": "{SUMLEVEL}{VARIANT}{COMPONENT}US{CSA}"
     },
     '400': {
         "singular":"urban area",
@@ -397,7 +411,8 @@ SUMLEVEL_DESCRIPTIONS = {
         "idField":"UACE",
         "nameField":"URBANAREA",
         "censusQueryName": "urban area",
-        "censusRestAPI_layername": 'urban areas'
+        "censusRestAPI_layername": 'urban areas',
+        "geoidfq_format": "{SUMLEVEL}{VARIANT}{COMPONENT}US{UA}"
     },
     '500': {
         "singular":"congressional district",
@@ -407,7 +422,8 @@ SUMLEVEL_DESCRIPTIONS = {
         "idField":"CDFP",  # Census uses CDNNNFP where NNN is the congressional session number
         "nameField":"CONGRESS",
         "censusQueryName": "congressional district",
-        "censusRestAPI_layername": 'congressional districts'
+        "censusRestAPI_layername": 'congressional districts',
+        "geoidfq_format": "{SUMLEVEL}{VARIANT}{COMPONENT}US{STATE}{CD}"
     },
     '610': {
         "singular":"state senate district",
@@ -417,7 +433,8 @@ SUMLEVEL_DESCRIPTIONS = {
         "idField":"SLDUST",
         "nameField":None,
         "censusQueryName": "state legislative district (upper chamber)",
-        "censusRestAPI_layername": 'state legislative districts - upper'
+        "censusRestAPI_layername": 'state legislative districts - upper',
+        "geoidfq_format": "{SUMLEVEL}{VARIANT}{COMPONENT}US{STATE}{SLDU}"
     },
     '620': {
         "singular":"state house district",
@@ -427,8 +444,8 @@ SUMLEVEL_DESCRIPTIONS = {
         "idField":"SLDLST",
         "nameField":None,
         "censusQueryName": "state legislative district (lower chamber)",
-        "censusRestAPI_layername": 'state legislative districts - lower'    
-
+        "censusRestAPI_layername": 'state legislative districts - lower',
+        "geoidfq_format": "{SUMLEVEL}{VARIANT}{COMPONENT}US{STATE}{SLDL}"
     },
     '795': {
         "singular":"public use microdata area",
@@ -438,18 +455,20 @@ SUMLEVEL_DESCRIPTIONS = {
         "idField":"PUMACE",
         "nameField":"PUMA",
         "censusQueryName": "public use microdata area",
-        "censusRestAPI_layername": 'public use microdata areas'
+        "censusRestAPI_layername": 'public use microdata areas',
+        "geoidfq_format": "{SUMLEVEL}{VARIANT}{COMPONENT}US{STATE}{PUMA}"
     },
-    '850': {
-        "singular":"zip code tabulation area",
-        "plural":"zip code tabulation areas",
-        "hierarchy_string":"ZCTA3",
-        "authority":"census",
-        "idField":"ZCTA3CE",
-        "nameField":None,
-        "censusQueryName": None,
-        "censusRestAPI_layername": None
-    },
+    ### Jordan removed 2025-12 due to not finding support by Census
+    # '850': {
+    #     "singular":"zip code tabulation area",
+    #     "plural":"zip code tabulation areas",
+    #     "hierarchy_string":"ZCTA3",
+    #     "authority":"census",
+    #     "idField":"ZCTA3CE",
+    #     "nameField":None,
+    #     "censusQueryName": None,
+    #     "censusRestAPI_layername": None
+    # },
     '860': {
         "singular":"zip code tabulation area",
         "plural":"zip code tabulation areas",
@@ -458,7 +477,19 @@ SUMLEVEL_DESCRIPTIONS = {
         "idField":"ZCTA5CE",
         "nameField":None,
         "censusQueryName": "zip code tabulation area",
-        "censusRestAPI_layername": '2020 zip code tabulation areas'
+        "censusRestAPI_layername": '2020 zip code tabulation areas',
+        "geoidfq_format": "{SUMLEVEL}{VARIANT}{COMPONENT}US{ZCTA}"
+    },
+    '861': {
+        'singular': 'zip code',
+        'plural': 'Zip codes',
+        'hierarchy_string': 'ZIPCODE',
+        'authority': 'census',
+        'idField': 'ZIPCODE',
+        'nameField': None,
+        'censusQueryName': None,
+        'censusRestAPI_layername': None,
+        "geoidfq_format": "{SUMLEVEL}{VARIANT}{COMPONENT}US{ZIPCODE}"
     },
     '930': {
         "singular":"MPO region",
@@ -468,7 +499,8 @@ SUMLEVEL_DESCRIPTIONS = {
         "idField":"MPOREGIONID",
         "nameField":"MPOREGION",
         "censusQueryName": None,
-        "censusRestAPI_layername": None
+        "censusRestAPI_layername": None,
+        "geoidfq_format": None
     },
     '950': {
         "singular":"elementary school district",
@@ -478,7 +510,8 @@ SUMLEVEL_DESCRIPTIONS = {
         "idField":"ELSDLEA",
         "nameField":"SCHOOLDELEM",
         "censusQueryName": "school district (elementry)",
-        "censusRestAPI_layername": 'elementary school districts'
+        "censusRestAPI_layername": 'elementary school districts',
+        "geoidfq_format": "{SUMLEVEL}{VARIANT}{COMPONENT}US{STATE}{SDELM}"
     },
     '960': {
         "singular":"high school district",
@@ -488,7 +521,8 @@ SUMLEVEL_DESCRIPTIONS = {
         "idField":"SCSDLEA",
         "nameField":"SCHOOLDHIGH",
         "censusQueryName": "school district (secondary)",
-        "censusRestAPI_layername": 'secondary school districts'
+        "censusRestAPI_layername": 'secondary school districts',
+        "geoidfq_format": "{SUMLEVEL}{VARIANT}{COMPONENT}US{STATE}{SDSEC}"
     },
     '970': {
         "singular":"unified school district",
@@ -498,7 +532,8 @@ SUMLEVEL_DESCRIPTIONS = {
         "idField":"UNSDLEA",
         "nameField":"SCHOOLD",
         "censusQueryName": "school district (unified)",
-        "censusRestAPI_layername": 'unified school districts'
+        "censusRestAPI_layername": 'unified school districts',
+        "geoidfq_format": "{SUMLEVEL}{VARIANT}{COMPONENT}US{STATE}{SDUNI}"
     },
     'M01': {
         "singular":"MORPC 15-county region",

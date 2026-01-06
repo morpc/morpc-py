@@ -5,6 +5,7 @@ logger = logging.getLogger(__name__)
 
 from .morpc import *
 from .logs import *
+from .geocode import *
 import morpc.frictionless
 import morpc.census
 import morpc.plot

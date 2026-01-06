@@ -393,10 +393,11 @@ def get(url, params, varBatchSize=20):
     """
     
     import json         # We need json to make a deep copy of the params dict
-    from morpc.req import get_json_safely
+    from morpc.req import get_json_safely, get_text_safely
     from morpc.census.api import get_group_variables
     import pandas as pd
     import re
+    from io import StringIO
 
     if len(re.findall(r'group\((.+)\)', params['get'])) == 0:
         # We need to reserve one variable in each batch for GEO_ID.  If the user requests more than 49 variables per
@@ -452,29 +453,26 @@ def get(url, params, varBatchSize=20):
             if(requestCount == 1):
                 censusData = df.set_index("GEO_ID").copy()
             else:
-                censusData = censusData.join(df.set_index("GEO_ID"))
+                censusData = censusData.join(df.set_index("GEO_ID")).reset_index()
             
             requestCount += 1
-    else:
-        logger.info('Found group parameter. Ignoring variable limits.')
-
-        year = url.replace('https://api.census.gov/data/', '').replace('?','')[0:4]
-        survey_table = url.replace('https://api.census.gov/data/', '').replace('?','')[5:]
+    else:        
         group = re.findall(r'group\((.+)\)', params['get'])[0]
 
-        variables = get_group_variables(survey_table, year, group)
+        logger.info(f'Found group {group} parameter. Ignoring variable limits.')
 
-        vars = ['GEO_ID', 'NAME']
-        for x in variables:
-            vars.append(x) 
+        params_string = "&".join([f"{k}={v}" for k, v in params.items()])
 
-        records = get_json_safely(url, params=params)
-        columns = records.pop(0)
+        text = get_text_safely(f"{url}{params_string}")
 
-        censusData = pd.DataFrame.from_records(records, columns=columns)
-        censusData = censusData.filter(items=vars, axis='columns')
+        try:
+            censusData = pd.read_csv(StringIO(text.replace("[",'').replace("]",'')), sep=",", quotechar='"')
 
-    return censusData.reset_index()
+        except Exception as e:
+            logger.error(f"Error creating Dataframe from records. {e}")
+            raise RuntimeError
+        
+    return censusData
 
 class CensusAPI:
     _CensusAPI_logger = logging.getLogger(__name__).getChild(__qualname__)
@@ -536,16 +534,6 @@ class CensusAPI:
         
         self.validate()
 
-        logger.info(f"Building Request URL and Parameters.")
-        self.REQUEST = get_api_request(self.SURVEY, self.YEAR, self.GROUP, self.SCOPE, self.VARIABLES, self.SCALE)
-
-        try:
-            logger.info(f"Getting data from {self.REQUEST['url']} with parameters {self.REQUEST['params']}.")
-            self.DATA = get(self.REQUEST['url'], self.REQUEST['params'])
-        except Exception as e:
-            self.logger.error(f"Error retrieving data: {e}")
-            raise RuntimeError("Failed to retrieve data from Census API.")
-        
         self.VARS = get_group_variables(self.SURVEY, self.YEAR, self.GROUP)
         if self.VARIABLES is not None:
             temp = {}
@@ -556,6 +544,19 @@ class CensusAPI:
                     temp[VAR] = self.VARS[VAR]
             self.VARS = temp
 
+        logger.info(f"Building Request URL and Parameters.")
+        self.REQUEST = get_api_request(self.SURVEY, self.YEAR, self.GROUP, self.SCOPE, self.VARIABLES, self.SCALE)
+
+        try:
+            logger.info(f"Getting data from {self.REQUEST['url']} with parameters {self.REQUEST['params']}.")
+            self.DATA = get(self.REQUEST['url'], self.REQUEST['params'])
+            logger.debug(f"Request converted to DataFrame:")
+            logger.debug(f"\n\n{self.DATA.head(5).to_markdown()}")
+
+        except Exception as e:
+            self.logger.error(f"Error retrieving data: {e}")
+            raise RuntimeError("Failed to retrieve data from Census API.")
+        
         self.LONG = self.melt()
 
     def melt(self):
@@ -574,13 +575,24 @@ class CensusAPI:
 
         logger.info(f"Melting data into long format.")
 
+
         long = self.DATA.melt(id_vars=['GEO_ID', 'NAME'], var_name='variable', value_name='value')
+        logger.debug(f"\n\n{long.head(5).to_markdown()}")
+
         long = long.loc[~long['value'].isna()]
-        long['variable_type'] = [re.findall(r"[0-9]+([A-Z]+)", x)[0] for x in long['variable']]
+        long = long.loc[long['variable'].str.endswith(('E', 'M'))]
+        logger.debug(f"Removing unneeded variable types, variables remaining: {[x for x in long['variable'].unique()]}")
+
+        long['variable_type'] = [re.findall(r"[0-9]+([A-Z]{1,2})", x)[0] for x in long['variable']]
+
+        logger.debug(f"included variable types: {[x for x in long['variable_type']]}")
+
         long = long.loc[~long['variable_type'].str.endswith('A')]
+
         long['variable_type'] = [VARIABLE_TYPES[x] for x in long['variable_type']]
 
         long['variable_label'] = [re.split("!!", self.VARS[variable]['label'],maxsplit=1)[1] for variable in long['variable']]
+
         long['variable'] = [re.findall(r"([A-Z0-9_]+[0-9]+)[A-Z]+", x)[0] for x in long['variable']]
 
         long['reference_period'] = self.YEAR
