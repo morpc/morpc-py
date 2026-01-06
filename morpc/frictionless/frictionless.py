@@ -254,7 +254,9 @@ def cast_field_types(df, schema, forceInteger=False, forceInt64=False, nullBoolV
             else:
                 logger.error("Field {} is a type that is not currently supported for casting to boolean. Convert it to boolean, numeric, or string types first.".format(fieldName))
                 raise RuntimeError
-            
+        elif(fieldType == 'any'):
+            logger.info(f"Field {fieldName} as type 'any' in schema. This may be due to the schema being produced automatically frictionless.Schema.describe(). Converting to string. ")
+            outDF[fieldName] = outDF[fieldName].astype('string')
         else:
             outDF[fieldName] = outDF[fieldName].astype(fieldType)
             
