@@ -3144,3 +3144,70 @@ def hist_scaled(series, logy="auto", yRatioThreshold=100, xClassify=False, xRati
         return (ax, binsList, countsList)
     else:
         return ax
+
+def save_notebook():
+    """
+    Programmatically save the calling Jupyter notebook to disk. Works in JupyterLab only.
+    
+    Parameters
+    ----------
+    (None)
+        
+    Returns
+    -------
+    (None)
+        
+    """
+
+    from ipylab import JupyterFrontEnd
+    print("morpc.save_notebook | INFO | Saving notebook to disk")
+    app = JupyterFrontEnd()
+    app.commands.execute('docmanager:save')
+
+    
+def notebook_to_html(path=None, saveFirst=True):
+    """
+    Programmatically convert a Jupyter notebook to HTML format via nbconvert. Saves the HTML 
+    file in the same directory as the Jupyter notebook. By default, the calling notebook will 
+    be converted and it will be saved to disk prior to initiating the conversion.
+    
+    Parameters
+    ----------
+    path : string
+        Optional. Filesystem path of Jupyter notebook to be converted. If unspecified, the path 
+        of the calling notebook will be used.
+    saveFirst : bool
+        Optional. If True or unspecified, save the calling notebook to disk before initiating
+        the conversion. If False, convert the version of the notebook already on disk.
+
+    Returns
+    -------
+    htmlPath : string
+        Filesystem path of the HTML export of the Jupyter notebook
+        
+    """
+    import re
+    import os
+    import json
+    import ipykernel
+    
+    if(path is None):
+        print("morpc.notebook_to_html | INFO | Notebook path was not specified. Using path of calling notebook.")
+        connectionInfo = json.loads(ipykernel.get_connection_info())
+        path = os.path.normpath(connectionInfo["jupyter_session"])  
+        
+    if(saveFirst is True):
+        save_notebook()
+
+    htmlPath = re.sub(".ipynb$", ".html", path)
+    print("morpc.notebook_to_html | INFO | Converting notebook to HTML...")
+    print("morpc.notebook_to_html | INFO | --> Source: {}".format(path))
+    print("morpc.notebook_to_html | INFO | --> Target: {}".format(htmlPath))    
+    # For some reason nbconvert doesn't always like absolute paths so we'll change to the directory of the notebook so we can 
+    # give only its filename to nbconvert, then we'll change back.
+    cwd = os.getcwd()
+    os.chdir(os.path.dirname(os.path.abspath(path)))
+    os.system("jupyter nbconvert --to html {}".format(os.path.basename(path)))
+    os.chdir(cwd)
+ 
+    return htmlPath
