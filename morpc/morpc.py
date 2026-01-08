@@ -1437,10 +1437,6 @@ def load_tabular_data(sourcePath, sheetName=None, fileType=None, archiveDir=None
             print("morpc.load_tabular_data | ERROR | File type {} is not handled. Troubleshoot function.".format(fileType))
             raise RuntimeError
             
-        if(tempDir):
-            print("morpc.load_tabular_data | INFO | Removing temporary directory for Census file: {}".format(tempDir))
-            #shutil.rmtree(tempDir)
-
     return df
 
 # Assign geographic identifiers
