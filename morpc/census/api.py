@@ -207,7 +207,7 @@ def valid_variables(survey_table, year, group, variables):
             raise ValueError(f"{variable} not a valid variable in {group} survey {survey_table}")
     return valid
 
-def get_params(survey_table, year, group, variables=None):
+def get_params(group, variables=None):
 
     logger.debug(f"Getting parameters to pass to get parameter.")
     if variables != None:
@@ -218,132 +218,13 @@ def get_params(survey_table, year, group, variables=None):
     
     return get_param
 
-def valid_scale(scale):
-    from morpc import SUMLEVEL_DESCRIPTIONS
-
-    logger.debug(f"Validating scale {scale} against implemented morpc.SUMLEVEL_DESCRIPTIONS.")
-    # Get available scales from morpc SUMLEVEL_DESCRIPTIONS
-    available_scales = [SUMLEVEL_DESCRIPTIONS[x]['censusQueryName'] for x in SUMLEVEL_DESCRIPTIONS if SUMLEVEL_DESCRIPTIONS[x]['censusQueryName'] != None]
-
-    # Validate inputs
-    if scale not in available_scales:
-        logger.error(f"Scale '{scale}' is not recognized. Available scales: {available_scales}")
-        raise ValueError(f"Scale '{scale}' is not recognized. Available scales: {available_scales}")
-    else:
-        return True
-        
-def valid_scope(scope):
-    from morpc.census.geos import SCOPES
-
-    logger.debug(f"Validating scope {scope} against implemented morpc.census.geos.SCOPES")
-    if scope != None:
-        if scope not in SCOPES:
-            logger.error(f"Scope '{scope}' is not recognized. Available scopes: {list(SCOPES.keys())}")
-            raise ValueError(f"Scope '{scope}' is not recognized. Available scopes: {list(SCOPES.keys())}")
-        else:
-            return True
-
-def geo_params_from_scope_scale(scope, scale=None):
-    from morpc.census.geos import SCOPES
-
-    logger.debug(f"Building parameters to pass for geographies Scope: {scope} and Scale: {scale}")
-    params = {}
-    if scale == None:
-        logger.info(f"No scale specified. Using {scope} parameters. {SCOPES[scope]}")
-        params.update(SCOPES[scope])
-    else:
-        logger.info(f"Scale {scale} specified for scope {scope}.")
-        if "in" in SCOPES[scope]:
-            logger.info(f"Scope {scope} already has 'in' parameter. Converting to ucgid=pseudo() type predicate.")
-            pseudos = pseudos_from_scale_scope(scale, scope)
-            params.update({'ucgid': f"pseudo({','.join(pseudos)})"})
-        else:
-            logger.info(f"Scope {scope} has no 'in' parameter. Applying scale.")
-            params.update({"in": SCOPES[scope]['for']})
-            params.update({"for": f"{scale}:*"})
-
-            logger.info(f"Checking for valid 'for' and 'in' parameters. ")
-            query_req = get_query_req(scale)
-
-            in_list = [x.split(':')[0] for x in params['in']]
-
-            for req in query_req['requires']:
-                if req not in in_list:
-                    if req not in query_req['wildcard']:
-                        logger.error(f"{scale} requires designating a scope with {req} variable.")
-                    else:
-                        logger.info(f"Adding wildcard to fulfill hierarchical geographic requirement {req}")
-                        if not isinstance(params, list):
-                            params['in'] = [params['in'], f"{req}:*"]
-                        else:
-                            params['in'].append(f"{req}:*")
-        
-    return params
-
-
-def geoids_from_scope(scope):
-    from morpc.req import get_json_safely
-    from morpc.census.geos import SCOPES
-
-    logger.debug(f"Fetching geoids from scope parameters {SCOPES[scope]}.")
-    if valid_scope:
-        baseurl = "https://api.census.gov/data/2023/geoinfo?get=GEO_ID"
-        json = get_json_safely(baseurl, params = SCOPES[scope])
-        geoids = [row[0] for row in json[1:]]
-
-        return geoids
-    
-def pseudos_from_scale_scope(scale, scope):
-    from morpc import SUMLEVEL_FROM_CENSUSQUERY
-    from morpc.census.geos import PSEUDOS
-
-    logger.debug(f"Getting psuedo combinations for parents in {scope} at scale {scale}")
-    parents = geoids_from_scope(scope)
-
-    sumlevel = parents[0][0:3]
-
-    child = f"{SUMLEVEL_FROM_CENSUSQUERY[scale]}0000"
-
-    if child in PSEUDOS[sumlevel]:
-        logger.info(f"Returning pseudos for {child} in {parents}")
-        pseudos = [f"{parent}${child}" for parent in parents]
-    else:
-        logger.error(f"{child} is not allowed child for parent sumlevel {sumlevel}")
-
-    return pseudos
-
-def get_query_req(scale, year='2023'):
-    from morpc import SUMLEVEL_FROM_CENSUSQUERY
-    from morpc.req import get_json_safely
-
-    logger.debug(f"Getting required 'in' parameters for {scale}")
-
-    sumlevel = SUMLEVEL_FROM_CENSUSQUERY[scale]
-
-    url = f"https://api.census.gov/data/{year}/geoinfo/geography.json"
-    json = get_json_safely(url)
-
-    query_requirements = {}
-    for item in json['fips']:
-        if item['geoLevelDisplay'] in sumlevel:
-            if 'requires' in item.keys():
-                query_requirements['requires'] = item['requires']
-            else:
-                query_requirements['requires'] = None
-            if 'wildcard' in item.keys():
-                query_requirements['wildcard'] = item['wildcard']
-            else:
-                query_requirements['wildcard'] = None
-    
-    logger.info(f"{scale} requires {query_requirements}")
-    return query_requirements
-
 def get_api_request(survey_table, year, group, scope, variables=None, scale=None):
+    from morpc.census.geos import geo_params_from_scope_scale
 
     logger.debug(f"Building final requests parameters and url.")
     url = get_query_url(survey_table, year)
 
-    get_param = get_params(survey_table, year, group, variables=variables)
+    get_param = get_params(group, variables=variables)
 
     geo_param = geo_params_from_scope_scale(scope, scale)
 
@@ -512,7 +393,7 @@ class CensusAPI:
         """
         from morpc import HIERARCHY_STRING_FROM_SINGULAR
         
-        self.NAME = f"census-{survey_table.replace("/","-")}-{year}-{"" if scale is None else HIERARCHY_STRING_FROM_SINGULAR[scale].lower() + '-'}{scope}-{group}{"-select-variables" if variables is not None else ""}".lower()
+        self.NAME = f"census-{survey_table.replace("/","-")}-{year}-{"" if scale is None else HIERARCHY_STRING_FROM_SINGULAR[scale].replace("-","").lower() + '-'}{scope}-{group}{"-select-variables" if variables is not None else ""}".lower()
 
         self.logger = logging.getLogger(__name__).getChild(self.__class__.__name__).getChild(self.NAME)
 
@@ -545,7 +426,8 @@ class CensusAPI:
             self.VARS = temp
 
         logger.info(f"Building Request URL and Parameters.")
-        self.REQUEST = get_api_request(self.SURVEY, self.YEAR, self.GROUP, self.SCOPE, self.VARIABLES, self.SCALE)
+        logger.debug(f"{self.SURVEY,} {self.YEAR}, {self.GROUP}, {self.SCOPE}, {self.VARIABLES}, {self.SCALE}")
+        self.REQUEST = get_api_request(survey_table=self.SURVEY, year=self.YEAR, group=self.GROUP, scope=self.SCOPE, variables=self.VARIABLES, scale=self.SCALE)
 
         try:
             logger.info(f"Getting data from {self.REQUEST['url']} with parameters {self.REQUEST['params']}.")
@@ -739,24 +621,24 @@ class CensusAPI:
         return resource
 
     def validate(self):
-        import morpc.census.api as api
+        from morpc.census.geos import valid_scope, valid_scale
         
         self.logger.info(f"Validating selected parameters")
 
         self.VALID = True
-        if not api.valid_survey_table(self.SURVEY):
+        if not valid_survey_table(self.SURVEY):
             self.VALID = False
-        if not api.valid_vintage(self.SURVEY, self.YEAR):
+        if not valid_vintage(self.SURVEY, self.YEAR):
             self.VALID = False
-        if not api.valid_group(self.GROUP, self.SURVEY, self.YEAR):
+        if not valid_group(self.GROUP, self.SURVEY, self.YEAR):
             self.VALID = False
-        if not api.valid_scope(self.SCOPE):
+        if not valid_scope(self.SCOPE):
             self.VALID = False
         if self.SCALE is not None:
-            if not api.valid_scale(self.SCALE):
+            if not valid_scale(self.SCALE):
                 self.VALID = False
         if self.VARIABLES is not None:
-            if not api.valid_variables(self.SURVEY, self.YEAR, self.GROUP, self.VARIABLES):
+            if not valid_variables(self.SURVEY, self.YEAR, self.GROUP, self.VARIABLES):
                 self.VALID = False            
         if self.VALID == False:
             self.logger.error("One or more parameters are invalid. Please check the logs for details.")

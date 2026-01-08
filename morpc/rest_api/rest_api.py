@@ -87,7 +87,7 @@ def resource(name, url, where='1=1', outfields='*', max_record_count=None):
         "name": re.sub('[:/_ ]', '-', name).lower(),
         "format": "json",
         "path": sources,
-        "schema": schema(url),
+        "schema": schema(url, outfields=outfields),
         "mediatype": "application/geo+json",
         "_metadata": {
             "type": "arcgis_service",
@@ -241,11 +241,11 @@ def gdf_from_resource(resource):
     gdf = gpd.GeoDataFrame.from_features(features, crs='EPSG:4326') # Start with EPSG:4326
     
     # Set the coordinate reference system of the GeoDataFrame
-    gdf = gpd.GeoDataFrame(gdf, geometry='geometry')
+    gdf = gpd.GeoDataFrame(gdf, geometry='geometry').drop_duplicates()
 
     return(gdf)
 
-def schema(url):
+def schema(url, outfields=None):
     """Extracts the schema from a JSON object returned by an ArcGIS REST API service.
 
     Parameters:
@@ -269,22 +269,41 @@ def schema(url):
 
     schema = {}
     schema['fields'] = []
-    for field in pjson['fields']:
-        properties = {}
-        properties['name'] = field['name']
-        properties['title'] = field['alias']
-        ftype = field['type'].replace('esriFieldType', '').lower()
-        if ftype == 'oid':
-            properties['type'] ='string'
-        if ftype == 'double':
-            properties['type'] ='number'
-        if ftype == 'single':
-            ftype ='number'
-        if ftype == 'smallinteger':
-            properties['type'] ='number'
-        if ftype == 'geometry':
-            continue # skip extra geometry columns
-        schema['fields'].append(properties)
+    if outfields == '*':
+        for field in pjson['fields']:
+            properties = {}
+            properties['name'] = field['name']
+            properties['title'] = field['alias']
+            ftype = field['type'].replace('esriFieldType', '').lower()
+            if ftype == 'oid':
+                properties['type'] ='string'
+            if ftype == 'double':
+                properties['type'] ='number'
+            if ftype == 'single':
+                ftype ='number'
+            if ftype == 'smallinteger':
+                properties['type'] ='number'
+            if ftype == 'geometry':
+                continue # skip extra geometry columns
+            schema['fields'].append(properties)
+    else:
+        for field in pjson['fields']:
+            if field['name'] in outfields.split(','):
+                properties = {}
+                properties['name'] = field['name']
+                properties['title'] = field['alias']
+                ftype = field['type'].replace('esriFieldType', '').lower()
+                if ftype == 'oid':
+                    properties['type'] ='string'
+                if ftype == 'double':
+                    properties['type'] ='number'
+                if ftype == 'single':
+                    ftype ='number'
+                if ftype == 'smallinteger':
+                    properties['type'] ='number'
+                if ftype == 'geometry':
+                    continue # skip extra geometry columns
+                schema['fields'].append(properties)
 
     return schema
 
