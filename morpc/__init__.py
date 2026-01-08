@@ -1,6 +1,11 @@
-__version__ = "0.3.5"
+__version__ = "0.4.2"
+
+import logging
+logger = logging.getLogger(__name__)
 
 from .morpc import *
+from .logs import *
+from .geocode import *
 import morpc.frictionless
 import morpc.census
 import morpc.plot

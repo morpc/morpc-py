@@ -1,12 +1,14 @@
 # morpc-py/morpc/rest_api/rest_api.py
+
 """REST API module for MORPC.
 This module provides functions to interact with ArcGIS REST API services,
 including fetching data, converting ESRI WKID to WKT2, and creating frictionless resources
 from ArcGIS services.
 """
 
+import logging
 
-
+logger = logging.getLogger(__name__)
 
 def resource(name, url, where='1=1', outfields='*', max_record_count=None):
     """Creates a frictionless Resource object from an ArcGIS REST API service URL.
@@ -35,25 +37,11 @@ def resource(name, url, where='1=1', outfields='*', max_record_count=None):
     resource : frictionless.Resource
         A frictionless Resource object containing the schema and metadata of the service.
 
-    Example:
-    --------
-    >>> resource = resource(
-    ...     name = 'morpc-franklin-tracts',
-    ...     url = 'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/tigerWMS_ACS2024/MapServer/8',
-    ...     where = "STATE = '39' and COUNTY = '049'",
-    ...     outfields = '*',
-    ...     max_record_count = 500
-    ... )
-    >>> print(resource.to_dict())
-
     """
     import frictionless
     import re
     from morpc.rest_api import totalRecordCount, schema
     import urllib.parse
-    import requests
-    
-
             
     # Construct the query parameters
     query = {
@@ -63,30 +51,24 @@ def resource(name, url, where='1=1', outfields='*', max_record_count=None):
         'f': 'geojson'
     }
 
+    logger.info(f"Query Params: where = {where}, outFields = {outfields}")
+
     # Get the total record count
     total_record_count = totalRecordCount(url, where=where, outfields=outfields)
+    logger.info(f"Total number of geographies: {total_record_count}")
     
     # Determine the max record count
     if max_record_count is None:
         if total_record_count > 500:
             max_record_count = 500
+            logger.info(f"Splitting query into fetch ")
         else:
             max_record_count = total_record_count
+    logger.info(f"Fetching {max_record_count} at a time.")
 
-    # Get WKID from the properties of the service
-    r = requests.get(f"{url}?f=pjson")
-    pjson = r.json()
-    r.close()
-
-    if 'spatialReference' in pjson:
-        wkid = pjson['spatialReference']['wkid']
-    elif 'sourceSpatialReference' in pjson:
-        wkid = pjson['sourceSpatialReference']['wkid']
-    else:
-        print("No spatial reference found in the service metadata. Using default WKID 4326.")
-        wkid = 4326
 
     # Construct list of source urls to account for max record counts
+    logger.info(f"Saving source urls in resource.")
     sources = []
     offsets = [x for x in range(0, total_record_count, max_record_count)]
     for i in range(len(offsets)):
@@ -98,19 +80,19 @@ def resource(name, url, where='1=1', outfields='*', max_record_count=None):
         source['params']['resultOffset'] = start
         path = source['url'] + urllib.parse.urlencode(query)
         sources.append(path)
+    logger.debug(f"all sources: {', '.join(sources)}")
 
     # Construct the frictionless Resource object
     resource = {
         "name": re.sub('[:/_ ]', '-', name).lower(),
         "format": "json",
         "path": sources,
-        "schema": schema(url),
+        "schema": schema(url, outfields=outfields),
         "mediatype": "application/geo+json",
         "_metadata": {
             "type": "arcgis_service",
             "params": query,
             "total_records": total_record_count,
-            "wkid": wkid
         }
     }
 
@@ -142,12 +124,6 @@ def query(resource, api_key=None, recordcount_override=None):
     Raises:
     ---------
     RuntimeError: If the provided field_ids are not available in the resource.  
-
-    Example:
-    ---------
-    >>> gdf = get("path/to/resource.json", 
-                  field_ids=['OBJECTID', 'NAME'], 
-                  api_key=get_api_key('path/to/api_key.txt'))
     """
 
     import requests
@@ -167,48 +143,51 @@ def query(resource, api_key=None, recordcount_override=None):
 
     # Fetch the GeoJSON data in chunks via source urls constructed above
     features = []
+    logger.info(f"Sending {len(sources)} requests.")
     with requests.Session() as s:
         # Check if sources is None or empty
         if sources is None or len(sources) == 0:
-            print("No sources found in the resource. Check the resource file or URL.")
+            logger.error("No sources found in the resource. Check the resource file or URL.")
             raise RuntimeError("No sources found in the resource. Check the resource file or URL.")\
         # If there is only one source, fetch it directly
         if len(sources) == 1:
             r = s.get(sources[0], headers=headers)
             # Check if the request was successful
             if r.status_code != 200:
-                print(f"Error fetching data from {sources[0]}: {r.status_code}")
+                logger.error(f"Error fetching data from {sources[0]}: {r.status_code}")
                 raise RuntimeError(f"Failed to fetch data from {sources[0]}")
             # Parse the JSON response
             try:
+                logger.info(f"Decoding json data.")
                 features = [r.json()]
             except:
-                print(f"CONTENTS OF REQUESTS {r.content}")
+                logger.error(f"CONTENTS OF REQUESTS {r.content}")
         # If there are multiple sources, iterate over them
         if len(sources) > 1:
+
             for i in range(len(sources)):
                 print_bar(i, len(sources))
                 r = s.get(sources[i], headers=headers)
                 try:
                     result = r.json()
                 except:
-                    print(f"CONTENTS OF REQUESTS {r.content}")
+                    logger.error(f"Failed to decode json. CONTENTS OF REQUESTS {r.content}")
 
                 # Check if the request was successful
                 if 'error' in result:
-                    print(f"Error fetching data: {result['error']['message']}")
+                    logger.error(f"Error fetching data: {result['error']['message']}")
                     raise RuntimeError
                 
                 # Check if the result contains features
                 if 'features' not in result:
-                    print(f"No features found in the response. Check the URL or parameters.")
+                    logger.error(f"No features found in the response. Check the URL or parameters.")
                     raise RuntimeError
             
                 features.append(result)
     try:
     # Combine list of feature collections into a single feature collection
         if len(features) == 0:
-            print("No features found in the response. Check the URL or parameters.")
+            logger.error("No features found in the response. Check the URL or parameters.")
             raise RuntimeError
         elif len(features) == 1:
             feature_collection = features[0]
@@ -219,7 +198,7 @@ def query(resource, api_key=None, recordcount_override=None):
                 "features": features
             }
     except Exception as e:
-        print(f"Error combining features: {e}", len(features))
+        logger.error(f"Error combining features: {e}", len(features))
         raise RuntimeError("Failed to combine features from the response.")
 
     return feature_collection
@@ -241,20 +220,13 @@ def gdf_from_resource(resource):
     --------
     RuntimeError: If the provided resource is not a valid ArcGIS REST API service or if there are issues with the request.  
 
-    Example:
-    --------
-    >>> gdf = gdf_from_resource("path/to/example.resource.yaml")
-    >>> print(gdf.head())
-    
     """
     import frictionless
-    import pandas as pd
     import geopandas as gpd
-    import geojson
-    from pyproj import CRS
 
     # Check if the resource is a string or a frictionless Resource object
     if isinstance(resource, str):
+        logger.info(f"Loading file at {resource} as resource file.")
         # If it's a string, create a frictionless Resource object from the URL or file path
         resource = frictionless.Resource(path=resource)
     elif isinstance(resource, frictionless.Resource):
@@ -262,21 +234,18 @@ def gdf_from_resource(resource):
         pass    
 
     # Fetch the GeoJSON data from the resource
+    logger.info(f"Fetching geometry data from {resource}")
     features = query(resource)
-
-    # Get the spatial reference system (WKID) from the resource metadata
-    wkid = resource.to_dict()['_metadata']['wkid']
-    wkt = esri_wkid_to_wkt2(wkid) ## Convert ESRI WKID to wkt2  
       
     # Convert GeoJSON features to GeoDataFrame
-    gdf = gpd.GeoDataFrame.from_features(features)
+    gdf = gpd.GeoDataFrame.from_features(features, crs='EPSG:4326') # Start with EPSG:4326
     
     # Set the coordinate reference system of the GeoDataFrame
-    gdf = gpd.GeoDataFrame(gdf, geometry='geometry', crs=CRS.from_wkt(wkt))
+    gdf = gpd.GeoDataFrame(gdf, geometry='geometry').drop_duplicates()
 
     return(gdf)
 
-def schema(url):
+def schema(url, outfields=None):
     """Extracts the schema from a JSON object returned by an ArcGIS REST API service.
 
     Parameters:
@@ -293,169 +262,50 @@ def schema(url):
 
 
         # Fetch the service metadata
+    logger.info(f"Fetching metadata for schema from {url}?f=pjson")
     r = requests.get(f"{url}?f=pjson")
     pjson = r.json()
     r.close()
 
     schema = {}
     schema['fields'] = []
-    for field in pjson['fields']:
-        properties = {}
-        properties['name'] = field['name']
-        properties['title'] = field['alias']
-        ftype = field['type'].replace('esriFieldType', '').lower()
-        if ftype == 'oid':
-            properties['type'] ='string'
-        if ftype == 'double':
-            properties['type'] ='number'
-        if ftype == 'single':
-            ftype ='number'
-        if ftype == 'smallinteger':
-            properties['type'] ='number'
-        if ftype == 'geometry':
-            continue # skip extra geometry columns
-        schema['fields'].append(properties)
+    if outfields == '*':
+        for field in pjson['fields']:
+            properties = {}
+            properties['name'] = field['name']
+            properties['title'] = field['alias']
+            ftype = field['type'].replace('esriFieldType', '').lower()
+            if ftype == 'oid':
+                properties['type'] ='string'
+            if ftype == 'double':
+                properties['type'] ='number'
+            if ftype == 'single':
+                ftype ='number'
+            if ftype == 'smallinteger':
+                properties['type'] ='number'
+            if ftype == 'geometry':
+                continue # skip extra geometry columns
+            schema['fields'].append(properties)
+    else:
+        for field in pjson['fields']:
+            if field['name'] in outfields.split(','):
+                properties = {}
+                properties['name'] = field['name']
+                properties['title'] = field['alias']
+                ftype = field['type'].replace('esriFieldType', '').lower()
+                if ftype == 'oid':
+                    properties['type'] ='string'
+                if ftype == 'double':
+                    properties['type'] ='number'
+                if ftype == 'single':
+                    ftype ='number'
+                if ftype == 'smallinteger':
+                    properties['type'] ='number'
+                if ftype == 'geometry':
+                    continue # skip extra geometry columns
+                schema['fields'].append(properties)
 
     return schema
-
-def get_tigerweb_layers_map(year, survey='ACS'):
-    """
-    Parameters: 
-    -----------
-    year : int
-        The year of the TIGERweb layer (e.g., 2024).
-    survey : str, optional
-        The survey type, either 'ACS' (American Community Survey) or 'DEC' for Decennial Census.
-        Default is 'ACS'.
-
-    Returns:
-    --------
-    dict : dict
-        A dictionary mapping layer names to their corresponding IDs.
-
-    Example:
-    --------
-    >>>   layers = get_tigerweb_layers_map(2024, survey='ACS')
-    >>>   print(layers)
-    """
-    import pandas as pd
-    import requests
-
-
-    if survey not in ['ACS', 'DEC']:
-        raise ValueError("Invalid survey type. Must be 'ACS' or 'DEC'.")
-    if survey == 'DEC' and year not in [2010, 2020]:
-        raise ValueError("Invalid year for Decennial Census. Must be 2010 or 2020.")
-    if survey == 'ACS' and year < 2012:
-        raise ValueError("Invalid year for ACS. Must be 2012 or later.")
-    if survey == 'DEC':
-        survey = 'Census'
-
-    baseurl = f"https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/"
-    mapserver_path = f"tigerWMS_{survey}{year}/MapServer/"
-    mapserver_url = baseurl + mapserver_path
-
-    # Retrieve the layers from the map service
-    r = requests.get(f"{mapserver_url}?f=pjson")
-    
-    #   Check if the request was successful
-    if r.status_code != 200:
-        print(f"Error fetching data from {mapserver_url}: {r.status_code}")
-        raise RuntimeError(f"Failed to fetch data from {mapserver_url}")
-    
-    # Parse the JSON response
-    try:
-        layers_json = r.json()
-    except:
-        print(f"CONTENTS OF REQUESTS {r.content}")
-        r.close()
-        raise RuntimeError(f"Failed to parse JSON from {mapserver_url}")
-    r.close()    
-
-    # Convert the layers to a DataFrame for easier manipulation
-    layers = pd.DataFrame(layers_json['layers'])
-    layers = layers[['id', 'name']]
-    layers = layers.loc[layers['name'].str.contains('Labels') == False]  # Exclude label layers
-    
-    # Convert the DataFrame to a dictionary mapping layer names to IDs
-    layers = layers.set_index('name')['id'].to_dict()
-    
-    layers = {k.lower(): v for k, v in layers.items()}  # Normalize layer names to lowercase
-    # remove census from keys in layers
-    layers = {k.replace('census ', ''): v for k, v in layers.items()}
-
-    return layers
-    
-def get_layer_url(year, layer_name, survey='ACS'):
-    """Constructs the URL for a specific TIGERweb layer based on the year, layer name, and survey type.
-    Parameters:
-    -----------
-    year : int
-        The year of the TIGERweb layer (e.g., 2024).
-    layer_name : str
-        The name of the layer to retrieve (e.g., 'tracts', 'counties').
-    survey : str, optional
-        The survey type, either 'ACS' (American Community Survey) or 'DEC' for Decennial Census.
-        Default is 'ACS'.
-        
-    Returns:
-    --------
-    str : str
-        The URL of the specified TIGERweb layer.
-
-    Example:
-    --------
-    >>> url = get_layer_url(2024, 'tracts', survey='ACS')
-    >>> print(url)
-    https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/tigerWMS_ACS2024/MapServer/8
-
-    Raises:
-    -------
-    ValueError: If the survey type or year is invalid, or if the layer name does not exist for the specified year and survey.
-    RuntimeError: If there is an error fetching data from the constructed URL.
-
-    
-    """
-    
-    import requests
-    from morpc.rest_api import get_tigerweb_layers_map
-    
-    # Validate inputs
-    if survey not in ['ACS', 'DEC']:
-        raise ValueError("Invalid survey type. Must be 'ACS' or 'DEC'.")
-    if survey == 'DEC' and year not in [2010, 2020]:
-        raise ValueError("Invalid year for Decennial Census. Must be 2010 or 2020.")
-    if survey == 'ACS' and year < 2012:
-        raise ValueError("Invalid year for ACS. Must be 2012 or later.")    
-    if survey == 'DEC':
-        survey = 'Census'
-    
-    layers = get_tigerweb_layers_map(year, survey)
-
-    # Normalize the layer name to lowercase
-    layer_name = layer_name.lower()
-    
-    # Check if the layer name exists in the layers dictionary
-    if layer_name not in layers:
-        raise ValueError(f"Layer '{layer_name}' not found for year {year} and survey '{survey}'. Available layers: {list(layers.keys())}")
-
-    baseurl = f"https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/"
-    mapserver_path = f"tigerWMS_{survey}{year}/MapServer/{layers[layer_name]}"
-    mapserver_url = baseurl + mapserver_path
-
-    # Verify the constructed URL
-    r = requests.get(f"{mapserver_url}?f=pjson")
-    if r.status_code != 200:
-        print(f"Error fetching data from {mapserver_url}: {r.status_code}")
-        raise RuntimeError(f"Failed to fetch data from {mapserver_url}")
-    r.close()
-    
-    # Return the constructed URL
-    return mapserver_url
-
-
-
-
 
 def totalRecordCount(url, where, outfields='*'):
     """Fetches the total number of records from an ArcGIS REST API service.
@@ -470,44 +320,21 @@ def totalRecordCount(url, where, outfields='*'):
     """
     import requests
     import re
-
+    from morpc.req import get_json_safely
     # Find the total number of records
-    r = requests.get(f"{url}/query/", params = {
+    logger.info(f"Requesting metadata for total record")
+    url= f"{url}/query/"
+    params = {
         "outfields": "*",
         "where": where,
         "f": "geojson",
-        "returnCountOnly": "true"})
-    total_count = int(re.findall('[0-9]+',str(r.json()))[0])
-    r.close()
+        "returnCountOnly": "true"}
+    json = get_json_safely(url, params = params)
+    total_count = int(re.findall('[0-9]+',str(json))[0])
+    logger.info(f"Total records: {total_count}")
 
     return total_count
 
-
-def esri_wkid_to_wkt2(esri_wkid):
-    """Converts an ESRI WKID to an EPSG code.
-
-    Parameters:
-    -----------
-    esri_wkid : int
-        The ESRI WKID to be converted.  
-    Returns:
-    --------
-    wkt : int
-        The corresponding Well-Known Text string.
-    Example:
-    --------
-    >>> wkt = esri_wkid_to_wkt2(4326)
-    >>> print(wkt)
-    
-
-    """
-    import json
-    import requests
-
-    r = requests.get(f"https://spatialreference.org/ref/esri/{esri_wkid}/prettywkt2.txt")
-    wkt = r.text
-    r.close()
-    return wkt
 
 # Depreciated for wkt2
 # def esri_wkid_to_epsg(esri_wkid):
