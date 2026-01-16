@@ -17,39 +17,41 @@ logger = logging.getLogger(__name__)
 
 from morpc.req import get_json_safely
 
-HIGHLEVEL_GROUP_DESC = {
-    "01": "Sex, Age, and Population",
-    "02": "Race",
-    "03": "Ethnicity",
-    "04": "Ancestry",
-    "05": "Nativity and Citizenship",
-    "06": "Place of Birth",
-    "07": "Geographic Mobility",
-    "08": "Transportation to Work",
-    "09": "Children",
-    "10": "Grandparents and Grandchildren",
-    "11": "Household Type",
-    "12": "Marriage and Marital Status",
-    "13": "Mothers and Births",
-    "14": "School Enrollment",
-    "15": "Educational Attainment",
-    "16": "Language Spoken at Home",
-    "17": "Poverty",
-    "18": "Disability",
-    "19": "Household Income",
-    "20": "Earnings",
-    "21": "Veterans",
-    "22": "Food Stamps/SNAP",
-    "23": "Workers and Employment Status",
-    "24": "Occupation, Industry, Class",
-    "25": "Housing Units, Tenure, Housing Costs",
-    "26": "Group Quarters",
-    "27": "Health Insurance",
-    "28": "Computers and Internet",
-    "29": "Voting-Age",
-    "98": "Coverage Rates and Allocation Rates",
-    "99": "Allocations",
+BTABLE_HIGHLEVEL_GROUP_DESC = {
+    "B01": "Sex, Age, and Population",
+    "B02": "Race",
+    "B03": "Ethnicity",
+    "B04": "Ancestry",
+    "B05": "Nativity and Citizenship",
+    "B06": "Place of Birth",
+    "B07": "Geographic Mobility",
+    "B08": "Transportation to Work",
+    "B09": "Children",
+    "B10": "Grandparents and Grandchildren",
+    "B11": "Household Type",
+    "B12": "Marriage and Marital Status",
+    "B13": "Mothers and Births",
+    "B14": "School Enrollment",
+    "B15": "Educational Attainment",
+    "B16": "Language Spoken at Home",
+    "B17": "Poverty",
+    "B18": "Disability",
+    "B19": "Household Income",
+    "B20": "Earnings",
+    "B21": "Veterans",
+    "B22": "Food Stamps/SNAP",
+    "B23": "Workers and Employment Status",
+    "B24": "Occupation, Industry, Class",
+    "B25": "Housing Units, Tenure, Housing Costs",
+    "B26": "Group Quarters",
+    "B27": "Health Insurance",
+    "B28": "Computers and Internet",
+    "B29": "Voting-Age",
+    "B98": "Coverage Rates and Allocation Rates",
+    "B99": "Allocations",
 }
+
+BTABLE_FROM_HIGHLEVEL_DESC = {v: k for k, v in BTABLE_HIGHLEVEL_GROUP_DESC.items()}
 
 MISSING_VALUES = ["","-222222222","-333333333","-555555555","-666666666","-888888888","-999999999", "*****"]
 
@@ -108,6 +110,18 @@ AGEGROUP_SORT_ORDER = {
     '85 years and over': 18
 }
 
+RACE_TABLE_MAP = {
+    'A': 'White Alone',
+    'B': 'Black or African American Alone',
+    'C': 'American Indian and Alaska Native Alone',
+    'D': 'Asian Alone',
+    'E': 'Native Hawaiian and Other Pacific Islander Alone',
+    'F': 'Some Other Race Alone',
+    'G': 'Two or More Races',
+    'H': 'White Alone, Not Hispanic or Latino',
+    'I': 'Hispanic or Latino',
+}
+
 CENSUS_DATA_BASE_URL = 'https://api.census.gov/data'
 
 ALL_AVAIL_ENDPOINTS = {}
@@ -164,6 +178,21 @@ def get_query_url(survey_table, year):
     return url  
 
 def get_table_groups(survey_table, year):
+    """
+    See all available table group for a survey and year
+
+    Parameters
+    ----------
+    survey_table : string
+        The survey to get groups for, see morpc.census.api.IMPLEMENTED_ENDPOINTS
+    year : string
+        The year of the survey to get groups for.
+
+    Returns
+    -------
+    dict
+        a dictionary keyed by name of the group with a description and variables.
+    """
     logger.debug(f"Getting available variable groups for {year} {survey_table}")
     json = get_json_safely(f"{CENSUS_DATA_BASE_URL}/{year}/{survey_table}/groups.json")
 
@@ -195,6 +224,13 @@ def get_group_variables(survey_table, year, group):
 
     variables = {k: json['variables'][k] for k in sorted(json['variables'].keys()) if k not in ['GEO_ID', 'NAME']}
     return variables
+
+def get_group_universe(survey_table, year, group):
+    logger.debug(f"Getting list of variables for {group} in {year} {survey_table}.")
+    json = get_json_safely(f"{CENSUS_DATA_BASE_URL}/{year}/{survey_table}/groups/{group}.json")
+
+    variables = {k: json['variables'][k] for k in sorted(json['variables'].keys()) if k not in ['GEO_ID', 'NAME']}
+    return [x for x in variables.values()][0]['universe']
 
 def valid_variables(survey_table, year, group, variables):
     logger.debug(f"Validating variables {variables}.")
@@ -403,6 +439,7 @@ class CensusAPI:
         self.YEAR = year
         self.GROUP = group.upper()
         self.CONCEPT = get_table_groups(self.SURVEY, self.YEAR)[self.GROUP]['description']
+        self.UNIVERSE = get_group_universe(self.SURVEY, [2023 if self.YEAR < 2023 else self.YEAR][0], self.GROUP)
         self.SCOPE = scope.lower() 
         if scale is not None:
             self.SCALE = scale.lower()
@@ -458,14 +495,14 @@ class CensusAPI:
         logger.info(f"Melting data into long format.")
 
 
-        long = self.DATA.melt(id_vars=['GEO_ID', 'NAME'], var_name='variable', value_name='value')
+        long = self.DATA.reset_index().melt(id_vars=['GEO_ID', 'NAME'], var_name='variable', value_name='value')
         logger.debug(f"\n\n{long.head(5).to_markdown()}")
 
         long = long.loc[~long['value'].isna()]
         long = long.loc[long['variable'].str.endswith(('E', 'M'))]
         logger.debug(f"Removing unneeded variable types, variables remaining: {[x for x in long['variable'].unique()]}")
 
-        long['variable_type'] = [re.findall(r"[0-9]+([A-Z]{1,2})", x)[0] for x in long['variable']]
+        long['variable_type'] = [re.findall(r"_[0-9]+([A-Z]{1,2})", x)[0] for x in long['variable']]
 
         logger.debug(f"included variable types: {[x for x in long['variable_type']]}")
 
@@ -479,7 +516,9 @@ class CensusAPI:
 
         long['reference_period'] = self.YEAR
 
-        long = long.pivot(index=['GEO_ID', 'NAME', 'reference_period', 'variable_label', 'variable'], columns='variable_type', values='value').reset_index().rename_axis(None, axis=1)
+        long['universe'] = self.UNIVERSE
+
+        long = long.pivot(index=['GEO_ID', 'NAME', 'reference_period', 'universe', 'variable_label', 'variable'], columns='variable_type', values='value').reset_index().rename_axis(None, axis=1)
         long = long.sort_values(by=['GEO_ID', 'variable', 'reference_period'])
 
         for column in long.columns:
@@ -507,6 +546,7 @@ class CensusAPI:
         allFields.append({"name":"GEO_ID", "type":"string", "description":"Unique identifier for geography"})
         allFields.append({"name":"NAME", "type":"string", "description":"Name of the geography"})
         allFields.append({"name":"reference_period", "type":"integer", "description":"Reference year for the data"})
+        allFields.append({'name':'universe', 'type':'string', 'description':'The universe which represent the total for the data'})
         allFields.append({"name":"variable_label", "type":"string", "description":"Label describing the variable"})
         allFields.append({"name":"variable", "type":"string", "description":"Variable code"})
 
@@ -660,7 +700,10 @@ class DimensionTable:
         self.LONG = CensusAPI_LONG.copy() # Store a copy of the data
 
         self.logger = logging.getLogger(__name__).getChild(self.__class__.__name__).getChild(str(datetime.now()))
-        self.logger.info(f"Initializing DIMENSION_TABLE object.")
+        self.logger.info(f"Initializing DimensionTable object.")
+
+        self.WIDE = self.wide()
+        self.PERCENT = self.percent()
 
     def wide(self):
         import pandas as pd
@@ -673,7 +716,7 @@ class DimensionTable:
         for column in long.columns:
             long[column] = [np.nan if value in MISSING_VALUES else value for value in long[column]]
 
-        wide = long.pivot(index='variable', columns=['GEO_ID', 'NAME', 'reference_period'], values='estimate')
+        wide = long.pivot(index='variable', columns=['GEO_ID', 'NAME', 'reference_period', 'universe'], values='estimate')
         columns_levels = wide.columns.names
         wide.columns = wide.columns.to_list()
         wide = wide.join(self.DESC_TABLE)
@@ -686,15 +729,17 @@ class DimensionTable:
         return wide
 
     def percent(self):
-
-        self.WIDE = self.wide()
         
         self.logger.info(f"Creating percent table.")
+
         total = self.WIDE.T.iloc[:,0].copy()
         percent = self.WIDE.T.iloc[:,1:].copy()
         for column in percent:
             percent[column] = percent[column].astype(float) / total.astype(float) * 100
-        
+        percent.columns = percent.columns.droplevel(0)
+        percent = percent.reset_index()
+        percent['universe'] = f"% of total {percent['universe'][0].lower()}"
+        percent = percent.set_index(['GEO_ID', 'NAME', 'reference_period', 'universe'])
         return percent.T
 
     def create_description_table(self):
