@@ -50,13 +50,13 @@ class get_colors():
         if len(colors) != 3:
             raise ValueError('Pass three color names')
 
-        first = self.morpc_colors[colors[0]]['gradient']['hex'][0:1]
-        start1 = self.morpc_colors[colors[0]]['gradient']['hex'][1]
-        stop1 = self.morpc_colors[colors[1]]['gradient']['hex'][5]
-        middle = self.morpc_colors[colors[1]]['gradient']['hex'][5]
-        start2 = self.morpc_colors[colors[1]]['gradient']['hex'][5]
-        stop2 = self.morpc_colors[colors[2]]['gradient']['hex'][7]
-        last = self.morpc_colors[colors[2]]['gradient']['hex'][8:10]
+        first = self.morpc_colors[colors[0]]['gradient']['hex'][0:2]
+        start1 = self.morpc_colors[colors[0]]['gradient']['hex'][2]
+        stop1 = self.morpc_colors[colors[1]]['gradient']['hex'][6]
+        middle = self.morpc_colors[colors[1]]['gradient']['hex'][6]
+        start2 = self.morpc_colors[colors[1]]['gradient']['hex'][6]
+        stop2 = self.morpc_colors[colors[2]]['gradient']['hex'][8]
+        last = self.morpc_colors[colors[2]]['gradient']['hex'][9:10]
 
         _cmap1 = get_continuous_cmap([start1, stop1], N=4)
         _cmap1 = rgb_list_to_hex_list([_cmap1(i) for i in range(_cmap1.N)])
@@ -349,6 +349,17 @@ def rgb_scale_from_hue(hue, sats, greys=None):
         scale.append(rgb)
     return scale
 
+def overlay_color(rgb_hex_colors, light="white", dark="black", threshold=4, reverse=False):
+    """
+    Decide which color is suitable to write onto the given colors
+    """
+
+    if reverse:
+        light2 = dark
+        dark2 = light
+        light = light2
+        dark = dark2
+    return [light if float(check_contrast(x,'#FFFFFF')['ratio']) > threshold else dark for x in rgb_hex_colors]
 
 def check_contrast(bkgcolor, textcolor = "#FFFFFF"):
     """
