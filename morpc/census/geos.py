@@ -31,27 +31,44 @@ COUNTY_SCOPES = [
     for key, value in morpc.CONST_COUNTY_NAME_TO_ID.items()
     ]
 
+MORPC_REGION_SCOPES = [
+    {"region15": {
+        "in": "state:39", 
+        "for": f"county:{','.join([morpc.CONST_COUNTY_NAME_TO_ID[x][2:6] for x in morpc.CONST_REGIONS['15-County Region']])}"
+        }
+        },
+    {"region10": {
+        "in": "state:39", 
+        "for": f"county:{','.join([morpc.CONST_COUNTY_NAME_TO_ID[x][2:6] for x in morpc.CONST_REGIONS['10-County Region']])}"
+        }
+        },
+    {"region7": {
+        "in": "state:39", 
+        "for": f"county:{','.join([morpc.CONST_COUNTY_NAME_TO_ID[x][2:6] for x in morpc.CONST_REGIONS['7-County Region']])}"
+        }
+        },
+    {"regioncorpo": {
+        "in": "state:39", 
+        "for": f"county:{','.join([morpc.CONST_COUNTY_NAME_TO_ID[x][2:6] for x in morpc.CONST_REGIONS['CORPO Region']])}"
+        }
+        },
+    {"regionceds": {
+        "in": "state:39", 
+        "for": f"county:{','.join([morpc.CONST_COUNTY_NAME_TO_ID[x][2:6] for x in morpc.CONST_REGIONS['CEDS Region']])}"
+        }
+        },
+    {"regionmsa": {
+        "in": "state:39", 
+        "for": f"county:{','.join([morpc.CONST_COUNTY_NAME_TO_ID[x][2:6] for x in morpc.CONST_REGIONS['REGIONMSA']])}"
+        }
+        }
+]
+
 SCOPES = {
     "us": {
         'for': 'us:1'
         },
-    "region15": {
-        "in": "state:39", 
-        "for": f"county:{','.join([morpc.CONST_COUNTY_NAME_TO_ID[x][2:6] for x in morpc.CONST_REGIONS['15-County Region']])}"
-        },
-    "region10": {
-        "in": "state:39", 
-        "for": f"county:{','.join([morpc.CONST_COUNTY_NAME_TO_ID[x][2:6] for x in morpc.CONST_REGIONS['10-County Region']])}"
-        },
-    "region7": {
-        "in": "state:39", 
-        "for": f"county:{','.join([morpc.CONST_COUNTY_NAME_TO_ID[x][2:6] for x in morpc.CONST_REGIONS['7-County Region']])}"
-        },
-    "region-corpo": {
-        "in": "state:39", 
-        "for": f"county:{','.join([morpc.CONST_COUNTY_NAME_TO_ID[x][2:6] for x in morpc.CONST_REGIONS['CORPO Region']])}"
-        },
-    "columbus-msa": {
+    "columbusmsa": {
         "for": f"metropolitan statistical area/micropolitan statistical area:{morpc.CONST_COLUMBUS_MSA_ID}"
     }
 }
@@ -60,6 +77,9 @@ for x in STATE_SCOPES:
     SCOPES.update(x)
 
 for x in COUNTY_SCOPES:
+    SCOPES.update(x)
+
+for x in MORPC_REGION_SCOPES:
     SCOPES.update(x)
 
 ## These are the available children sumelevels for the various parent level sumlevels when using the ucgid=psuedo() predicate.
