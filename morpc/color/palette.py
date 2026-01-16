@@ -15,17 +15,19 @@ for NAME in NAMES:
             SEQ2_ALL[f"{NAME}-{NAME2}"] = get_colors().SEQ2([NAME, NAME2])
 
 SEQ2_LIST = ['blue-lightgreen', 'bluegreen-darkblue', 'bluegreen-purple', 'yellow-darkblue', 'yellow-blue', 'yellow-darkgreen', 'yellow-lightgreen', 'yellow-red', 'yellow-purple',
-            'tan-lightgreen', 'tan-lightgrey', 'red-blue', 'red-lightgreen', 'purple-blue', 'purple-lightgrey']
+            'tan-lightgreen', 'tan-lightgrey', 'red-blue', 'red-lightgreen', 'purple-blue', 'purple-lightgrey', 'lightgreen-darkgreen']
 SEQ2 = {}
-for NAMES in SEQ2_LIST:
+for NAMES in SEQ2_ALL:
     NAME1, NAME2 = NAMES.split('-')
-    SEQ2[NAMES] = get_colors().SEQ2([NAME1, NAME2])
+    SEQ2[f"{NAME1}-{NAME2}"] = get_colors().SEQ2([NAME1, NAME2])
+    SEQ2[f"{NAME2}-{NAME1}"] = get_colors().SEQ2([NAME2, NAME1])
 
 SEQ3 = {}
 SEQ3['yellow-lightgreen-darkblue'] = get_colors().SEQ3(['yellow','lightgreen','darkblue'])
 SEQ3['yellow-red-purple'] = get_colors().SEQ3(['yellow','red','purple'])
 SEQ3['purple-bluegreen-darkblue'] = get_colors().SEQ3(['purple','bluegreen','darkblue'])
 SEQ3['lightgrey-lightgreen-darkgreen'] = get_colors().SEQ3(['purple','bluegreen','darkblue'])
+SEQ3['red-yellow-darkgreen'] = get_colors().SEQ3(['red','yellow','darkgreen'])
 
 DIV_LIST = ['red-yellow-lightgreen', 'red-yellow-blue', 'red-lightgrey-blue', 'yellow-lightgrey-darkblue', 'lightgreen-lightgrey-purple', 'darkgreen-lightgrey-darkblue']
 DIV = {}
