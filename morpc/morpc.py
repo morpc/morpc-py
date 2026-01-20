@@ -1270,12 +1270,6 @@ def load_spatial_data(sourcePath, layerName=None, driverName=None, archiveDir=No
     else:
         gdf = gpd.read_file(sourcePath, layer=layerName, driver=driverName, engine="pyogrio", fid_as_index=True)
 
-    # When reading a File Geodatabase, Geopandas automatically sets the FID (OBJECTID) field to the index.
-    # In this case, reset the index, preserving the name of this field.
-    if(driverName == "OpenFileGDB"):
-        gdf.index.name="OBJECTID"
-        gdf = gdf.reset_index()
-
     # If the user has specified an archive directory, create an archival copy of the data as a layer in a GeoPackage
     if(archiveDir != None):
         # If no file name was specified, we need to assign one
@@ -1443,10 +1437,6 @@ def load_tabular_data(sourcePath, sheetName=None, fileType=None, archiveDir=None
             print("morpc.load_tabular_data | ERROR | File type {} is not handled. Troubleshoot function.".format(fileType))
             raise RuntimeError
             
-        if(tempDir):
-            print("morpc.load_tabular_data | INFO | Removing temporary directory for Census file: {}".format(tempDir))
-            #shutil.rmtree(tempDir)
-
     return df
 
 # Assign geographic identifiers
@@ -3154,3 +3144,200 @@ def hist_scaled(series, logy="auto", yRatioThreshold=100, xClassify=False, xRati
         return (ax, binsList, countsList)
     else:
         return ax
+
+def save_notebook():
+    """
+    Programmatically save the calling Jupyter notebook to disk. Works in JupyterLab only.
+    
+    Parameters
+    ----------
+    (None)
+        
+    Returns
+    -------
+    (None)
+        
+    """
+
+    from ipylab import JupyterFrontEnd
+    print("morpc.save_notebook | INFO | Saving notebook to disk")
+    app = JupyterFrontEnd()
+    app.commands.execute('docmanager:save')
+
+    
+def notebook_to_html(path=None, saveFirst=True):
+    """
+    Programmatically convert a Jupyter notebook to HTML format via nbconvert. Saves the HTML 
+    file in the same directory as the Jupyter notebook. By default, the calling notebook will 
+    be converted and it will be saved to disk prior to initiating the conversion.
+    
+    Parameters
+    ----------
+    path : string
+        Optional. Filesystem path of Jupyter notebook to be converted. If unspecified, the path 
+        of the calling notebook will be used.
+    saveFirst : bool
+        Optional. If True or unspecified, save the calling notebook to disk before initiating
+        the conversion. If False, convert the version of the notebook already on disk.
+
+    Returns
+    -------
+    htmlPath : string
+        Filesystem path of the HTML export of the Jupyter notebook
+        
+    """
+    import re
+    import os
+    import json
+    import ipykernel
+    
+    if(path is None):
+        print("morpc.notebook_to_html | INFO | Notebook path was not specified. Using path of calling notebook.")
+        connectionInfo = json.loads(ipykernel.get_connection_info())
+        path = os.path.normpath(connectionInfo["jupyter_session"])  
+        
+    if(saveFirst is True):
+        save_notebook()
+
+    htmlPath = re.sub(".ipynb$", ".html", path)
+    print("morpc.notebook_to_html | INFO | Converting notebook to HTML...")
+    print("morpc.notebook_to_html | INFO | --> Source: {}".format(path))
+    print("morpc.notebook_to_html | INFO | --> Target: {}".format(htmlPath))    
+    # For some reason nbconvert doesn't always like absolute paths so we'll change to the directory of the notebook so we can 
+    # give only its filename to nbconvert, then we'll change back.
+    cwd = os.getcwd()
+    os.chdir(os.path.dirname(os.path.abspath(path)))
+    os.system("jupyter nbconvert --to html {}".format(os.path.basename(path)))
+    os.chdir(cwd)
+ 
+    return htmlPath
+    
+class generations():
+    """
+    Class-based tools for working with population generations.
+
+    The names and starting years come from the following report from the Census Bureau:
+    
+    https://www2.census.gov/library/publications/2025/demo/acs-60.pdf
+    
+    However, the Census Bureau does not define generations.  The linked report includes the following footnote: "The U.S. 
+    Census Bureau does not have official definitions for these birth cohorts. The birth year ranges for each birth cohort 
+    may vary slightly across Census Bureau products. The use of these categories does not imply that this is the preferred 
+    method of presenting or analyzing data."  Instead, the report cites the following Pew Research report as the source of 
+    the generation definitions that were used:
+    
+    https://www.pewresearch.org/short-reads/2019/01/17/where-millennials-end-and-generation-z-begins/    
+
+    Initialization
+    --------------
+    No parameters are required for initialization.
+
+    Attributes
+    ----------
+    attribute_list : list
+        List of dicts, each of which represents a generation. The generations are listed from oldest to newest. The dicts include the 
+        name of the generation as well as the start year, end year, and number of years spanned.
+    attributes : dict
+        Identical content to self.attribute_list but in dictionary form indexed by generation name.
+    name_list : list
+        List of generation names (strings) ordered from oldest to newest
+    startyear_list : list
+        List of starting years of generations (integers) ordered from oldest to newest
+    endyear_list : list
+        List of ending years of generations (integers) ordered from oldest to newest.  The end year for the most recent generation may be 
+        None (NoneType) if there is not consensus on the ending year.  Commonly the end year for a generation is not specified until the start
+        year for a new generation is defined.
+    stats: dict
+        Contains statistics summarizing the spans of the set of generations.
+        
+    Methods
+    --------
+    ages_in_year
+        For a user specified year or list of years, provides a dictionary containing the ages that are assigned to each generation for each
+        requested year. Infers an end year for generations where the end year is unspecified.
+    
+    """
+
+    def __init__(self):
+        attribute_list = [
+            { "name": "Lost Generation", "start_year":1883, "end_year":1900 },
+            { "name": "Greatest Generation", "start_year":1901, "end_year":1927 },
+            { "name": "Silent Generation", "start_year":1928, "end_year":1945 },
+            { "name": "Baby Boomers", "start_year":1946, "end_year":1964 },
+            { "name": "Generation X", "start_year":1965, "end_year":1980 },
+            { "name": "Millenials", "start_year":1981, "end_year":1996 },
+            { "name": "Generation Z", "start_year":1997, "end_year":2012 },
+            { "name": "Generation Alpha", "start_year":2013, "end_year":None }
+        ]
+
+        for i in range(0, len(attribute_list)):
+            attribute_list[i]["span"] = (None if attribute_list[i]["end_year"] is None else (attribute_list[i]["end_year"] - attribute_list[i]["start_year"]))
+        
+        name_list = [x["name"] for x in attribute_list]
+        
+        startyear_list =  [x["start_year"] for x in attribute_list]
+
+        endyear_list =  [x["end_year"] for x in attribute_list]
+        
+        attributes = {}
+        for generation in attribute_list:
+            attributes[generation["name"]] = {attribute:value for attribute,value in generation.items() if attribute != "name"}
+
+        stats = {
+            "min_span": min([generation["span"] for generation in attribute_list if generation["span"] is not None]),
+            "max_span": max([generation["span"] for generation in attribute_list if generation["span"] is not None]),
+            "mean_span": round(sum([generation["span"] for generation in attribute_list if generation["span"] is not None])/(len(attribute_list)-1))
+        }
+        
+        self.attribute_list = attribute_list
+        self.attributes = attributes
+        self.name_list = name_list
+        self.startyear_list = startyear_list
+        self.endyear_list = endyear_list
+        self.stats = stats
+
+    def ages_in_year(self, years, generations=None):
+        """
+        Identify which ages of persons belong to each generation in a user specified year or list of years.  For example, given the
+        year 2020, for each generation list the possible ages of the people who belong to that generation in that year.
+
+        Parameters
+        ----------
+        years : int or list
+            An integer year (four digits) or list of integer years for which the age listings should be provided.
+        generations : str or list
+            Optional. The name of a single generation or a list of the names of generations for which the age listings should be provided.
+            If this parameter is not specified, age listings will be provided for all available generations.
+
+        Returns
+        -------
+        dict
+            A two-level dictionary. First level is indexed by generation name. Second level is indexed by year. Each value is a list of
+            possible ages of persons belong to that generation in that year.  For generations where the end year is undefined, a likely 
+            end year is inferred based on the mean span of all known generations.  Note that the ages are unconstrained and may contain
+            unrealistic or impossible values for older generations.  It is up to the user to constrain the set of ages in whatever way
+            is appropriate for their application.
+        """
+        warningFlag = False
+        if(generations == None):
+            generations = self.name_list
+        if(type(generations) == str):
+            generations = [generations]
+        if(type(years) == int):
+              years = [years]
+        agesInYear = {}
+        for generation in generations:
+            agesInYear[generation] = {}
+            for year in years:
+                oldest_age = year - self.attributes[generation]["start_year"]                
+                if(self.attributes[generation]["end_year"] == None):
+                    if(warningFlag == False):
+                        print("WARNING | End year is not defined for generation {}. Using mean span of all generations ({})".format(generation, self.stats["mean_span"]))
+                        warningFlag = True
+                    youngest_age = year - (self.attributes[generation]["start_year"] + self.stats["mean_span"])
+                else:
+                    youngest_age = year - self.attributes[generation]["end_year"]
+                youngest_age = max(youngest_age, 0)
+                agesInYear[generation][year] = list(range(youngest_age, oldest_age+1))
+                
+        return agesInYear

@@ -564,7 +564,7 @@ def write_resource(resource, resourcePath):
     cwd = os.getcwd()
 
     try:
-        os.chdir(os.path.dirname(resourcePath))
+        os.chdir(os.path.dirname(os.path.abspath(resourcePath)))
         resource.to_yaml(os.path.basename(resourcePath))
     except Exception as e:
         os.chdir(cwd)
@@ -579,7 +579,7 @@ def validate_resource(resourcePath):
     cwd = os.getcwd()
 
     try:
-        os.chdir(os.path.dirname(resourcePath))    
+        os.chdir(os.path.dirname(os.path.abspath(resourcePath)))
       
         logger.info("Validating resource on disk including data and schema (if applicable). This may take some time.")
         resourceOnDisk = frictionless.Resource(os.path.basename(resourcePath))
