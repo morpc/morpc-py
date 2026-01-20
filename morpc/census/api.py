@@ -702,9 +702,6 @@ class DimensionTable:
         self.logger = logging.getLogger(__name__).getChild(self.__class__.__name__).getChild(str(datetime.now()))
         self.logger.info(f"Initializing DimensionTable object.")
 
-        self.WIDE = self.wide()
-        self.PERCENT = self.percent()
-
     def wide(self):
         import pandas as pd
         import numpy as np
@@ -715,8 +712,10 @@ class DimensionTable:
         long = self.LONG
         for column in long.columns:
             long[column] = [np.nan if value in MISSING_VALUES else value for value in long[column]]
+        self._columns = [column for column in long if column not in ['variable', 'estimate', 'variable_label', 'moe']]
+        
 
-        wide = long.pivot(index='variable', columns=['GEO_ID', 'NAME', 'reference_period', 'universe'], values='estimate')
+        wide = long.pivot(index='variable', columns=[x for x in self._columns], values='estimate')
         columns_levels = wide.columns.names
         wide.columns = wide.columns.to_list()
         wide = wide.join(self.DESC_TABLE)
@@ -726,21 +725,30 @@ class DimensionTable:
         wide = wide.sort_index(level='GEO_ID', axis=1)
         wide = wide.drop_duplicates()
 
+        self.WIDE = wide
+
         return wide
 
-    def percent(self):
+    def percent(self, decimals=2):
         
         self.logger.info(f"Creating percent table.")
+
+        self.WIDE = self.wide()
 
         total = self.WIDE.T.iloc[:,0].copy()
         percent = self.WIDE.T.iloc[:,1:].copy()
         for column in percent:
-            percent[column] = percent[column].astype(float) / total.astype(float) * 100
+            percent[column] = round(percent[column].astype(float) / total.astype(float) * 100, decimals)
         percent.columns = percent.columns.droplevel(0)
         percent = percent.reset_index()
         percent['universe'] = f"% of total {percent['universe'][0].lower()}"
-        percent = percent.set_index(['GEO_ID', 'NAME', 'reference_period', 'universe'])
+        percent = percent.set_index([x for x in self._columns])
+        
+        self.PERCENT = percent
+
         return percent.T
+    
+
 
     def create_description_table(self):
         """
