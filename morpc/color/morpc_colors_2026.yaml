@@ -1,0 +1,90 @@
+Primary:
+  Green: 
+    KEY: 8DC63F
+    G1: 243F00
+    G2: 6E9F3A
+    G3: 8DC63F
+    G4: 9BCB74
+    G5: C6DB9C
+    G6: E3F0D6
+  Forest:
+    KEY: 2F6338
+    F1: 001A09
+    F2: 1E4D2B
+    F3: 2F6338
+    F4: 3C7F4B
+    F5: 6ABA82
+    F6: B9E0C0
+  Sky:
+    KEY: 74C3D5
+    S1: 1C5461
+    S2: 429BB1
+    S3: 74C3D5
+    S4: 9ED2E7
+    S5: D1E1F4
+    S6: E7F1FA
+  Blue:
+    KEY: 064A8C
+    B1: 001C3F
+    B2: 053B72
+    B3: 064A8C
+    B4: 066AAE
+    B5: 07A2D7
+    B6: 9AD2F0
+  Ocean:
+    KEY: 0E4A5A
+    OC1: 001F28
+    OC2: 083B45
+    OC3: 0E4A5A
+    OC4: 1B626A
+    OC5: 059C8F
+    OC6: 6FB6C8
+  Navy:
+    KEY: 1A2E59
+    N1: 040B26
+    N2: 091F45
+    N3: 1A2E59
+    N4: 2B448C
+    N5: 3666A5
+    N6: 7E9BCC
+Secondary:
+  Brown:
+    KEY: 9A7E6D
+    BR1: 22180E
+    BR2: 4A3A17
+    BR3: 7A6840
+    BR4: 9A7E6D
+    BR5: D7B98E
+    BR6: ECD5C7
+  Yellow:
+    KEY: FFD912
+    Y1: 4C4F1A
+    Y2: 778B3B
+    Y3: 9DA12E
+    Y4: FFD912
+    Y5: FFE28F
+    Y6: FBF6B2
+  Orange:
+    KEY: DD6226
+    O1: 2F1407
+    O2: 6A3518
+    O3: 8E3F1C
+    O4: DD6226
+    O5: FFA01A
+    O6: F4C27D
+  Red:
+    KEY: C61A35
+    R1: 1C070A
+    R2: 470002
+    R3: 7A0000
+    R4: C61A35
+    R5: F2676F
+    R6: F9A0B4
+  Purple:
+    KEY: 6B4A92
+    P1: 120021
+    P2: 240033
+    P3: 51306F
+    P4: 6B4A92
+    P5: 9C5EA5
+    P6: E0BBD1

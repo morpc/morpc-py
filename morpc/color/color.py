@@ -1,18 +1,28 @@
-import json
+from yaml import safe_load
 import morpc
 from importlib.resources import files
 
+import json
+
+try:
+    with files('morpc').joinpath('color', 'morpc_colors_2026.yaml').open('r') as file: 
+        morpc_colors_2026 = safe_load(file)
+except ValueError as e:
+    print(e)
+
+try:
+    with files('morpc').joinpath('color', 'morpc_colors.json').open('r') as file: 
+        morpc_colors = json.load(file)
+except ValueError as e:
+    print(e)
+
 class get_colors():
 
-    def __init__(self):
+    def __init__(self, morpc_colors=morpc_colors):
         import os
         ## Use importlib.resources to access non-package files.
         ## See https://docs.python.org/3/library/importlib.resources.html#importlib-resources-functional
-        try:
-            with files('morpc').joinpath('color', 'morpc_colors.json').open('r') as file: 
-                self.morpc_colors = json.load(file)
-        except ValueError as e:
-            print(e)
+        self.morpc_colors = morpc_colors
 
         self.KEYS = {}
         for __COLOR in self.morpc_colors:
@@ -147,7 +157,7 @@ def select_color_array(_list, key, n):
 
 
 
-# Everything below is used for constructing the pallate 
+# Everything below is used for constructing the palette 
 def hex_to_hls(hex_color):
     """
     Convert a HEX color to HLS (Hue, Lightness, Saturation).
@@ -251,6 +261,7 @@ def plot_from_rgb_list(rgb_colors, labels = ['hls', 'grey', 'hex'], position=Non
     ax.axis('off')
 
     for i, rgb in enumerate(rgb_colors):
+        rgb = rgb[0:3]
         hex_color = rgb_to_hex(rgb)
         r,g,b = [x for x in rgb]
         hls_color = rgb_to_hls(r,g,b)
@@ -303,6 +314,8 @@ def plot_from_hex_list(hex_colors, labels = ['hls', 'grey', 'hex'], position=Non
     ax.axis('off')
 
     for i, hex in enumerate(hex_colors):
+        if not str(hex).startswith("#"):
+            hex = f"#{hex}"
         rgb = rgb_to_dec(hex_to_rgb(hex))
         r,g,b = [x for x in rgb]
         hls_color = rgb_to_hls(r,g,b)
@@ -418,7 +431,8 @@ def hex_to_rgb(value):
     Converts hex to rgb colours
     value: string of 6 characters representing a hex colour.
     Returns: list length 3 of RGB values'''
-    value = value.strip("#") # removes hash symbol if present
+    if value.startswith("#"):
+        value = value.strip("#") # removes hash symbol if present
     lv = len(value)
     return tuple(int(value[i:i + lv // 3], 16) for i in range(0, lv, lv // 3))
 
