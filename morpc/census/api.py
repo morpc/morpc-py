@@ -11,7 +11,12 @@ morpc.req.get_json_safely(req)
 """
 
 import logging
+from operator import index
+from re import L
 from xml.dom import HIERARCHY_REQUEST_ERR
+
+from narwhals import col
+from plotnine import after_scale, coord_fixed
 
 logger = logging.getLogger(__name__)
 
@@ -518,7 +523,9 @@ class CensusAPI:
 
         long['universe'] = self.UNIVERSE
 
-        long = long.pivot(index=['GEO_ID', 'NAME', 'reference_period', 'universe', 'variable_label', 'variable'], columns='variable_type', values='value').reset_index().rename_axis(None, axis=1)
+        long['concept'] = self.CONCEPT.capitalize()
+
+        long = long.pivot(index=['GEO_ID', 'NAME', 'reference_period', 'concept', 'universe', 'variable_label', 'variable'], columns='variable_type', values='value').reset_index().rename_axis(None, axis=1)
         long = long.sort_values(by=['GEO_ID', 'variable', 'reference_period'])
 
         for column in long.columns:
@@ -546,6 +553,7 @@ class CensusAPI:
         allFields.append({"name":"GEO_ID", "type":"string", "description":"Unique identifier for geography"})
         allFields.append({"name":"NAME", "type":"string", "description":"Name of the geography"})
         allFields.append({"name":"reference_period", "type":"integer", "description":"Reference year for the data"})
+        allFields.append({"name":"concept", "type":"string", "description":"The description of the concept for the table"})
         allFields.append({'name':'universe', 'type':'string', 'description':'The universe which represent the total for the data'})
         allFields.append({"name":"variable_label", "type":"string", "description":"Label describing the variable"})
         allFields.append({"name":"variable", "type":"string", "description":"Variable code"})
@@ -741,14 +749,12 @@ class DimensionTable:
             percent[column] = round(percent[column].astype(float) / total.astype(float) * 100, decimals)
         percent.columns = percent.columns.droplevel(0)
         percent = percent.reset_index()
-        percent['universe'] = f"% of total {percent['universe'][0].lower()}"
+        percent['universe'] = [f"% of {x.lower()}" for x in percent['universe']]
         percent = percent.set_index([x for x in self._columns])
         
         self.PERCENT = percent
 
         return percent.T
-    
-
 
     def create_description_table(self):
         """
@@ -801,10 +807,217 @@ class DimensionTable:
 
         return var_df_fix
     
+    def plot_bar(self, value, x_axis, dimension, variables=None, x_ordered=None, x_ascending=False, variables_ordered=False, value_labels='overlay', colors=None, aspect_ratio=1):
+        """
+        Plot the dimension table as bar plot with reasonable defaults.
+
+        Parameters
+        ----------
+        value : {'totals', 'percent'}
+            The value to plot, either totals or percent.
+        x_axis : str
+            the name of column to plot on x-axis.
+        y_axis : str
+            The name of column to plot on y-axis.
+        dimension : int
+            The dimension that has the variables interested in plotting.
+        variables : list, optional
+            A list of the variables to include in the the plot. Searches dimensions and filters columns by list.
+        x_ordered : {None, list, 'by_y'}, optional
+            How to order x axis.
+            If list, orders x axis values based on list.
+            'by_y' orders the x axis by the y values. 
+        x_ascending : boolean
+            If x_ordered is "by_y", whether to sort ascending or descending. 
+        variables_ordered : boolean
+            If true, convert variables to categorical.
+        value_labels : {None, 'overlay', 'above'}
+            If and how to label bars with values.
+        aspect_ratio : float
+            Aspect ratio y/x for the figure dimensions
+            
+        Returns
+        -------
+        plotnine.ggplot.ggplot
+        """
+
+        import textwrap
+        from plotnine import guides, guide_legend, element_text, ggplot, aes, geom_col, geom_text, after_stat, position_stack, scale_x_discrete, scale_fill_manual, scale_color_manual, scale_y_continuous, labs, theme, element_text, stage
+        import pandas as pd
+        from morpc.plot import morpc_theme
+        from morpc.color import QUAL
+        from morpc.color.color import overlay_color
+
+        logger.info(f"Creating plot for dimension table for {value}")
+
+        # load dimtable for value to plot
+        if value == 'totals':
+            self.dim_table = self.wide()
+        if value == 'percent':
+            self.dim_table = self.percent()
+
+        logger.debug(f"Normalizing index values")
+        # normalize index names
+        index_levels = []
+        index_values = []
+        for level in self.dim_table.index.names:
+            index_levels.append(level)
+        self.dim_table = self.dim_table.reset_index()
+        for column in index_levels:
+            logger.debug(f"Index level: {column} ")
+            values = [x.capitalize().replace(':', '') for x in self.dim_table[column]]
+            logger.debug(f'Index values: {values}')
+            self.dim_table[column] = values
+            # store unique values
+            for value in values:
+                if value not in index_values:
+                    index_values.append(value)
+        self.dim_table = self.dim_table.set_index(index_levels)
+
+        if variables != None:
+        # normalize variables
+            variables = [x.capitalize().replace(':','') for x in variables]
+            logger.debug(f"Normalized variables: {variables}")
+            # check variables are in table
+
+            logger.debug(f"Verifying variables are in index")
+            for variable in variables:         
+                if variable not in index_values:
+                    logger.error(f"{variable} not in dimensions: {index_values}")
+                    raise ValueError
+            variables_to_plot = [x.capitalize() for x in variables]
+        else:
+            logger.debug(f"No variables selected. Using all variables in dimension {dimension}")
+
+        # pivot long for plotting.
+        logger.debug(f"Converting dim_table in to standardized long table for plotting.")
+        id_vars = [x for x in self.dim_table.reset_index().columns.difference(self.dim_table.columns)]
+        logger.debug(f"Melting table based on {id_vars}")
+        to_plot = self.dim_table.reset_index().melt(id_vars=id_vars)
+        columns = [x for x in to_plot.columns]
+        for i in range(len(columns)):
+            name = columns[i]
+            if name in id_vars:
+                columns[i] = f"dimension_{i+1}"
+        to_plot.columns = columns
+
+        # store dimension to plot
+        dimension_to_plot = f"dimension_{dimension}"
+        to_plot = to_plot.rename(columns={dimension_to_plot:'variable'})
+
+        # filter and remove other dimensions
+        for column in to_plot.columns:
+            if column.startswith('dimension'):
+                if int(column.split('_')[-1])>dimension:
+                    to_plot = to_plot.loc[to_plot[column]=='']
+                    to_plot = to_plot.drop(columns=column)
+                if int(column.split('_')[-1])<dimension:
+                    to_plot = to_plot.drop(columns = column)
 
 
+        # filter for variables
+        if variables != None:
+            to_plot = to_plot.loc[to_plot['variable'].isin(variables_to_plot)]
 
+        # order variables by list if categorical
+        if variables_ordered == True:
+            if variables == None:
+                logger.error(f"Unable to order variables, not list of variables supplied. Pass list in order to variables parameter.")
+            to_plot['variable'] = pd.Categorical(to_plot['variable'], categories=variables, ordered=True)
+        
+        # order x axis if by categorical
+        if isinstance(x_ordered, list):
+            for value in x_ordered:
+                if value not in to_plot[x_axis].to_list():
+                    logger.debug(f"{to_plot[x_axis].to_list()}")
+                    logger.error(f"{value} not in column {x_axis}. unable to order axis")
+                    raise ValueError
+            to_plot[x_axis] = pd.Categorical(to_plot[x_axis], categories=x_ordered, ordered=True)
+    
+        # store table to plot from
+        self.to_plot = to_plot
 
+        # if order by y then edit x axis string to use reorder
+        if (x_ordered == 'by_y'):
+            x_axis = f"reorder({x_axis}, value, ascending={x_ascending})"
+    
+        if colors == None:
+            colors = QUAL['morpc_ext']
+
+        # Build initial plot
+        plot = (
+            ggplot(to_plot)
+            + geom_col(
+                aes(x = x_axis, y='value', fill='variable'), 
+                position = 'stack'
+                )
+            + scale_x_discrete(
+                name='', 
+                labels=self.wraping_func)
+            + scale_y_continuous(
+                name=textwrap.fill(list(to_plot['universe'])[0],len(list(to_plot['universe'])[0])/1.6)
+                )
+            + scale_fill_manual(
+                colors,
+                name=textwrap.fill(list(to_plot['concept'])[0],len(list(to_plot['concept'])[0])/1.6)
+                )
+            + scale_color_manual(
+                colors
+                )
+            + morpc_theme(base_size=11)
+            + guides(
+                fill = guide_legend(
+                    direction='vertical',
+                    position='bottom',
+                )
+            )
+            + labs(
+                fill="",
+            )
+            + coord_fixed(aspect_ratio)
+            )
+        
+
+        if value == 'percent':
+            format_string = "{:.2f}%"
+        else:
+            format_string = None
+
+        if value_labels == None:
+            label_geom = None
+        else: 
+            if value_labels == 'overlay':
+                label_geom = geom_text(
+                    aes(x = x_axis, y='value', label="value", 
+                        color=stage('variable', after_scale='overlay_color(color)'),
+                        ),  # new
+                    size = 9,
+                    show_legend=False,
+                    va='top',
+                    ha='center',
+                    format_string="{:.2f}%",
+                    position=position_stack(vjust=0.6),
+                                    )
+                plot = plot + label_geom
+            elif value_labels == 'above':
+                label_geom = geom_text(
+                    aes(x = x_axis, y='value', label="value", 
+                        color=stage('variable', after_scale='color'),
+                        ),  # new
+                    size = 9,
+                    show_legend=False,
+                    va='bottom',
+                    ha='center',
+                    format_string=format_string,
+                    position=position_stack(),
+                                    )
+                plot = plot + label_geom
+
+        return plot
+
+    def wraping_func(self, text):
+        import textwrap
+        return [textwrap.fill(str(wraped_text), width=9) for wraped_text in text]
             
 
                     
