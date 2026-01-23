@@ -2807,7 +2807,7 @@ def write_table(df, path, format=None, index=None):
         print("morpc.write_table | ERROR | This function does not currently support format {}.  Add export arguments for this format in morpc.PANDAS_EXPORT_ARGS_OVERRIDE or use the native pandas export functions.".format(format))
         raise RuntimeError
 
-def reapportion_by_area(targetGeos, sourceGeos, apportionColumns=None, summaryType="sum", roundPreserveSum=None, partialCoverageStrategy="error", zeroCoverageStrategy="error", sourceShareTolerance=6, targetShareTolerance=6):
+def reapportion_by_area(targetGeos, sourceGeos, apportionColumns=None, summaryType="sum", roundPreserveSum=None, partialCoverageStrategy="error", zeroCoverageStrategy="error", sourceShareTolerance=6, targetShareTolerance=6, returnIntersectData=False):
     """
     Given you have some variable(s) summarized at one geography level, reapportion those variables to other geographies in proportion 
     # to the area of overlap of the target geographies with the source geographies.  This is accomplished by intersecting the target 
@@ -2855,11 +2855,17 @@ def reapportion_by_area(targetGeos, sourceGeos, apportionColumns=None, summaryTy
         geographies do not sum to 1.  Round the sums to the specified decimal place prior to evaluation.  Sum greater than 1 may indicate 
         that there are overlapping polygons in the target geos or source geos. Sum less than 1 may indicate that portions of the target geos
         do not overlap the source geos. Set to None to allow no tolerance (warning will be generated if shares do not sum to exactly 1).
+    returnIntersectData : bool
+        Optional. If False, return only one output consisting of the reapportioned data (default). If true, return a second output (GeoDataFrame)
+        consisting of the intersection geometries and their attributes.
         
     Returns
     -------
     targetGeosUpdated :  geopandas.geodataframe.GeoDataFrame with polygon geometry type
         An updated version of targetGeos that includes the reapportioned variables.
+    intersectGeosUpdate : geopandas.geodataframe.GeoDataFrame with polygon geometry type
+        If requested. The results of the intersection of the source geos and target geos, including
+        areas and shares for both, plus geometry and area for the intersection polygon.
     """
 
     import pandas as pd
@@ -2922,6 +2928,11 @@ def reapportion_by_area(targetGeos, sourceGeos, apportionColumns=None, summaryTy
     # Compute the share of the target geo that each intersection polygon represents
     intersectGeos["TARGET_SHARE"] = intersectGeos["INTERSECT_GEOS_AREA"] / intersectGeos["TARGET_GEOS_AREA"]
 
+    # Create a copy of the intersection data that we can output if the user requested it. Put the columns in a sensible order.
+    intersectGeosOutput = intersectGeos.copy()
+    intersectGeosOutput = intersectGeosOutput.filter(items=["sourceIndex","targetIndex","SOURCE_GEOS_AREA","TARGET_GEOS_AREA","INTERSECT_GEOS_AREA",
+                                                            "SOURCE_SHARE","TARGET_SHARE","geometry"], axis="columns")
+    
     # Make a list of the source geo IDs that appeared in the original source data but do not appear in the intersection data.  
     # These are source geos that had zero overlap with the target geos. If there are entries in the list, throw an error if appropriate.
     if(summaryType == "sum"):
@@ -3043,8 +3054,11 @@ def reapportion_by_area(targetGeos, sourceGeos, apportionColumns=None, summaryTy
     # Reorder the target geos columns as they were originally and append the reapportioned variables
     # to the end.
     targetGeosUpdated = targetGeosUpdated.filter(items=list(targetGeos.columns)+apportionColumns, axis="columns")
-    
-    return targetGeosUpdated
+
+    if(returnIntersectData == True):
+        return (targetGeosUpdated, intersectGeosOutput)
+    else:
+        return targetGeosUpdated
     
 def hist_scaled(series, logy="auto", yRatioThreshold=100, xClassify=False, xRatioThreshold=100, scheme="NaturalBreaks", bins=10, retBinsCounts=False, figsize=None):
     """
