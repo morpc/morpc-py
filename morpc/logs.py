@@ -19,12 +19,23 @@ LEVEL_MAP = {
     "critical": 50
 }
 
-def config_logs(filename, level, mode = 'w'):
+def config_logs(filename=None, level='info', mode = 'w'):
     """
     Set up logs within a notebook to store log outputs in filename, and display in output.
     """
     import logging
     import sys
+    import os
+    import ipykernel
+    import json
+    
+    fileSpecified = True
+    if(filename is None):
+        fileSpecified = False
+        connectionInfo = json.loads(ipykernel.get_connection_info())
+        scriptFilename = os.path.basename(os.path.normpath(connectionInfo["jupyter_session"]))
+        filename = f"{scriptFilename}.log"
+    
     logging.basicConfig(
         level=LEVEL_MAP[level],
         force=True,
@@ -36,4 +47,7 @@ def config_logs(filename, level, mode = 'w'):
                         )
     logging.getLogger(__name__).setLevel(LEVEL_MAP[level])
 
-    logger.info(f'Set up logging save to file {filename}')
+    if(fileSpecified == False):
+        logger.info(f'Log filename not specified.  Using default filename.')
+
+    logger.info(f'Set up logging save to file "{filename}", log level "{level}"')
