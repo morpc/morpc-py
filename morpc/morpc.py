@@ -24,7 +24,7 @@ CONST_SQFT_PER_ACRE = 43560  # Square feet per acre
 
 # Commonly used geographic identifiers
 # The following are assigned by the U.S. Census Bureau
-CONST_COLUMBUS_MSA_ID = '18140'
+CONST_COLUMBUS_CBSA_ID = '18140'
 CONST_OHIO_STATE_ID = '39'
 CONST_OHIO_REGION_ID = '2'      # Midwest
 CONST_OHIO_DIVISION_ID = '3'    # East North Central
@@ -124,7 +124,7 @@ CONST_REGIONS["REGIONONECBUS"] = CONST_REGIONS["REGION10"] + ["Logan"]
 CONST_REGIONS["OneColumbus Region"] = CONST_REGIONS["REGIONONECBUS"]
 CONST_REGIONS["REGIONCEDS"] = CONST_REGIONS["REGION10"] + ["Logan"]
 CONST_REGIONS["CEDS Region"] = CONST_REGIONS["REGIONCEDS"]
-CONST_REGIONS["REGIONMSA"] = CONST_REGIONS["REGION7"] + ["Hocking","Morrow","Perry"]
+CONST_REGIONS["CBSA"] = CONST_REGIONS["REGION7"] + ["Hocking","Morrow","Perry"]
 
 # Region identifiers
 # Note that the Columbus MSA already has a GEOID that is defined by the Census Bureau.  See CONST_COLUMBUS_MSA_ID above.
@@ -138,11 +138,11 @@ CONST_REGIONS_GEOID["REGIONCEDS"] = "001"
 CONST_REGIONS_GEOID["REGIONONECBUS"] = "001"
 CONST_REGIONS_GEOID["REGIONMPO"] = "001"
 CONST_REGIONS_GEOID["REGIONTDM"] = "001"
-CONST_REGIONS_GEOID["REGIONMSA"] = CONST_COLUMBUS_MSA_ID
+CONST_REGIONS_GEOID["CBSA"] = CONST_COLUMBUS_MSA_ID
 
 # The following regions are comprised of collections of whole counties. Not all region definitions are county-based,
 # for example the MPO region.
-CONST_REGIONS_COUNTYBASED = ["REGION15","REGION10","REGION7","REGIONCEDS","REGIONCORPO","REGIONONECBUS","REGIONMSA"]
+CONST_REGIONS_COUNTYBASED = ["REGION15","REGION10","REGION7","REGIONCEDS","REGIONCORPO","REGIONONECBUS","CBSA"]
 
 # County name abbreviations
 ## CONST_COUNTY_ABBREV maps the full county name to its three-letter abbreviation
