@@ -1,160 +1,197 @@
+from types import NoneType
 from yaml import safe_load
-import morpc
 from importlib.resources import files
 
-import json
+
+import logging
+
+logger = logging.getLogger(__name__)
 
 try:
     with files('morpc').joinpath('color', 'morpc_colors_2026.yaml').open('r') as file: 
-        morpc_colors_2026 = safe_load(file)
+        morpc_colors = safe_load(file)
 except ValueError as e:
     print(e)
 
-try:
-    with files('morpc').joinpath('color', 'morpc_colors.json').open('r') as file: 
-        morpc_colors = json.load(file)
-except ValueError as e:
-    print(e)
-
-class get_colors():
+class GetColors:
+    _get_color_logger = logging.getLogger(__name__).getChild(__qualname__)
 
     def __init__(self, morpc_colors=morpc_colors):
-        import os
-        ## Use importlib.resources to access non-package files.
-        ## See https://docs.python.org/3/library/importlib.resources.html#importlib-resources-functional
+        from datetime import datetime
+        self.logger = logging.getLogger(__name__).getChild(self.__class__.__name__).getChild(str(datetime.now()))
+
         self.morpc_colors = morpc_colors
 
+        self.COLOR = []
+
+    def KEYS(self):
         self.KEYS = {}
-        for __COLOR in self.morpc_colors:
-            __key = self.morpc_colors[__COLOR]['key']['position'] - 1
-            self.KEYS[__COLOR] = self.morpc_colors[__COLOR]['gradient']['hex'][__key]
-
-    def SEQ(self, color, reverse=False):
-        self.hex_list = self.morpc_colors[color]['gradient']['hex']
-        self.hex_list_r = self.hex_list[::-1]
-
-        if reverse:
-            return self.hex_list_r
-        else:
-            return self.hex_list
-
-    def SEQ2(self, colors, reverse=False):
-        if len(colors) != 2:
-            raise ValueError('Pass two color names')
-
-        left = self.morpc_colors[colors[0]]['gradient']['hex'][0:2]
-        start = self.morpc_colors[colors[0]]['gradient']['hex'][2]
-        stop = self.morpc_colors[colors[1]]['gradient']['hex'][-4]
-        right = self.morpc_colors[colors[1]]['gradient']['hex'][-3:]
-
-        _cmap = get_continuous_cmap([start, stop], N=6)
-        self.hex_list = left + rgb_list_to_hex_list([_cmap(i) for i in range(_cmap.N)]) + right
-        self.hex_list_r = self.hex_list[::-1]
-
-        if reverse:
-            return self.hex_list_r
-        else:
-            return self.hex_list
-
-    def SEQ3(self, colors, reverse=False):
-        if len(colors) != 3:
-            raise ValueError('Pass three color names')
-
-        first = self.morpc_colors[colors[0]]['gradient']['hex'][0:2]
-        start1 = self.morpc_colors[colors[0]]['gradient']['hex'][2]
-        stop1 = self.morpc_colors[colors[1]]['gradient']['hex'][6]
-        middle = self.morpc_colors[colors[1]]['gradient']['hex'][6]
-        start2 = self.morpc_colors[colors[1]]['gradient']['hex'][6]
-        stop2 = self.morpc_colors[colors[2]]['gradient']['hex'][8]
-        last = self.morpc_colors[colors[2]]['gradient']['hex'][9:10]
-
-        _cmap1 = get_continuous_cmap([start1, stop1], N=4)
-        _cmap1 = rgb_list_to_hex_list([_cmap1(i) for i in range(_cmap1.N)])
-        _cmap2 = get_continuous_cmap([start2, stop2], N=5)
-        _cmap2 = rgb_list_to_hex_list([_cmap2(i) for i in range(_cmap2.N)])
-        self.hex_list = first + _cmap1[0:-1] + [middle] + _cmap2[1:5] + last
-        self.hex_list_r = self.hex_list[::-1]
-
-        if reverse:
-            return self.hex_list_r
-        else:
-            return self.hex_list
-
-    def DIV(self, colors, reverse=False):
-        if len(colors) != 3:
-            raise ValueError('Pass three color names')
-
-        first = self.morpc_colors[colors[0]]['gradient']['hex'][5:8]
-        start1 = self.morpc_colors[colors[0]]['gradient']['hex'][4]
-        stop1 = self.morpc_colors[colors[1]]['gradient']['hex'][1]
-        middle = self.morpc_colors[colors[1]]['gradient']['hex'][1]
-        start2 = self.morpc_colors[colors[1]]['gradient']['hex'][1]
-        stop2 = self.morpc_colors[colors[2]]['gradient']['hex'][4]
-        last = self.morpc_colors[colors[2]]['gradient']['hex'][6:8]
-
-        _cmap1 = get_continuous_cmap([start1, stop1], N=3)
-        _cmap1 = rgb_list_to_hex_list([_cmap1(i) for i in range(_cmap1.N)])
-        _cmap2 = get_continuous_cmap([start2, stop2], N=4)
-        _cmap2 = rgb_list_to_hex_list([_cmap2(i) for i in range(_cmap2.N)])
-        self.hex_list = first[::-1] + _cmap1[0:2] + [middle] + _cmap2[1:4] + last
-        self.hex_list_r = self.hex_list[::-1]
-        self.hex_list_r = self.hex_list[::-1]
-
-        if reverse:
-            return self.hex_list_r
-        else:
-            return self.hex_list
-
-    def QUAL(self, n):
-        self.hex_list = []
-        if n <= 10:
-            for color in self.morpc_colors:
-                if not 'grey' in color:
-                    __key = self.morpc_colors[color]['key']['position']-1
-                    self.hex_list.append(self.morpc_colors[color]['gradient']['hex'][__key])
-        if 10 < n <= 20:
-            for color in self.morpc_colors:
-                if not 'grey' in color:
-                    key_pos = self.morpc_colors[color]['key']['position']-1
-                    positions = [key_pos - 2, key_pos]
-                    for pos in positions:
-                        self.hex_list.append(self.morpc_colors[color]['gradient']['hex'][pos])
-        if 20 < n <= 30:
-            for color in self.morpc_colors:
-                if not 'grey' in color:
-                    key_pos = self.morpc_colors[color]['key']['position']-1
-                    positions = [key_pos - 2, key_pos, key_pos + 2]
-                    for pos in positions:
-                        self.hex_list.append(self.morpc_colors[color]['gradient']['hex'][pos])
-
-        self.hex_list = self.hex_list[0:n]
+        for color in self.morpc_colors:
+            self.KEYS[color] = self.morpc_colors[color]['KEY']
         
-        return self.hex_list
+        return self.KEYS
 
-def select_color_array(_list, key, n):
-    import numpy as np
-    if key not in list(range(0, len(_list))):
-        raise ValueError("key not in list.")
-    if n > len(_list):
-        raise ValueError("Too many values requested.")
+    def SEQ(self, color = None, n=11):
+        from morpc.color import get_continuous_cmap
+        from numpy import linspace
+        from random import randint
 
-    result = [key]
-    left = key - 1
-    right = key + 1
+        # Get random color if not assigned
+        if color == None:
+            colors = [key for key, values in self.morpc_colors.items() if key not in ['WarmGrey', 'CoolGrey']]
+            self.COLOR = colors[randint(0,len(colors))]
+        else:
+            self.COLOR = color
 
-    while len(result) < n:
-        if left >= 0:
-            result.append(left)
-            left -= 1
-            if len(result) == n:
-                break
-        if right < len(_list):
-            result.append(right)
-            right += 1
-    result.sort()
+        # load hex from yaml
+        hex = [v for k, v in self.morpc_colors[self.COLOR].items() if k != 'KEY']
+
+        # create cmap
+        self.cmap = get_continuous_cmap(hex)
+
+        # extract number of slices from cmap
+        self.hex_list = rgb_list_to_hex_list(self.cmap(list(linspace(0,1,n))))
+        self.hex_list_r = self.hex_list[::-1]
+
+        return self
+
+    def SEQ2(self, colors=None, n=11):
+        from morpc.color import get_continuous_cmap
+        from numpy import linspace
+        logger.debug(f"colors = {colors}")
+
+        if not isinstance(colors, list):
+            raise RuntimeError(f'{colors} not valid. Pass a list of colors to use.')
+        
+        if len(colors) != 2:
+            raise RuntimeError('Pass three color names')
+        
+        for color in colors:
+            if color not in self.morpc_colors:
+                logger.error(f"{color} not a valid color")
+                raise RuntimeError
+        
+        self.COLOR = colors
+
+        start = [x for x in self.morpc_colors[self.COLOR[0]].values()][1]
+        stop = [x for x in self.morpc_colors[self.COLOR[1]].values()][-1]
+
+        self.cmap = get_continuous_cmap([start, stop])
+        self.hex_list = rgb_list_to_hex_list([self.cmap(i) for i in list(linspace(0,1,n))])
+        self.hex_list_r = self.hex_list[::-1]
+        
+        return self
+
+    def SEQ3(self, colors=None, n=11):
+        from morpc.color import get_continuous_cmap
+        from numpy import linspace
+        if not isinstance(colors, list):
+            raise ValueError('{colors} not valid. Pass a list of colors to use.')
+        if len(colors) != 3:
+            raise ValueError('Pass three color names')
+        
+        for color in colors:
+            if color not in self.morpc_colors:
+                logger.error(f"{color} not a valid color")
+                raise RuntimeError
+        
+        self.COLOR = colors
+
+        start = [x for x in self.morpc_colors[self.COLOR[0]].values()][2]
+        middle = [x for x in self.morpc_colors[self.COLOR[1]].values()][3]
+        stop = [x for x in self.morpc_colors[self.COLOR[2]].values()][-2]
+
+        self.cmap = get_continuous_cmap([start, middle, stop])
+        self.hex_list = rgb_list_to_hex_list([self.cmap(i) for i in list(linspace(0,1,n))])
+        self.hex_list_r = self.hex_list[::-1]
+        
+        return self
+
+    def DIV(self, colors=None, n = 11):
+        from morpc.color import get_continuous_cmap
+        from numpy import linspace
+        if not isinstance(colors, list):
+            raise ValueError('{colors} not valid. Pass a list of colors to use.')
+        if len(colors) != 3:
+            raise ValueError('Pass three color names')
+        
+        for color in colors:
+            if color not in self.morpc_colors:
+                logger.error(f"{color} not a valid color")
+                raise RuntimeError
+        
+        self.COLOR = colors
+
+        left = [x for x in self.morpc_colors[self.COLOR[0]].values()][2]
+        start1 = [x for x in self.morpc_colors[self.COLOR[0]].values()][3]
+        stop1 = [x for x in self.morpc_colors[self.COLOR[1]].values()][-2]
+        middle = [x for x in self.morpc_colors[self.COLOR[1]].values()][-1] 
+        start2 = [x for x in self.morpc_colors[self.COLOR[1]].values()][-2]
+        stop2 = [x for x in self.morpc_colors[self.COLOR[2]].values()][3]
+        right = [x for x in self.morpc_colors[self.COLOR[2]].values()][2]
+
+        self.cmap = get_continuous_cmap([left, start1, stop1, middle, start2, stop2, right])
+        self.hex_list = rgb_list_to_hex_list([self.cmap(i) for i in list(linspace(0,1,n))])
+
+        self.hex_list_r = self.hex_list[::-1]
+
+        return self
+
+    def QUAL(self, colors = None, paired = False):
+        import pandas as pd
+        if colors == None:
+            self.COLOR = ['Navy', 'Orange', 'Forest', 'Ocean', 'Purple', 'Green', 'Blue', 'Red', 'Sky', 'Brown', 'Yellow']
+        else: 
+            self.COLOR = colors
+
+        for color in colors:
+            if color not in self.morpc_colors:
+                logger.error(f"{color} not a valid color")
+                raise RuntimeError
+            
+        self.COLOR = colors
+        
+        self.hex_list = []
+
+        if paired == False:
+            for x in self.COLOR:
+                self.hex_list.append([v for k, v  in self.morpc_colors[x].items() if k == 'KEY'])
+
+        if paired ==  True:
+            for x in self.COLOR:
+                self.hex_list.append([v for k, v  in self.morpc_colors[x].items() if k.endswith('3')])   
+            for x in self.COLOR:
+                self.hex_list.append([v for k, v  in self.morpc_colors[x].items() if k.endswith('5')])
+
+        self.hex_list = [v[0] for v in self.hex_list]
+        self.hex_list = self.hex_list
+        self.hex_list_r = self.hex_list[::-1]
+
+        return self
+        
+# def select_color_array(_list, key, n):
+#     import numpy as np
+#     if key not in list(range(0, len(_list))):
+#         raise ValueError("key not in list.")
+#     if n > len(_list):
+#         raise ValueError("Too many values requested.")
+
+#     result = [key]
+#     left = key - 1
+#     right = key + 1
+
+#     while len(result) < n:
+#         if left >= 0:
+#             result.append(left)
+#             left -= 1
+#             if len(result) == n:
+#                 break
+#         if right < len(_list):
+#             result.append(right)
+#             right += 1
+#     result.sort()
     
-    return [_list[i] for i in result]
-
+#     return [_list[i] for i in result]
 
 
 # Everything below is used for constructing the palette 
@@ -295,6 +332,7 @@ def plot_from_rgb_list(rgb_colors, labels = ['hls', 'grey', 'hex'], position=Non
 def rgb_list_to_hex_list(rgb_colors):
     hex_colors = []
     for i, rgb in enumerate(rgb_colors):
+        rgb = rgb[0:3]
         hex_color = rgb_to_hex(rgb)
         hex_colors.append(hex_color)
     return hex_colors

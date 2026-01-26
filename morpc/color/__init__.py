@@ -1,2 +1,2 @@
-from .color import *
+from .colors import *
 from .palette import *
