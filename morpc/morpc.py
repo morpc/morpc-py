@@ -138,7 +138,7 @@ CONST_REGIONS_GEOID["REGIONCEDS"] = "001"
 CONST_REGIONS_GEOID["REGIONONECBUS"] = "001"
 CONST_REGIONS_GEOID["REGIONMPO"] = "001"
 CONST_REGIONS_GEOID["REGIONTDM"] = "001"
-CONST_REGIONS_GEOID["CBSA"] = CONST_COLUMBUS_MSA_ID
+CONST_REGIONS_GEOID["CBSA"] = CONST_COLUMBUS_CBSA_ID
 
 # The following regions are comprised of collections of whole counties. Not all region definitions are county-based,
 # for example the MPO region.
