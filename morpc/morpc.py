@@ -3355,3 +3355,135 @@ class generations():
                 agesInYear[generation][year] = list(range(youngest_age, oldest_age+1))
                 
         return agesInYear
+        
+def updateExistingTable(newData, schema, existingData=None, sortColumns=None, overwrite=False):
+    """
+    This function takes a data table in a well-defined form (as captured in a Frictionless schema) and attempts to update
+    an existing table in the same form if it exists or otherwise outputs the new data as-is.  If records with identical primary
+    key values exist in both tables, the existing data will be overwritten by the new data for those records (unless overwrite is
+    set to False).  Records in the new data which are not already present in the existing data will be appended.  The resulting
+    dataframe will be transformed to be compliant with the provided schema and, optionally, will be sorted by a user-specified
+    set of columns.
+    
+    Parameters
+    ----------
+    newData : pandas.dataframe.DataFrame
+        A Pandas DataFrame containing the new data to update the existing table if it exists
+    schema : frictionless.schema.schema.Schema
+        A Frictionless schema object that applies to both newData and existingData. Often created using morpc.frictionless.load_schema().
+    existingData : pandas.dataframe.DataFrame
+        If provided, a Pandas DataFrame containing existing data to which the updated data in newData will be applied. It may be the case
+        that no data exists yet (the first time a script is run, for example).  In that case, simply omit existingData or set it explicitly
+        to None and the function will return newData in a form that is compliant with the schema and (optionally) sorted.
+    sortColumns : str or list
+        Optional. A specification of the columns to use to sort the updated table.  If set to None, no sorting will occur.  If set to 
+        "primary_key", the columns identified in schema.primary_key will be used.  Otherwise, provide a list of strings representing the 
+        names of columns to be used.
+    overwrite : bool
+        Optional. If True, records that already exist in existingData will be overwritten by equivalent records in newData (as identified 
+        by identical primary key values in both dataframes).  If False, an error will be raised if this case occurs.
+        
+    Returns
+    -------
+    outputData : pandas.dataframe.DataFrame
+        A dataframe that consists of the merged contents of existingData (if provided) and newData.
+    """
+
+    import morpc
+    import pandas as pd
+    import logging
+
+    logger  = logging.getLogger(__name__)    
+
+    myNewData = newData.copy()
+    # Verify that the primary key exists in the new data and that the index is in a known state
+    if(set(schema.primary_key).issubset(set(myNewData.columns))):
+        pass
+    elif(myNewData.index.names == schema.primary_key):
+        myNewData = myNewData.reset_index()
+    else:
+        logger.error("New data does not seem to contain the primary key, either as columns or as an index.")
+        raise RuntimeError
+
+    logger.info("Extracting required fields in new data and reordering them as specified in the schema.")
+    myNewData = myNewData.filter(items=schema.field_names, axis="columns")
+
+    logger.info("Casting new data to data types specified in schema.")
+    myNewData = morpc.frictionless.cast_field_types(myNewData, schema)
+    
+    if(existingData is None):
+        myExistingData = None
+    else:
+        myExistingData = existingData.copy()   
+        # Verify that the primary key exists in the existing data and that the index is in a known state
+        if(set(schema.primary_key).issubset(set(myExistingData.columns))):
+            pass
+        elif(myExistingData.index.names == schema.primary_key):
+            myExistingData = myExistingData.reset_index()
+        else:
+            logger.error("Existing data does not seem to contain the primary key, either as columns or as an index.")
+            raise RuntimeError
+
+        logger.info("Confirming existing data includes only the required fields and that they are in the order specified in the schema.")
+        myNewData = myNewData.filter(items=schema.field_names, axis="columns")
+        
+        logger.info("Confirming existing data is cast as data types specified in schema.")
+        myExistingData = morpc.frictionless.cast_field_types(myExistingData, schema)
+
+        
+    if(myExistingData is None):
+        logger.info("No existing data was found. Creating output data from scratch.")
+        outputData = myNewData.copy()
+    else:
+        logger.info("Existing output data was found. Merging new data with existing data.")
+
+        outputData = myExistingData.copy()
+
+        logger.info("Setting new data index to primary key specified in schema.")
+        myNewData = myNewData.set_index(schema.primary_key)
+        
+        logger.info("Setting existing data index to primary key specified in schema.")
+        outputData = outputData.set_index(schema.primary_key)   
+
+        logger.info("Analyzing differences between new and existing data.")
+        recordsToUpdate = myNewData.index.intersection(outputData.index)
+        logger.info(f"--> Found {len(recordsToUpdate)} records which are present in existing data and will be updated.")   
+        recordsToAppend = myNewData.index.difference(outputData.index)
+        logger.info(f"--> Found {len(recordsToAppend)} records which are not present in existing data and will be appended.")   
+        
+        # Update entries that were already present in output table
+        if(not myNewData.loc[recordsToUpdate].empty):
+            try:
+                outputData.update(myNewData.loc[recordsToUpdate], overwrite=True, errors=("ignore" if overwrite == True else "raise"))
+            except Exception as e:
+                logger.error(f"Failed to update existing data with new data: {e}")
+                logger.info("To force update when data overlaps, set overwrite parameter to True.") 
+                raise
+        
+        # Append new entries that were not present in output table
+        if(not myNewData.loc[recordsToAppend].empty):
+            outputData = pd.concat([outputData, myNewData.loc[recordsToAppend]], axis="index")
+        
+        logger.info("Resetting indices of all datasets.") 
+        myNewData = myNewData.reset_index()
+        outputData = outputData.reset_index()
+
+    logger.info("Casting merged data to data types specified in schema.")
+    outputData = morpc.frictionless.cast_field_types(outputData, schema)
+
+    if(sortColumns == "primary_key"):
+        mySortColumns = schema.primary_key
+        logger.info(f"Sorting merged data by columns specified in primary key: {mySortColumns}")
+    elif(sortColumns is None):
+        logger.info(f"Column sort order is unspecified. Not sorting columns.")
+    elif(type(sortColumns) == "list"):
+        mySortColumns = sortColumns
+        logger.info(f'Sorting merged data by user-specified columns: {",".join(mySortColumns)}')
+    else:
+        logger.error('User-specified value for sortColumns parameter is not supported.')
+        raise RuntimeError
+        
+    if(sortColumns is not None):
+        outputData = outputData.sort_values(mySortColumns) 
+    
+    return outputData
