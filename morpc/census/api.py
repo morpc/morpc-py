@@ -807,7 +807,7 @@ class DimensionTable:
 
         return var_df_fix
     
-    def plot_bar(self, value, x_axis, dimension, variables=None, x_ordered=None, x_ascending=False, variables_ordered=False, value_labels='overlay', colors=None, aspect_ratio=1):
+    def plot_bar(self, value, x_axis, dimension, variables=None, x_ordered=None, x_ascending=False, variables_ordered=False, value_labels='overlay', hex_list=None, aspect_ratio=1):
         """
         Plot the dimension table as bar plot with reasonable defaults.
 
@@ -845,8 +845,7 @@ class DimensionTable:
         from plotnine import guides, guide_legend, element_text, ggplot, aes, geom_col, geom_text, after_stat, position_stack, scale_x_discrete, scale_fill_manual, scale_color_manual, scale_y_continuous, labs, theme, element_text, stage
         import pandas as pd
         from morpc.plot import morpc_theme
-        from morpc.color import QUAL
-        from morpc.color.color import overlay_color
+        from morpc.color.colors import overlay_color, GetColors
 
         logger.info(f"Creating plot for dimension table for {value}")
 
@@ -941,8 +940,8 @@ class DimensionTable:
         if (x_ordered == 'by_y'):
             x_axis = f"reorder({x_axis}, value, ascending={x_ascending})"
     
-        if colors == None:
-            colors = QUAL['morpc_ext']
+        if hex_list == None:
+            hex_list = GetColors().QUAL().hex_list
 
         # Build initial plot
         plot = (
@@ -958,11 +957,11 @@ class DimensionTable:
                 name=textwrap.fill(list(to_plot['universe'])[0],len(list(to_plot['universe'])[0])/1.6)
                 )
             + scale_fill_manual(
-                colors,
+                hex_list,
                 name=textwrap.fill(list(to_plot['concept'])[0],len(list(to_plot['concept'])[0])/1.6)
                 )
             + scale_color_manual(
-                colors
+                hex_list
                 )
             + morpc_theme(base_size=11)
             + guides(
@@ -1018,13 +1017,3 @@ class DimensionTable:
     def wraping_func(self, text):
         import textwrap
         return [textwrap.fill(str(wraped_text), width=9) for wraped_text in text]
-            
-
-                    
-
-
-            
-    
-
-
-

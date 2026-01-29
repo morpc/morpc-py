@@ -144,13 +144,11 @@ class GetColors:
         else: 
             self.COLOR = colors
 
-        for color in colors:
+        for color in self.COLOR:
             if color not in self.morpc_colors:
                 logger.error(f"{color} not a valid color")
                 raise RuntimeError
-            
-        self.COLOR = colors
-        
+                    
         self.hex_list = []
 
         if paired == False:
