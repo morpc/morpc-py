@@ -121,7 +121,7 @@ class ExcelChart:
             self.logger.error(f"Write Error: {e}, Is the workbook open in excel?.")
             raise RuntimeError
     
-    def add_chart(self, type, subtype=None, title=None, y_label=None, series=None, data_labels=None):
+    def add_chart(self, type, subtype=None, title=None, y_label=None, x_label=None, series=None, data_labels=None):
         """
         Add a chart to the worksheet.
 
@@ -160,8 +160,9 @@ class ExcelChart:
         # add some default values to chart config
         self.CONFIG['chart'].update({
             'legend': {'position': 'bottom'},
-            'y_axis': {'major_gridlines': {'visible': False},
-                       'title': y_label}
+            'y_axis': {'major_gridlines': {'visible': False}},
+            'x_axis': {'major_gridlines': {'visible': False}},
+            'gap': 20
             })
         
         if title != None:
@@ -171,11 +172,15 @@ class ExcelChart:
         if y_label != None:
             self.CONFIG['chart']['y_axis'].update({'name': y_label})
         
+        if x_label != None:
+            self.CONFIG['chart']['x_axis'].update({'name': x_label})
         # create the chart object
+
         self.CHART = self.WORKBOOK.add_chart(self.CONFIG['chart'])
     
         self.CHART.set_legend(self.CONFIG['chart']['legend'])
         self.CHART.set_y_axis(self.CONFIG['chart']['y_axis'])
+        self.CHART.set_x_axis(self.CONFIG['chart']['x_axis'])
         self.CHART.set_title(self.CONFIG['chart']['title'])
 
         # update series tp all variables if not defined
@@ -227,7 +232,7 @@ class ExcelChart:
                     )
             if self.CONFIG['chart']['type'] == 'bar':
                 self.CONFIG['chart']['series'][i].update(
-                    {'fill': color,
+                    {'fill': {'color': color},
                     'border': {'none': True}}
                     )
             if self.CONFIG['chart']['type'] == 'line':
@@ -265,6 +270,9 @@ class ExcelChart:
                     }
                 })
 
+            self.CONFIG['chart']['series'][i].update(
+                {'gap': 20})
+
 
         for series in self.CONFIG['chart']['series']:
             # add from config to the chart object
@@ -274,8 +282,6 @@ class ExcelChart:
         self.WORKSHEET.insert_chart(row=self.CONFIG['worksheet']['data']['nrows']+self.CONFIG['worksheet']['data']['topleft'][0]+1, col=0, chart=self.CHART)
 
         return self
-        
-
 
 def recursiveUpdate(original, updates):
     for key, value in updates.items():
