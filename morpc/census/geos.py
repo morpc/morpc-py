@@ -57,9 +57,9 @@ MORPC_REGION_SCOPES = [
         "for": f"county:{','.join([morpc.CONST_COUNTY_NAME_TO_ID[x][2:6] for x in morpc.CONST_REGIONS['CEDS Region']])}"
         }
         },
-    {"regionmsa": {
+    {"regioncbsa": {
         "in": "state:39", 
-        "for": f"county:{','.join([morpc.CONST_COUNTY_NAME_TO_ID[x][2:6] for x in morpc.CONST_REGIONS['REGIONMSA']])}"
+        "for": f"county:{','.join([morpc.CONST_COUNTY_NAME_TO_ID[x][2:6] for x in morpc.CONST_REGIONS['CBSA']])}"
         }
         }
 ]
@@ -68,8 +68,8 @@ SCOPES = {
     "us": {
         'for': 'us:1'
         },
-    "columbusmsa": {
-        "for": f"metropolitan statistical area/micropolitan statistical area:{morpc.CONST_COLUMBUS_MSA_ID}"
+    "columbuscbsa": {
+        "for": f"metropolitan statistical area/micropolitan statistical area:{morpc.CONST_COLUMBUS_CBSA_ID}"
     }
 }
 
