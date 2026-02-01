@@ -821,34 +821,72 @@ class DimensionTable:
         wide = wide.drop_duplicates()
 
         if droplevels != None:
-            indexnames = wide.index.names
+            # store index names to reference
+            indexnames = [x for x in wide.index.names]
             wide = wide.reset_index()
+
+            # If already one level error
+            if len(indexnames) == 1:
+                logger.error(f"Can not drop only level: {droplevel}")
+                raise RuntimeError
+
+            # Create a list even if one level passed as int
             if not isinstance(droplevels, list):
                 droplevels = [droplevels]
+
+            # For each level passed to droplevels
             for droplevel in droplevels:
                 logger.info(f"Dropping dimension {droplevel} from dimension table.")
-                if len(indexnames) == 1:
-                    logger.error(f"Can not drop only level: {droplevel}")
+
+                # Check if level is in index
                 if not droplevel in indexnames:
                     logger.error(f"Level {droplevel} not in index ({indexnames}).")
                     raise ValueError
-                if droplevel == indexnames[-1]:
+                
+                # If the level is the last level in the index
+                elif droplevel == indexnames[-1]:
                     logger.info(f"Dropping last level: {droplevel}.")
+
+                    # Filter the data to only include rows with no variable in level
                     wide = wide.loc[wide[droplevel]==""]
+
+                    # Drop that level from columns
                     wide = wide.drop(columns=[droplevel])
-                if droplevel == 0:
+                    logger.debug(f"\n{wide.to_markdown()}")
+
+                # If the level dropped is the first level, always the column "Total"
+                elif droplevel == 0:
+
+                    # let user know this isn't normally a good idea.
                     logger.warning(f"Dropping Total Column. This may cause issues with percentages later. CAUTION")
+
+                    # Filter rows to only include rows that have a value in the column following the total column
                     wide = wide.loc[wide[droplevel+1]!=""]
+
+                    # Drop the total column
                     wide = wide.drop(columns=[droplevel])
-                if droplevel in indexnames[1:-1]:
+                    logger.debug(f"\n{wide.to_markdown()}")
+
+                # If neither first or last level
+                else:
                     logger.info(f"Dropping level: {droplevel}. Aggregating on other levels.")
-                    wide = pd.concat([wide.loc[(wide[droplevel]=='')], wide.loc[(wide[droplevel]!='')&(wide[droplevel+1]!='')]])
+
+                    # Store rows where droplevel is empty, and lower levels are not empty
+                    wide = pd.concat([wide.loc[(wide[droplevel]=='')], wide.loc[(wide[droplevel+1]!='')]])
+
+                    # Aggregate by grouping by all levels beside the level being dropped.
+                    wide = wide.groupby([x for x in indexnames if x != droplevel]).sum().reset_index()
+                   
+                    # Drop the index level
                     wide = wide.drop(columns=[droplevel])
-                    wide = wide.groupby([x for x in indexnames if x not in droplevels]).sum().reset_index()
+
+                    logger.debug(f"\n{wide.to_markdown()}")
+
                 # if indexnames-1 > 1:
                 #     wide.index.names = [x for x in range(len(wide.index.names))]
                 # if indexnames-1 == 1:
                 #     wide.index.name = 0
+                indexnames.remove(droplevel)
             wide = wide.set_index([x for x in indexnames if x not in droplevels])
 
         return wide
