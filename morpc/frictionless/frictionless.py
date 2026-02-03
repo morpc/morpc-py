@@ -135,8 +135,8 @@ def cast_field_types(df, schema, forceInteger=False, forceInt64=False, nullBoolV
 
     if handleMissingValues:
         logger.info(f"handleMissingValues set to True, converting {schema.missing_values} to np.nan")
-        for field in schema.fields:
-            outDF[field.name] = [np.nan if x in schema.missing_values else x for x in outDF[field.name]]
+        for nullValue in schema.missing_values:
+            outDF = outDF.replace(nullValue, None)
 
     for field in schema.fields:
       
