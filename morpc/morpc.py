@@ -747,6 +747,11 @@ HIERARCHY_STRING_LOOKUP = {key:value["hierarchy_string"] for key, value in zip(S
 
 HIERARCHY_STRING_FROM_SINGULAR = {name['singular']:hierarchy["hierarchy_string"] for name, hierarchy in zip(SUMLEVEL_DESCRIPTIONS.values(), SUMLEVEL_DESCRIPTIONS.values())}
 
+SINGULAR_TO_PLURAL = {sumlevel['singular']:sumlevel['plural'] for sumlevel in SUMLEVEL_DESCRIPTIONS.values()}
+HIERARCHY_STRING_TO_SINGULAR = {sumlevel['hierarchy_string']:sumlevel['singular'] for sumlevel in SUMLEVEL_DESCRIPTIONS.values()}
+
+
+
 # County lookup object
 # Upon instantiation, this object is pre-loaded with a dataframe describing a set of counties whose scope is specified by the user.
 # The object includes methods for listing the counties by their names or GEOIDs and for two-way conversion between name and GEOID.

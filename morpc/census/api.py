@@ -10,53 +10,52 @@ req = morpc.census.api.get_api_req('acs/acs5', 2023, 'B01001', 'region15', scale
 morpc.req.get_json_safely(req)
 """
 
+from enum import unique
 import logging
-from operator import index
-from re import L
-from xml.dom import HIERARCHY_REQUEST_ERR
+from types import NoneType
 
-from narwhals import col
-from plotnine import after_scale, coord_fixed
+from numpy import var
 
 logger = logging.getLogger(__name__)
 
 from morpc.req import get_json_safely
+from collections import OrderedDict
 
-BTABLE_HIGHLEVEL_GROUP_DESC = {
-    "B01": "Sex, Age, and Population",
-    "B02": "Race",
-    "B03": "Ethnicity",
-    "B04": "Ancestry",
-    "B05": "Nativity and Citizenship",
-    "B06": "Place of Birth",
-    "B07": "Geographic Mobility",
-    "B08": "Transportation to Work",
-    "B09": "Children",
-    "B10": "Grandparents and Grandchildren",
-    "B11": "Household Type",
-    "B12": "Marriage and Marital Status",
-    "B13": "Mothers and Births",
-    "B14": "School Enrollment",
-    "B15": "Educational Attainment",
-    "B16": "Language Spoken at Home",
-    "B17": "Poverty",
-    "B18": "Disability",
-    "B19": "Household Income",
-    "B20": "Earnings",
-    "B21": "Veterans",
-    "B22": "Food Stamps/SNAP",
-    "B23": "Workers and Employment Status",
-    "B24": "Occupation, Industry, Class",
-    "B25": "Housing Units, Tenure, Housing Costs",
-    "B26": "Group Quarters",
-    "B27": "Health Insurance",
-    "B28": "Computers and Internet",
-    "B29": "Voting-Age",
-    "B98": "Coverage Rates and Allocation Rates",
-    "B99": "Allocations",
+HIGHLEVEL_GROUP_DESC = {
+    "01": "Sex, Age, and Population",
+    "02": "Race",
+    "03": "Ethnicity",
+    "04": "Ancestry",
+    "05": "Nativity and Citizenship",
+    "06": "Place of Birth",
+    "07": "Geographic Mobility",
+    "08": "Transportation to Work",
+    "09": "Children",
+    "10": "Grandparents and Grandchildren",
+    "11": "Household Type",
+    "12": "Marriage and Marital Status",
+    "13": "Mothers and Births",
+    "14": "School Enrollment",
+    "15": "Educational Attainment",
+    "16": "Language Spoken at Home",
+    "17": "Poverty",
+    "18": "Disability",
+    "19": "Household Income",
+    "20": "Earnings",
+    "21": "Veterans",
+    "22": "Food Stamps/SNAP",
+    "23": "Workers and Employment Status",
+    "24": "Occupation, Industry, Class",
+    "25": "Housing Units, Tenure, Housing Costs",
+    "26": "Group Quarters",
+    "27": "Health Insurance",
+    "28": "Computers and Internet",
+    "29": "Voting-Age",
+    "98": "Coverage Rates and Allocation Rates",
+    "99": "Allocations",
 }
 
-BTABLE_FROM_HIGHLEVEL_DESC = {v: k for k, v in BTABLE_HIGHLEVEL_GROUP_DESC.items()}
+HIGHLEVEL_DESC_FROM_ID = {v: k for k, v in HIGHLEVEL_GROUP_DESC.items()}
 
 MISSING_VALUES = ["","-222222222","-333333333","-555555555","-666666666","-888888888","-999999999", "*****"]
 
@@ -68,7 +67,7 @@ VARIABLE_TYPES = {
     "N": "total"
 }
 
-STANDARD_AGEGROUP_MAP = {
+AGEGROUP_MAP = {
     'Under 5 years': 'Under 5 years',
     '5 to 9 years': '5 to 9 years',
     '10 to 14 years': '10 to 14 years',
@@ -95,24 +94,25 @@ STANDARD_AGEGROUP_MAP = {
 }
 
 AGEGROUP_SORT_ORDER = {
-    'Under 5 years': 1,
-    '5 to 9 years': 2,
-    '10 to 14 years': 3,
-    '15 to 19 years': 4,
-    '20 to 24 years': 5,
-    '25 to 29 years': 6,
-    '30 to 34 years': 7,
-    '35 to 39 years': 8,
-    '40 to 44 years': 9,
-    '45 to 49 years': 10,
-    '50 to 54 years': 11, 
-    '55 to 59 years': 12,
-    '60 to 64 years': 13,
-    '65 to 69 years': 14,
-    '70 to 74 years': 15,
-    '75 to 79 years': 16,
-    '80 to 84 years': 17,
-    '85 years and over': 18
+    'Total': 1,
+    'Under 5 years': 2,
+    '5 to 9 years': 3,
+    '10 to 14 years': 4,
+    '15 to 19 years': 5,
+    '20 to 24 years': 6,
+    '25 to 29 years': 7,
+    '30 to 34 years': 8,
+    '35 to 39 years': 9,
+    '40 to 44 years': 10,
+    '45 to 49 years': 11,
+    '50 to 54 years': 12, 
+    '55 to 59 years': 13,
+    '60 to 64 years': 14,
+    '65 to 69 years': 15,
+    '70 to 74 years': 16,
+    '75 to 79 years': 17,
+    '80 to 84 years': 18,
+    '85 years and over': 19
 }
 
 RACE_TABLE_MAP = {
@@ -126,6 +126,94 @@ RACE_TABLE_MAP = {
     'H': 'White Alone, Not Hispanic or Latino',
     'I': 'Hispanic or Latino',
 }
+
+EDUCATION_ATTAIN_MAP = {
+'No schooling completed': 'No high school diploma',
+'Nursery school': 'No high school diploma',
+'Kindergarten': 'No high school diploma',
+'1st grade': 'No high school diploma',
+'2nd grade': 'No high school diploma',
+'3rd grade': 'No high school diploma',
+'4th grade': 'No high school diploma',
+'5th grade': 'No high school diploma',
+'6th grade': 'No high school diploma',
+'7th grade': 'No high school diploma',
+'8th grade': 'No high school diploma',
+'9th grade': 'No high school diploma',
+'10th grade': 'No high school diploma',
+'11th grade': 'No high school diploma',
+'12th grade, no diploma': 'No high school diploma',
+'Regular high school diploma': "High school diploma or equivalent",
+'GED or alternative credential': "High school diploma or equivalent",
+'Some college, less than 1 year': "High school diploma or equivalent",
+'Some college, 1 or more years, no degree': "High school diploma or equivalent",
+"Associate's degree": "Associate's degree",
+"Bachelor's degree": "Bachelor's degree",
+"Master's degree": "More than Bachelor's",
+'Professional school degree': "More than Bachelor's",
+'Doctorate degree': "More than Bachelor's"
+}
+
+EDUCATION_ATTAIN_SORT_ORDER = {
+    'Total': 1,
+    'No high school diploma': 2,
+    "High school diploma or equivalent": 3,
+    "Associate's degree": 4,
+    "Bachelor's degree": 5,
+    "More than Bachelor's": 6
+}
+
+INCOME_TO_POVERTY_MAP = {
+    'Under .50': 'Under .50',
+    '.50 to .74': '.50 to .99',
+    '.75 to .99': '.50 to .99',
+    '1.00 to 1.24': '1.00 to 1.99',
+    '1.25 to 1.49': '1.00 to 1.99',
+    '1.50 to 1.74': '1.00 to 1.99',
+    '1.75 to 1.84': '1.00 to 1.99',
+    '1.85 to 1.99': '1.00 to 1.99',
+    '2.00 to 2.99': '2.00 to 2.99',
+    '3.00 to 3.99': '3.00 to 3.99',
+    '4.00 to 4.99': '4.00 and over',
+    '5.00 and over': '4.00 and over'
+    }
+
+INCOME_TO_POVERTY_SORT_ORDER = {
+    'Total': 0,
+    'Under .50': 1,
+    '.50 to .99': 2,
+    '1.00 to 1.99': 3,
+    '2.00 to 2.99': 4,
+    '3.00 to 3.99': 5,
+    '4.00 and over': 6
+}
+
+
+def find_replace_variable_map(labels, variables, map):
+    labels = list(labels)
+    new_labels = labels
+    variables = list(variables)
+    new_variables = variables
+
+    for i in range(len(labels)):
+        for key, value in map.items():    
+            if key in labels[i]:
+                x = labels[i].replace(key, value)
+                new_labels[i] = x
+
+    var_id = variables[0].split("_")[0]
+    variable_map = {}
+    i = 0
+    for label in new_labels:
+        if label not in variable_map:
+            variable_map[label] = f"{var_id}_M{i:02d}"
+            i = i+1
+
+
+    new_variables = [variable_map[label] for label in new_labels]
+
+    return new_labels, new_variables
+
 
 CENSUS_DATA_BASE_URL = 'https://api.census.gov/data'
 
@@ -396,6 +484,34 @@ def get(url, params, varBatchSize=20):
         
     return censusData
 
+def censusapi_name(survey_table, year, scope, group, scale = None, variables=None):
+    """
+    Create a name in default format for CensusAPI class.
+
+    Parameters
+    ----------
+    survey_table : str
+        The survey and table. morpc.census.api.IMPLEMENTED_ENDPOINTS
+    year : str
+        The year if the survey
+    scale : str, Optional
+        The sumlevel name for the scale of the data
+    scope : str
+        the geographic scope of the data. see morpc.census.geos.SCOPE
+    group : str
+        The group id for the data table, ie. B01001
+    variables : list, Optional
+        A list of string to include in the data. For the purpose of the name, if present then with append -selectvariable
+
+    Returns
+    -------
+    str
+        the name used for the data in CensusAPI
+    """
+    from morpc import HIERARCHY_STRING_FROM_SINGULAR
+    return f"census-{survey_table.replace("/","-")}-{year}-{"" if scale is None else HIERARCHY_STRING_FROM_SINGULAR[scale].replace("-","").lower() + '-'}{scope}-{group}{"-select-variables" if variables is not None else ""}".lower()
+
+
 class CensusAPI:
     _CensusAPI_logger = logging.getLogger(__name__).getChild(__qualname__)
     def __init__(self, survey_table, year, group, scope, scale=None, variables=None):
@@ -444,7 +560,11 @@ class CensusAPI:
         self.YEAR = year
         self.GROUP = group.upper()
         self.CONCEPT = get_table_groups(self.SURVEY, self.YEAR)[self.GROUP]['description']
-        self.UNIVERSE = get_group_universe(self.SURVEY, [2023 if self.YEAR < 2023 else self.YEAR][0], self.GROUP)
+        try: 
+            self.UNIVERSE = get_group_universe(self.SURVEY, [2023 if self.YEAR < 2023 else self.YEAR][0], self.GROUP)
+        except Exception as e:
+            self.UNIVERSE = 'Not Defined by Census'
+            logger.warning(f"Table {survey_table}, {group} does not have a universe defined in census metadata. Please define to avoid downstream errors.")
         self.SCOPE = scope.lower() 
         if scale is not None:
             self.SCALE = scale.lower()
@@ -695,7 +815,7 @@ class CensusAPI:
 
 class DimensionTable:
     _DimensionTable_logger = logging.getLogger(__name__).getChild(__qualname__)
-    def __init__(self, CensusAPI_LONG):
+    def __init__(self, CensusAPI_LONG, droplevels=None, variable_map=None, variable_order=None):
         """
         Class for creating dimension tables from CensusAPI data in long format.
 
@@ -707,10 +827,21 @@ class DimensionTable:
         from datetime import datetime
         self.LONG = CensusAPI_LONG.copy() # Store a copy of the data
 
+        # If variable map was passed, aggregate rows based on new mapping. 
+        if variable_map!=None:
+            logger.info(f"Passed a variable map. Adjusting variables ({", ".join([x for x in variable_map.keys()])}) to new variables ({", ".join([x for x in variable_order.keys()])}).")
+            if variable_order == None:
+                logger.error(f"If passing map must also pass order.")
+            else:
+                self.LONG['variable_label'], self.LONG['variable'] = find_replace_variable_map(self.LONG['variable_label'], self.LONG['variable'], map=variable_map, order=variable_order)
+                # TODO: Handle MOE for variable mapping
+                self.LONG = self.LONG.groupby(['concept', 'universe', 'GEO_ID', 'NAME', 'reference_period', 'variable_label', 'variable']).agg({'estimate': 'sum'}).reset_index()
+
         self.logger = logging.getLogger(__name__).getChild(self.__class__.__name__).getChild(str(datetime.now()))
         self.logger.info(f"Initializing DimensionTable object.")
 
-    def wide(self):
+
+    def wide(self, droplevels=None):
         import pandas as pd
         import numpy as np
 
@@ -721,7 +852,6 @@ class DimensionTable:
         for column in long.columns:
             long[column] = [np.nan if value in MISSING_VALUES else value for value in long[column]]
         self._columns = [column for column in long if column not in ['variable', 'estimate', 'variable_label', 'moe']]
-        
 
         wide = long.pivot(index='variable', columns=[x for x in self._columns], values='estimate')
         columns_levels = wide.columns.names
@@ -733,15 +863,82 @@ class DimensionTable:
         wide = wide.sort_index(level='GEO_ID', axis=1)
         wide = wide.drop_duplicates()
 
-        self.WIDE = wide
+        if droplevels != None:
+            # store index names to reference
+            indexnames = [x for x in wide.index.names]
+            wide = wide.reset_index()
+
+            # If already one level error
+            if len(indexnames) == 1:
+                logger.error(f"Can not drop only level: {droplevel}")
+                raise RuntimeError
+
+            # Create a list even if one level passed as int
+            if not isinstance(droplevels, list):
+                droplevels = [droplevels]
+
+            # For each level passed to droplevels
+            for droplevel in droplevels:
+                logger.info(f"Dropping dimension {droplevel} from dimension table.")
+
+                # Check if level is in index
+                if not droplevel in indexnames:
+                    logger.error(f"Level {droplevel} not in index ({indexnames}).")
+                    raise ValueError
+                
+                # If the level is the last level in the index
+                elif droplevel == indexnames[-1]:
+                    logger.info(f"Dropping last level: {droplevel}.")
+
+                    # Filter the data to only include rows with no variable in level
+                    wide = wide.loc[wide[droplevel]==""]
+
+                    # Drop that level from columns
+                    wide = wide.drop(columns=[droplevel])
+                    logger.debug(f"\n{wide.to_markdown()}")
+
+                # If the level dropped is the first level, always the column "Total"
+                elif droplevel == 0:
+
+                    # let user know this isn't normally a good idea.
+                    logger.warning(f"Dropping Total Column. This may cause issues with percentages later. CAUTION")
+
+                    # Filter rows to only include rows that have a value in the column following the total column
+                    wide = wide.loc[wide[droplevel+1]!=""]
+
+                    # Drop the total column
+                    wide = wide.drop(columns=[droplevel])
+                    logger.debug(f"\n{wide.to_markdown()}")
+
+                # If neither first or last level
+                else:
+                    logger.info(f"Dropping level: {droplevel}. Aggregating on other levels.")
+
+                    # Store rows where droplevel is empty, and lower levels are not empty
+                    wide = pd.concat([wide.loc[(wide[droplevel]=='')], wide.loc[(wide[droplevel+1]!='')]])
+
+                    # Aggregate by grouping by all levels beside the level being dropped.
+                    wide = wide.groupby([x for x in indexnames if x != droplevel]).sum().reset_index()
+                   
+                    # Drop the index level
+                    wide = wide.drop(columns=[droplevel])
+
+                    logger.debug(f"\n{wide.to_markdown()}")
+
+                # if indexnames-1 > 1:
+                #     wide.index.names = [x for x in range(len(wide.index.names))]
+                # if indexnames-1 == 1:
+                #     wide.index.name = 0
+                indexnames.remove(droplevel)
+            wide = wide.set_index([x for x in indexnames if x not in droplevels])
 
         return wide
 
-    def percent(self, decimals=2):
+    def percent(self, droplevels=None, decimals=2):
         
         self.logger.info(f"Creating percent table.")
 
-        self.WIDE = self.wide()
+        self.WIDE = self.wide(droplevels=droplevels)
 
         total = self.WIDE.T.iloc[:,0].copy()
         percent = self.WIDE.T.iloc[:,1:].copy()
@@ -752,8 +949,6 @@ class DimensionTable:
         percent['universe'] = [f"% of {x.lower()}" for x in percent['universe']]
         percent = percent.set_index([x for x in self._columns])
         
-        self.PERCENT = percent
-
         return percent.T
 
     def create_description_table(self):
@@ -807,7 +1002,7 @@ class DimensionTable:
 
         return var_df_fix
     
-    def plot_bar(self, value, x_axis, dimension, variables=None, x_ordered=None, x_ascending=False, variables_ordered=False, value_labels='overlay', colors=None, aspect_ratio=1):
+    def plot_bar(self, value, x_axis, dimension, variables=None, x_ordered=None, x_ascending=False, variables_ordered=False, value_labels='overlay', hex_list=None, aspect_ratio=1):
         """
         Plot the dimension table as bar plot with reasonable defaults.
 
@@ -842,21 +1037,21 @@ class DimensionTable:
         """
 
         import textwrap
-        from plotnine import guides, guide_legend, element_text, ggplot, aes, geom_col, geom_text, after_stat, position_stack, scale_x_discrete, scale_fill_manual, scale_color_manual, scale_y_continuous, labs, theme, element_text, stage
+        from plotnine import guides, guide_legend, element_text, ggplot, aes, geom_col, geom_text, after_stat, position_stack, scale_x_discrete, scale_fill_manual, scale_color_manual, scale_y_continuous, labs, theme, element_text, stage, coord_fixed
         import pandas as pd
         from morpc.plot import morpc_theme
-        from morpc.color import QUAL
-        from morpc.color.color import overlay_color
+        from morpc.color.colors import overlay_color, GetColors
 
         logger.info(f"Creating plot for dimension table for {value}")
 
         # load dimtable for value to plot
         if value == 'totals':
-            self.dim_table = self.wide()
+            self.dim_table = self.WIDE
         if value == 'percent':
-            self.dim_table = self.percent()
+            self.dim_table = self.PERCENT
 
         logger.debug(f"Normalizing index values")
+
         # normalize index names
         index_levels = []
         index_values = []
@@ -941,8 +1136,8 @@ class DimensionTable:
         if (x_ordered == 'by_y'):
             x_axis = f"reorder({x_axis}, value, ascending={x_ascending})"
     
-        if colors == None:
-            colors = QUAL['morpc_ext']
+        if hex_list == None:
+            hex_list = GetColors().QUAL().hex_list
 
         # Build initial plot
         plot = (
@@ -958,11 +1153,11 @@ class DimensionTable:
                 name=textwrap.fill(list(to_plot['universe'])[0],len(list(to_plot['universe'])[0])/1.6)
                 )
             + scale_fill_manual(
-                colors,
+                hex_list,
                 name=textwrap.fill(list(to_plot['concept'])[0],len(list(to_plot['concept'])[0])/1.6)
                 )
             + scale_color_manual(
-                colors
+                hex_list
                 )
             + morpc_theme(base_size=11)
             + guides(
@@ -1018,13 +1213,3 @@ class DimensionTable:
     def wraping_func(self, text):
         import textwrap
         return [textwrap.fill(str(wraped_text), width=9) for wraped_text in text]
-            
-
-                    
-
-
-            
-    
-
-
-
