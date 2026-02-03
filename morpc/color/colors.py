@@ -1,4 +1,5 @@
 from types import NoneType
+from sqlalchemy import all_
 from yaml import safe_load
 from importlib.resources import files
 
@@ -12,6 +13,29 @@ try:
         morpc_colors = safe_load(file)
 except ValueError as e:
     print(e)
+
+ALL_COLORS = {}
+for y in [x for x in morpc_colors.values()]:
+    if y.keys() != 'KEY':
+        for k, v in y.items():
+            if k != "KEY":
+                ALL_COLORS.update({k: v})
+
+def get_key_color_name(color):
+    if color not in morpc_colors:
+        logger.error(f"{color} not a valid color.")
+        raise ValueError
+    color_values = morpc_colors[color]
+    # find the hex value for key
+    for k, v in color_values.items():
+        if k == 'KEY':
+            key_value = v
+    # match it to other values
+    for k,v in color_values.items():
+        if k != 'KEY':
+            if v == key_value:
+                return k
+        
 
 class GetColors:
     _get_color_logger = logging.getLogger(__name__).getChild(__qualname__)
@@ -27,7 +51,7 @@ class GetColors:
     def KEYS(self):
         self.KEYS = {}
         for color in self.morpc_colors:
-            self.KEYS[color] = self.morpc_colors[color]['KEY']
+            self.KEYS[color] = self.morpc_colors[color][get_key_color_name(color)]
         
         return self.KEYS
 
@@ -38,7 +62,7 @@ class GetColors:
 
         # Get random color if not assigned
         if color == None:
-            colors = [key for key, values in self.morpc_colors.items() if key not in ['WarmGrey', 'CoolGrey']]
+            colors = [key for key, values in self.KEYS().items() if key not in ['WarmGrey', 'CoolGrey']]
             self.COLOR = colors[randint(0,len(colors))]
         else:
             self.COLOR = color
@@ -64,17 +88,19 @@ class GetColors:
             raise RuntimeError(f'{colors} not valid. Pass a list of colors to use.')
         
         if len(colors) != 2:
-            raise RuntimeError('Pass three color names')
+            raise RuntimeError('Pass two color names')
         
         for color in colors:
-            if color not in self.morpc_colors:
+            if color in morpc_colors.keys():
+                self.COLOR.append(get_key_color_name(color))
+            elif color in ALL_COLORS.keys():
+                self.COLOR.append(color)
+            else:
                 logger.error(f"{color} not a valid color")
                 raise RuntimeError
-        
-        self.COLOR = colors
 
-        start = [x for x in self.morpc_colors[self.COLOR[0]].values()][1]
-        stop = [x for x in self.morpc_colors[self.COLOR[1]].values()][-1]
+        start = [x for x in ALL_COLORS[self.COLOR[0]].values()][1]
+        stop = [x for x in ALL_COLORS[self.COLOR[1]].values()][-1]
 
         self.cmap = get_continuous_cmap([start, stop])
         self.hex_list = rgb_list_to_hex_list([self.cmap(i) for i in list(linspace(0,1,n))])
@@ -85,21 +111,25 @@ class GetColors:
     def SEQ3(self, colors=None, n=11):
         from morpc.color import get_continuous_cmap
         from numpy import linspace
+
         if not isinstance(colors, list):
             raise ValueError('{colors} not valid. Pass a list of colors to use.')
         if len(colors) != 3:
             raise ValueError('Pass three color names')
         
         for color in colors:
-            if color not in self.morpc_colors:
+            if color in morpc_colors.keys():
+                self.COLOR.append(get_key_color_name(color))
+            elif color in ALL_COLORS.keys():
+                self.COLOR.append(color)
+            else:
                 logger.error(f"{color} not a valid color")
                 raise RuntimeError
-        
-        self.COLOR = colors
 
-        start = [x for x in self.morpc_colors[self.COLOR[0]].values()][2]
-        middle = [x for x in self.morpc_colors[self.COLOR[1]].values()][3]
-        stop = [x for x in self.morpc_colors[self.COLOR[2]].values()][-2]
+
+        start = [x for x in ALL_COLORS[self.COLOR[0]].values()][2]
+        middle = [x for x in ALL_COLORS[self.COLOR[1]].values()][3]
+        stop = [x for x in ALL_COLORS[self.COLOR[2]].values()][-2]
 
         self.cmap = get_continuous_cmap([start, middle, stop])
         self.hex_list = rgb_list_to_hex_list([self.cmap(i) for i in list(linspace(0,1,n))])
@@ -110,27 +140,22 @@ class GetColors:
     def DIV(self, colors=None, n = 11):
         from morpc.color import get_continuous_cmap
         from numpy import linspace
+
         if not isinstance(colors, list):
-            raise ValueError('{colors} not valid. Pass a list of colors to use.')
+            raise ValueError(f'{colors} not valid. Pass a list of colors to use.')
         if len(colors) != 3:
             raise ValueError('Pass three color names')
         
         for color in colors:
-            if color not in self.morpc_colors:
+            if color in morpc_colors.keys():
+                self.COLOR.append(get_key_color_name(color))
+            elif color in ALL_COLORS.keys():
+                self.COLOR.append(color)
+            else:
                 logger.error(f"{color} not a valid color")
                 raise RuntimeError
-        
-        self.COLOR = colors
 
-        left = [x for x in self.morpc_colors[self.COLOR[0]].values()][2]
-        start1 = [x for x in self.morpc_colors[self.COLOR[0]].values()][3]
-        stop1 = [x for x in self.morpc_colors[self.COLOR[1]].values()][-2]
-        middle = [x for x in self.morpc_colors[self.COLOR[1]].values()][-1] 
-        start2 = [x for x in self.morpc_colors[self.COLOR[1]].values()][-2]
-        stop2 = [x for x in self.morpc_colors[self.COLOR[2]].values()][3]
-        right = [x for x in self.morpc_colors[self.COLOR[2]].values()][2]
-
-        self.cmap = get_continuous_cmap([left, start1, stop1, middle, start2, stop2, right])
+        self.cmap = get_continuous_cmap([ALL_COLORS[x] for x in self.COLOR])
         self.hex_list = rgb_list_to_hex_list([self.cmap(i) for i in list(linspace(0,1,n))])
 
         self.hex_list_r = self.hex_list[::-1]
@@ -140,29 +165,29 @@ class GetColors:
     def QUAL(self, colors = None, paired = False):
         import pandas as pd
         if colors == None:
-            self.COLOR = ['Navy', 'Orange', 'Forest', 'Ocean', 'Purple', 'Green', 'Blue', 'Red', 'Sky', 'Brown', 'Yellow']
-        else: 
-            self.COLOR = colors
+            colors = ['Navy', 'Orange', 'Forest', 'Ocean', 'Purple', 'Green', 'Blue', 'Red', 'Sky', 'Brown', 'Yellow']
 
-        for color in self.COLOR:
-            if color not in self.morpc_colors:
+        for color in colors:
+            if color in morpc_colors.keys():
+                self.COLOR.append(get_key_color_name(color))
+            elif color in ALL_COLORS.keys():
+                self.COLOR.append(color)
+            else:
                 logger.error(f"{color} not a valid color")
                 raise RuntimeError
-                    
+            
         self.hex_list = []
 
-        if paired == False:
-            for x in self.COLOR:
-                self.hex_list.append([v for k, v  in self.morpc_colors[x].items() if k == 'KEY'])
+        for color in self.COLOR:
+            if paired == False:
+                self.hex_list.append(ALL_COLORS[color])
 
-        if paired ==  True:
-            for x in self.COLOR:
-                self.hex_list.append([v for k, v  in self.morpc_colors[x].items() if k.endswith('3')])   
-            for x in self.COLOR:
-                self.hex_list.append([v for k, v  in self.morpc_colors[x].items() if k.endswith('5')])
+            if paired ==  True:
+                self.hex_list.append(ALL_COLORS[color])   
+                color_pair = f"{color[0:-1]}{int(color[-1]+2)}"
+                self.hex_list.append(ALL_COLORS[color_pair])
 
-        self.hex_list = [v[0] for v in self.hex_list]
-        self.hex_list = self.hex_list
+        self.hex_list = [v for v in self.hex_list]
         self.hex_list_r = self.hex_list[::-1]
 
         return self
