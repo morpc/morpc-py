@@ -189,7 +189,7 @@ INCOME_TO_POVERTY_SORT_ORDER = {
 }
 
 
-def find_replace_variable_map(labels, variables, map, order):
+def find_replace_variable_map(labels, variables, map):
     labels = list(labels)
     new_labels = labels
     variables = list(variables)
@@ -508,7 +508,7 @@ def censusapi_name(survey_table, year, scope, group, scale = None, variables=Non
     str
         the name used for the data in CensusAPI
     """
-
+    from morpc import HIERARCHY_STRING_FROM_SINGULAR
     return f"census-{survey_table.replace("/","-")}-{year}-{"" if scale is None else HIERARCHY_STRING_FROM_SINGULAR[scale].replace("-","").lower() + '-'}{scope}-{group}{"-select-variables" if variables is not None else ""}".lower()
 
 
@@ -560,7 +560,11 @@ class CensusAPI:
         self.YEAR = year
         self.GROUP = group.upper()
         self.CONCEPT = get_table_groups(self.SURVEY, self.YEAR)[self.GROUP]['description']
-        self.UNIVERSE = get_group_universe(self.SURVEY, [2023 if self.YEAR < 2023 else self.YEAR][0], self.GROUP)
+        try: 
+            self.UNIVERSE = get_group_universe(self.SURVEY, [2023 if self.YEAR < 2023 else self.YEAR][0], self.GROUP)
+        except Exception as e:
+            self.UNIVERSE = 'Not Defined by Census'
+            logger.warning(f"Table {survey_table}, {group} does not have a universe defined in census metadata. Please define to avoid downstream errors.")
         self.SCOPE = scope.lower() 
         if scale is not None:
             self.SCALE = scale.lower()
