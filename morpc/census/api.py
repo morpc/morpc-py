@@ -10,6 +10,7 @@ req = morpc.census.api.get_api_req('acs/acs5', 2023, 'B01001', 'region15', scale
 morpc.req.get_json_safely(req)
 """
 
+from enum import unique
 import logging
 from types import NoneType
 
@@ -162,16 +163,54 @@ EDUCATION_ATTAIN_SORT_ORDER = {
     "More than Bachelor's": 6
 }
 
+INCOME_TO_POVERTY_MAP = {
+    'Under .50': 'Under .50',
+    '.50 to .74': '.50 to .99',
+    '.75 to .99': '.50 to .99',
+    '1.00 to 1.24': '1.00 to 1.99',
+    '1.25 to 1.49': '1.00 to 1.99',
+    '1.50 to 1.74': '1.00 to 1.99',
+    '1.75 to 1.84': '1.00 to 1.99',
+    '1.85 to 1.99': '1.00 to 1.99',
+    '2.00 to 2.99': '2.00 to 2.99',
+    '3.00 to 3.99': '3.00 to 3.99',
+    '4.00 to 4.99': '4.00 and over',
+    '5.00 and over': '4.00 and over'
+    }
+
+INCOME_TO_POVERTY_SORT_ORDER = {
+    'Total': 0,
+    'Under .50': 1,
+    '.50 to .99': 2,
+    '1.00 to 1.99': 3,
+    '2.00 to 2.99': 4,
+    '3.00 to 3.99': 5,
+    '4.00 and over': 6
+}
+
+
 def find_replace_variable_map(labels, variables, map, order):
     labels = list(labels)
     new_labels = labels
+    variables = list(variables)
+    new_variables = variables
+
     for i in range(len(labels)):
         for key, value in map.items():    
             if key in labels[i]:
                 x = labels[i].replace(key, value)
                 new_labels[i] = x
 
-    new_variables = [f"{y.split("_")[0]}_M{order[x.split('!!')[-1]]:02d}" for x, y in zip(labels, variables)]
+    var_id = variables[0].split("_")[0]
+    variable_map = {}
+    i = 0
+    for label in new_labels:
+        if label not in variable_map:
+            variable_map[label] = f"{var_id}_M{i:02d}"
+            i = i+1
+
+
+    new_variables = [variable_map[label] for label in new_labels]
 
     return new_labels, new_variables
 
@@ -784,19 +823,19 @@ class DimensionTable:
         from datetime import datetime
         self.LONG = CensusAPI_LONG.copy() # Store a copy of the data
 
+        # If variable map was passed, aggregate rows based on new mapping. 
         if variable_map!=None:
             logger.info(f"Passed a variable map. Adjusting variables ({", ".join([x for x in variable_map.keys()])}) to new variables ({", ".join([x for x in variable_order.keys()])}).")
             if variable_order == None:
-                logger.error(f"If passing map must all pass order.")
+                logger.error(f"If passing map must also pass order.")
             else:
                 self.LONG['variable_label'], self.LONG['variable'] = find_replace_variable_map(self.LONG['variable_label'], self.LONG['variable'], map=variable_map, order=variable_order)
+                # TODO: Handle MOE for variable mapping
                 self.LONG = self.LONG.groupby(['concept', 'universe', 'GEO_ID', 'NAME', 'reference_period', 'variable_label', 'variable']).agg({'estimate': 'sum'}).reset_index()
 
         self.logger = logging.getLogger(__name__).getChild(self.__class__.__name__).getChild(str(datetime.now()))
         self.logger.info(f"Initializing DimensionTable object.")
 
-        self.WIDE = self.wide(droplevels=droplevels)
-        self.PERCENT = self.percent(droplevels=droplevels)
 
     def wide(self, droplevels=None):
         import pandas as pd

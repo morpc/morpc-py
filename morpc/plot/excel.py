@@ -43,7 +43,7 @@ class ExcelChart:
 
         # Store data
         self.logger.debug(f"Storing data to DATA. \n{df.to_markdown()}")
-        self.DATA = df   
+        self.DATA = df
 
         # If preconstructed config file passed use that.
         # NOT YET IMPLMENTED
@@ -121,7 +121,7 @@ class ExcelChart:
             self.logger.error(f"Write Error: {e}, Is the workbook open in excel?.")
             raise RuntimeError
     
-    def add_chart(self, type, subtype=None, title=None, y_label=None, x_label=None, series=None, data_labels=None):
+    def add_chart(self, type, subtype=None, title=None, x_ordered=None, y_label=None, x_label=None, series=None, data_labels=None):
         """
         Add a chart to the worksheet.
 
@@ -133,6 +133,11 @@ class ExcelChart:
             Set the subtype of the chart, by default None. See https://xlsxwriter.readthedocs.io/chart.html#the-chart-class
         title : str, optional
             Name of chart and used as title, by default None
+        x_ordered : {None, 'ascending', 'descending'} | list
+            Whether to order the x axis. None, no ordering occurs. 
+            'ascending' orders the axis in ascending order by y value.
+            'descending' orders the axis in descending order by y value.
+            list :  orders the axis in order of the list passed.
         series : list of str, optional
             A list of the variables in index to use in the series of the chart. Does not filter table, just the chart. Defaults to None which shows all variables.
         data_lables : {'center', 'above', 'outside_end', None}
@@ -183,7 +188,7 @@ class ExcelChart:
         self.CHART.set_x_axis(self.CONFIG['chart']['x_axis'])
         self.CHART.set_title(self.CONFIG['chart']['title'])
 
-        # update series tp all variables if not defined
+        # update series to all variables if not defined
         if series == None:
             series = [str(x[-1]) if isinstance(x, tuple) else str(x) for x in self.DATA.index]
             logger.debug(f"No series parameter, using all variable as series: {series}")
