@@ -835,6 +835,7 @@ class DimensionTable:
             else:
                 self.LONG['variable_label'], self.LONG['variable'] = find_replace_variable_map(self.LONG['variable_label'], self.LONG['variable'], map=variable_map, order=variable_order)
                 # TODO: Handle MOE for variable mapping
+                # Issue URL: https://github.com/morpc/morpc-py/issues/113
                 self.LONG = self.LONG.groupby(['concept', 'universe', 'GEO_ID', 'NAME', 'reference_period', 'variable_label', 'variable']).agg({'estimate': 'sum'}).reset_index()
 
         self.logger = logging.getLogger(__name__).getChild(self.__class__.__name__).getChild(str(datetime.now()))
