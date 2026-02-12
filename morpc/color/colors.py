@@ -185,7 +185,7 @@ class GetColors:
 
             if paired ==  True:
                 self.hex_list.append(ALL_COLORS[color])   
-                color_pair = f"{color[0:-1]}{int(color[-1]+2)}"
+                color_pair = f"{color[0:-1]}{int(color[-1])+2}"
                 self.hex_list.append(ALL_COLORS[color_pair])
 
         self.hex_list = [v for v in self.hex_list]

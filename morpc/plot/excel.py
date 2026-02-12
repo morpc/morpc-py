@@ -195,7 +195,10 @@ class ExcelChart:
         else:
             logger.debug(f"Series parameter defined, using following variable as series: {series}")
 
-        colors = GetColors().QUAL().hex_list[0:len(series)]
+        if len(series) < 9:
+            colors = GetColors().QUAL().hex_list[0:len(series)]
+        else: 
+            colors = GetColors().QUAL(paired=True).hex_list[0:len(series)]
         self.CONFIG['chart'].update({'colors': colors})
         logger.debug(f"added colors {colors} to config")
 
