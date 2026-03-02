@@ -1,5 +1,4 @@
 import logging
-
 logger  = logging.getLogger(__name__)
 
 import morpc
@@ -261,10 +260,18 @@ def geo_params_from_scope_scale(scope, scale=None):
             params.update({"in": SCOPES[scope]['for']})
             params.update({"for": f"{scale}:*"})
 
-            logger.info(f"Checking for valid 'for' and 'in' parameters. ")
+            logger.info(f"Checking for valid 'for' and 'in' parameters: {params}")
             query_req = get_query_req(scale)
 
-            in_list = [x.split(':')[0] for x in params['in']]
+            if isinstance(params['in'], str):
+                in_list = params['in'].split(':')[0]
+            elif isinstance(params['in'], list):
+                in_list = [x.split(':')[0] for x in params['in']]
+            else:
+                logger.error(f"unable to parse 'in' parameter from {params}")
+                raise ValueError
+
+            logger.info(f"'in' params: {in_list}")
 
             for req in query_req['requires']:
                 if req not in in_list:
@@ -307,6 +314,7 @@ def pseudos_from_scale_scope(scale, scope):
         pseudos = [f"{parent}${child}" for parent in parents]
     else:
         logger.error(f"{child} is not allowed child for parent sumlevel {sumlevel}")
+        raise ValueError
 
     return pseudos
 
@@ -407,13 +415,13 @@ def fetch_geos_from_geoids(geoidfqs, year, survey):
 
         # Build resource file and query API
         logger.info(f"Building resource file to fetch from RestAPI.")
-        resource = morpc.rest_api.resource(name='temp', url=url, where= f"GEOID in ({geoids})", outfields='GEOID')
+        resource = morpc.rest_api.resource(name='temp', url=url, where= f"GEOID in ({geoids})", outfields='GEOID,NAME')
 
         logger.info(f"Fetching geographies from RestAPI.")
         geos = morpc.rest_api.gdf_from_resource(resource)
         geos['GEOIDFQ'] = [f"{sumlevel}0000US{x}" for x in geos['GEOID']]
 
-        geometries.append(geos[['GEOIDFQ', 'geometry']])
+        geometries.append(geos[['GEOIDFQ', 'NAME', 'geometry']])
     logger.info("Combining geometries...")
     geometries = pd.concat(geometries)
     geometries = geometries.rename(columns={'GEOIDFQ': 'GEO_ID'})
