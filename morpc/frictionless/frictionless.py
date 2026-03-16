@@ -4,6 +4,8 @@ Reference: https://specs.frictionlessdata.io/table-schema/
 """
 
 import logging
+from math import e
+from typing import Literal
 
 from sqlalchemy import False_
 
@@ -308,11 +310,43 @@ def add_missing_fields(df, schema, fieldNames=None):
 
     return outDF
         
+def convert_lineend(path, target: Literal['\r\n', '\n']):
+    import re
+    with open(path, 'rb') as f:
+        line = f.readline()
+    if line.endswith(b'\r\n'):
+        current = '\r\n'
+    else:
+        current = '\n'
 
+    if current == target:
+        pass
+    else:
+        if target == '\n':
+            try:
+                with open(path, 'rb') as file:
+                    content = file.read()
+                content = content.replace(b'\r\n', b'\n')  
+                with open(path, 'wb') as file:
+                    file.write(content)      
+            except Exception as e:
+                logger.error(f"Error changing line endings: {e}") 
+                raise RuntimeError
+
+        if target == '\r\n':
+            try:
+                with open(path, 'rb') as file:
+                    content = file.read()
+                content = re.sub(b'(?<!\r)\n', b'\r\n', content)  
+                with open(path, 'wb') as file:
+                    file.write(content)    
+            except Exception as e:
+                logger.error(f"Error changing line endings: {e}") 
+                raise RuntimeError
 
 def create_resource(dataPath, title=None, name=None, description=None, sources=None, resourcePath=None, schemaPath=None, resFormat=None, 
                                  resProfile=None, resMediaType=None, computeHash=True, computeBytes=True, ignoreSchema=False, 
-                                 writeResource=False, validate=False):
+                                 writeResource=False, validate=False, lineEnds: Literal['\r\n', '\n'] = '\r\n'):
     """Create a Frictionless resource object using sane default values for some attributes.  Optionally, write the 
     resource file to disk and validate the resource file, schema, and data. 
 
@@ -368,6 +402,8 @@ def create_resource(dataPath, title=None, name=None, description=None, sources=N
     validate : bool
         Optional. If True, the resource file, schema file, and data file will be validated. Note that writeResource must be True to
         use this option.
+    lineEnds : ['\r\n', '\n']
+        Convert all line endings in text files to DOS or UNIX stile endings. Defaults to '\r\n', DOS endings.
 
     Returns
     -------
@@ -502,6 +538,15 @@ def create_resource(dataPath, title=None, name=None, description=None, sources=N
         resource.schema = schemaFilePath
 
     unlocatedDataWarningIssued = False
+
+    if os.linesep != lineEnds:
+        logger.warning(f'Changing line endings.')
+        if resourceFilePath == None:
+            logger.error(f"Unable to find resource as {resourceFilePath}")
+            raise RuntimeError
+        else:
+            convert_lineend(os.path.join(os.path.dirname(resourceFilePath), dataFilePath), lineEnds)
+
     if(computeHash):
         if(resourceFilePath != None):
             resource.hash = morpc.md5(os.path.join(os.path.dirname(resourceFilePath), dataFilePath))
@@ -558,6 +603,7 @@ def write_resource(resource, resourcePath):
         A Frictionless TableResource object which describes the data
     resourcePath : str
         The path to the Frictionless Resource file that describes the data.
+
     """
 
     import os
@@ -578,11 +624,17 @@ def validate_resource(resourcePath):
     import frictionless
     cwd = os.getcwd()
 
+
+
     try:
         os.chdir(os.path.dirname(os.path.abspath(resourcePath)))
       
         logger.info("Validating resource on disk including data and schema (if applicable). This may take some time.")
         resourceOnDisk = frictionless.Resource(os.path.basename(resourcePath))
+
+        if os.linesep != '\r\n':
+            convert_lineend(resourceOnDisk.path, '\r\n')
+
         results = resourceOnDisk.validate()
 
     except Exception as e:
