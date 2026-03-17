@@ -447,3 +447,459 @@ def fetch_geos_from_scale_scope(scope, scale=None, year='2023', survey='ACS'):
     """
 
     return fetch_geos_from_geoids(geoids_from_params(geo_params_from_scope_scale(scope, scale)), year, survey)
+
+def morpc_juris_part_to_full(geoidSeries, validateTranslation=True, gitRootPath="../"):
+    """Given a series of fully-qualified MORPC GEOIDs representing county parts of MORPC jurisdictions (i.e. SUMLEVEL
+    M11 or M25), this function provides a dataframe which maps each part to its parent jurisdiction (M10 or M24, respectively).
+
+    Parameters
+    ----------
+    geoidSeries : pandas.core.series.Series
+        A Pandas Series object which contains a list of MORPC GEOIDs. GEOIDs must belong to a single SUMLEVEL. The following 
+        SUMLEVELs are supported:
+            M11 - County parts for active and prospective MORPC member jurisdictions, including non-incorporated townships and
+                  parts of cities and villages.  These geographies are defined using Census-maintained (i.e. TIGER) boundaries.
+                  Also known as "JURIS-COUNTY" geos.
+            M25 - Like M11, these are county parts of cities, villages, and non-incorporated townships, however these are defined 
+                  using MORPC-maintained boundaries rather than Census boundaries.  Also known as "JURIS-COUNTY-MORPC" geos.
+    validateTranslation : bool
+        When validateTranslation is True (default), the function will attempt to validate the provided list of GEOIDs using the 
+        lookup table output from the morpc-geos-collect workflow prior to attempting to map them to their parents.  If validateTranslation 
+        is False or if the lookup table is not available, the function will attempt a naive mapping of the GEOID, however the 
+        resulting parent GEOID may not be valid.  The lookup table is located via gitRootPath (see below).
+    gitRootPath : str
+        The path to a folder containing the Git repository for the morpc-geos-collect workflow. Defaults to the parent 
+        directory ("../").  .
+
+    Returns
+    -------
+    mappingDataFrame : pandas.core.frame.DataFrame
+        A Pandas DataFrame object which maps each of the input geographies to its parent geography.
+
+    """
+    import pandas as pd
+    import logging
+    import os
+    import morpc
+
+    logger  = logging.getLogger(__name__)    
+
+    supportedSumlevels = ["M11","M25"]
+
+    # Create a copy of the user-provided series that we can manipulate. Preserve the name of the series so we can name
+    # the returned series accordingly
+    myGeoidSeries = geoidSeries.copy()
+    myGeoidSeries.name = "GEOIDFQ"
+
+    # Convert the series to a dataframe and extract the original sumlevels. Create a field to capture the
+    # translated GEOID
+    df = pd.DataFrame(geoidSeries)
+    df["SUMLEVEL_ORIG"] = df["GEOIDFQ"].apply(lambda x:x[0:3])
+    df["GEOIDFQ_PARENT"] = None
+    df["GEOIDFQ_PARENT"] = df["GEOIDFQ_PARENT"].astype("string")
+    df = df.set_index("GEOIDFQ")
+
+    # Verify that only a single SUMLEVEL is represented among the provided GEOIDs
+    includedSumlevels = df["SUMLEVEL_ORIG"].unique()
+    if(len(includedSumlevels) > 1):
+        logger.error(f"Detected multiple SUMLEVELs among input GEOIDs. GEOIDs must belong to a single SUMLEVEL (i.e. one of the following: {','.join(supportedSumlevels)})")
+        raise RuntimeError
+
+    # Assuming we made it this far, we can extract the single input SUMLEVEL
+    includedSumlevel = includedSumlevels[0]
+    
+    # Verify that the SUMLEVELs for the user-provided GEOIDs are all supported
+    if(not includedSumlevel in supportedSumlevels):
+        logger.error(f"SUMLEVEL {includedSumlevel} is not supported. Supported sumlevels are {','.join(supportedSumlevels)}")
+        raise RuntimeError
+
+    # Try to load the geography lookup table output from the morpc-geos-collect workflow from a local copy of the repository
+    # to be found in a subdirectory of gitRootPath. This is the authoritative list of geographies known to MORPC. If a GEOID
+    # is not listed here it may be invalid. If the attempt to load the lookup table fails, flag the translation as naive
+    # and warn the user.
+    naiveTranslation = True
+    if(validateTranslation == True):
+        try:
+            morpcGeosLookupPath = os.path.join(os.path.normpath(gitRootPath), "morpc-geos-collect", "output_data", "morpc-geos-lookup.resource.yaml")
+            logger.info(f"Attempting to load MORPC geography lookup table from path: {morpcGeosLookupPath}")
+            (morpcGeosLookup, morpcGeosLookupResource, morpcGeosLookupSchema) = morpc.frictionless.load_data(morpcGeosLookupPath)
+            morpcGeosLookup = morpcGeosLookup.set_index("GEOIDFQ")
+            # Add a "VALID" flag to the records in the table. When joined to the user-provided GEOIDs, a missing flag will
+            # indicate that the GEOID was not found in the lookup table.
+            morpcGeosLookup["VALID"] = True
+            morpcGeosLookup["VALID"] = morpcGeosLookup["VALID"].astype("bool")
+            naiveTranslation = False
+        except Exception as e:
+            logger.warning("Failed to MORPC geography lookup table. GEOID mappings will be naive (not validated). {e}")
+    else:
+        logger.warning("Not attempting to validate translations per user instruction. GEOID mappings will be naive.")
+
+    # If the user requested to validate the GEOIDs and we were able to load the lookup table, join the VALID
+    # flag from the lookup table for each user-provided GEOID that appears in the lookup table. If some GEOIDs
+    # did not appear in the lookup table, warn the user and continue.
+    if(not naiveTranslation):            
+        df = df.join(morpcGeosLookup["VALID"])
+        missingIndex = df.loc[df["VALID"] != True].index
+        if(not len(missingIndex) == 0):
+            logger.warn("The following GEOIDs were not found in the MORPC geography lookup table and may be invalid.  If so, their mappings will also be invalid.")
+            logger.warn(f"Missing GEOIDs: {",".join(list(missingIndex))}")
+        df = df.drop(columns="VALID")
+
+    if(includedSumlevel == "M11"):
+        parentSumlevel = "M10"
+    elif(includedSumlevel == "M25"):
+        parentSumlevel = "M24"
+    else:
+        logger.error(f"SUMLEVEL {includedSumlevel} is not supported. Supported sumlevels are {','.join(supportedSumlevels)}")
+        raise RuntimeError
+
+    logger.info(f"Mapping provided geographies in SUMLEVEL {includedSumlevel} ({morpc.HIERARCHY_STRING_LOOKUP[includedSumlevel]}) to parent geographies in SUMLEVEL {parentSumlevel} ({morpc.HIERARCHY_STRING_LOOKUP[parentSumlevel]})")
+        
+    df = df.reset_index()
+    # Identify townships. Township GEOIDs end in 99999
+    df["TOWNSHIP"] = df["GEOIDFQ"].str.endswith("99999")
+    # Modify the GEOIDs for ALL geographies by changing the SUMLEVEL
+    df["GEOIDFQ_PARENT"] = df["GEOIDFQ"].str.slice_replace(start=0, stop=3, repl=parentSumlevel)
+    # Modify the GEOIDs for the NON-township geographies only (i.e. cities and villages). In this case we need to remove the 
+    # three-digit suffix that specifies the county that the part belongs to.
+    df.loc[df["TOWNSHIP"] != True, "GEOIDFQ_PARENT"] = df["GEOIDFQ_PARENT"].str.slice_replace(start=-3)
+    
+    # Check for null values in the translated GEOIDs. Throw an error if any appear.
+    failedTranslationIndex = df.loc[df["GEOIDFQ_PARENT"].isna()].index
+    if(len(failedTranslationIndex) > 0):
+        logger.error(f"Translation failed for the following geographies: {list(failedTranslationIndex)}")
+        raise RuntimeError
+
+    df = df.filter(items=["GEOIDFQ","GEOIDFQ_PARENT"], axis="columns")
+
+    # If the user requested to validate the GEOIDs and we were able to load the lookup table, join the VALID
+    # flag from the lookup table for each parent GEOID that appears in the lookup table. If some GEOIDs
+    # did not appear in the lookup table, warn the user and continue.
+    if(not naiveTranslation):            
+        df = df.merge(morpcGeosLookup["VALID"], left_on="GEOIDFQ_PARENT", right_on="GEOIDFQ")
+        missingIndex = df.loc[df["VALID"] != True].index
+        if(not len(missingIndex) == 0):
+            logger.warn("The following parent GEOIDs were not found in the MORPC geography lookup table and may be invalid.")
+            logger.warn(f"Missing parent GEOIDs: {",".join(list(missingIndex))}")
+        df = df.drop(columns="VALID")
+    
+    mappingDataFrame = df.copy()
+    
+    return mappingDataFrame
+    
+def census_geoid_to_morpc(geoidSeries, targetSumlevel, validateTranslation=True, gitRootPath="../", verbose=False):
+    """Given a series of fully-qualified Census GEOIDs and a target MORPC SUMLEVEL, this function translates each GEOID in 
+    the series to its equivalent MORPC GEOID.  MORPC maintains a set of fully-qualified geographic identifiers (GEOIDFQs) 
+    that mimic the fully qualified GEOIDs used by the Census Bureau. Similar to Census GEOIDFQs, MORPC GEOIDFQs have the form 
+    XXX0000USYYYYYYYY, where XXX reflects the three-digit geographic summary level (SUMLEVEL) of the geography, "0000US" is a 
+    string literal which means nothing but is included to mimic Census GEOIDFQs, and YYYYYYYY short-form GEOID for each geography
+    that is unique within the SUMLEVEL and whose length and composition depends on the SUMLEVEL. For cases where a MORPC geography
+    corresponds to a Census geography, the short-form GEOID must match the Census geography, however a MORPC SUMLEVEL may be
+    comprised of geographies from multiple Census SUMLEVELs. Nonetheless, the short-form GEOID must still be unique within
+    the MORPC SUMLEVEL.  There is a one-to-many mapping between a Census GEOID and MORPC GEOIDs, therefore it is necessary to
+    specify the target SUMLEVEL for the desired MORPC GEOIDs.
+
+    See also morpc.census.geos.morpc_geoid_to_census()
+    
+    Parameters
+    ----------
+    geoidSeries : pandas.core.series.Series
+        A Pandas Series object which contains a list of Census GEOIDs. GEOIDs from multiple SUMLEVELs may be 
+        included. The included GEOIDs must translate to a single MORPC SUMLEVEL, as specified by targetSumlevel (see below). 
+        The Census SUMLEVELs which may be included vary depending on the MORPC SUMLEVEL.
+    targetSumlevel : str
+        A three-digit string designating the MORPC SUMLEVEL to use when translating the Census GEOIDs.  The following SUMLEVELs
+        are supported:
+            M10 - Active and prospective MORPC member jurisdictions, including whole cities and villages (Census SUMLEVEL 160),
+                  and non-incorporated townships (Census SUMLEVEL 070).  Non-incorporated townships are assumed to be fully 
+                  contained in a single county. As of March 2026, there are some cases where townships span county boundaries, 
+                  however in each of these cases the out-of-county portion of the township is coterminus with a city or village 
+                  and thus the incorporated place takes precedence. These geographies are defined using Census-maintained (i.e. TIGER) 
+                  boundaries. Also known as "JURIS" geos.
+            M11 - County parts for active and prospective MORPC member jurisdictions, including non-incorporated townships (Census
+                  SUMLEVEL 070) and parts of cities and villages (Census SUMLEVEL 155).  These geographies are defined using Census-
+                  maintained (i.e. TIGER) boundaries. Also known as "JURIS-COUNTY" geos.
+            M23 - These are whole counties (like Census SUMLEVEL 050), however they are defined using MORPC-maintained boundaries
+                  rather than Census boundaries. Also known as "COUNTY-MORPC" geos.
+            M24 - Like M10, these are whole cities, villages, and non-incorporated townships, however these are defined using
+                  MORPC-maintained boundaries rather than Census boundaries.  Also known as "JURIS-MORPC" geos.
+            M25 - Like M11, these are county parts of cities, villages, and non-incorporated townships, however these are defined 
+                  using MORPC-maintained boundaries rather than Census boundaries.  Also known as "JURIS-COUNTY-MORPC" geos.
+    validateTranslation : bool
+        When validateTranslation is True (default), the function will attempt to validate the provided list of GEOIDs using the 
+        lookup table output from the morpc-geos-collect workflow prior to attempting to translate them.  If validateTranslation 
+        is False or if the lookup table is not availble, the function will attempt a naive translation of the GEOID, however the 
+        resulting GEOID may not be valid.  The lookup table is located via gitRootPath (see below).
+    gitRootPath : str
+        The path to a folder containing the Git repository for the morpc-geos-collect workflow. Defaults to the parent 
+        directory ("../").  .
+    verbose : bool
+        Set verbose to True to increase logging output from the function.
+
+    Returns
+    -------
+    translatedSeries : pandas.core.series.Series
+        A Pandas Series object in which each element is the MORPC equivalent of the corresponding Census GEOID in the user-
+        provided geoidSeries in the context of the specified target SUMLEVEL.
+
+    """
+    import pandas as pd
+    import logging
+    import os
+    import morpc
+
+    logger  = logging.getLogger(__name__)    
+
+    supportedSumlevels = ["M10","M11","M23","M24","M25"]
+
+    sumlevelMap = {
+        "M10": [morpc.SUMLEVEL_LOOKUP["COUNTY-TOWNSHIP-REMAINDER"], morpc.SUMLEVEL_LOOKUP["PLACE"]],
+        "M11": [morpc.SUMLEVEL_LOOKUP["COUNTY-TOWNSHIP-REMAINDER"], morpc.SUMLEVEL_LOOKUP["PLACE-COUNTY"]],
+        "M23": [morpc.SUMLEVEL_LOOKUP["COUNTY"]],
+        "M24": [morpc.SUMLEVEL_LOOKUP["COUNTY-TOWNSHIP-REMAINDER"], morpc.SUMLEVEL_LOOKUP["PLACE"]],
+        "M25": [morpc.SUMLEVEL_LOOKUP["COUNTY-TOWNSHIP-REMAINDER"], morpc.SUMLEVEL_LOOKUP["PLACE-COUNTY"]]
+    }
+    
+    # Verify that the user-specified target SUMLEVEL is supported
+    if(not targetSumlevel in supportedSumlevels):
+        logger.error(f"SUMLEVEL {sumlevel} is not supported. Supported sumlevels are {','.join(supportedSumlevels)}")
+        raise RuntimeError
+    
+    # Create a copy of the user-provided series that we can manipulate. Preserve the name of the series so we can name
+    # the returned series accordingly
+    myGeoidSeries = geoidSeries.copy()
+    myGeoidSeries.name = "GEOIDFQ"
+
+    # Convert the series to a dataframe and extract the original sumlevels. Create a field to capture the
+    # translated GEOID
+    df = pd.DataFrame(geoidSeries)
+    df["SUMLEVEL_ORIG"] = df["GEOIDFQ"].apply(lambda x:x[0:3])
+    df["GEOIDFQ_NEW"] = None
+    df["GEOIDFQ_NEW"] = df["GEOIDFQ_NEW"].astype("string")
+    df = df.set_index("GEOIDFQ")
+
+    # Check the Census SUMLEVELs present in the series to make sure they have equivalents in the user-specified target
+    # SUMLEVEL. If the set of SUMLEVELs included in the series is not a subset of the possible Census SUMLEVELS in the
+    # target MORPC SUMLEVEL, then throw an error.
+    if(not (set(df["SUMLEVEL_ORIG"].unique()) <= set(sumlevelMap[targetSumlevel]))):
+        logger.error(f"The user-provided series includes geographies in the following SUMLEVEL(s) which do not have equivalent geographies in the target SUMLEVEL ({targetSumlevel}): {",".join(list(set(df["SUMLEVEL_ORIG"].unique()) - set(sumlevelMap[targetSumlevel])))}")
+        raise RuntimeError
+    
+    # Try to load the geography lookup table output from the morpc-geos-collect workflow from a local copy of the repository
+    # to be found in a subdirectory of gitRootPath. This is the authoritative list of geographies known to MORPC. If a GEOID
+    # is not listed here it may be invalid. If the attempt to load the lookup table fails, flag the translation as naive
+    # and warn the user.
+    naiveTranslation = True
+    if(validateTranslation == True):
+        try:
+            morpcGeosLookupPath = os.path.join(os.path.normpath(gitRootPath), "morpc-geos-collect", "output_data", "morpc-geos-lookup.resource.yaml")
+            logger.info(f"Attempting to load MORPC geography lookup table from path: {morpcGeosLookupPath}")
+            (morpcGeosLookup, morpcGeosLookupResource, morpcGeosLookupSchema) = morpc.frictionless.load_data(morpcGeosLookupPath)
+            morpcGeosLookup = morpcGeosLookup.set_index("GEOIDFQ")
+            # Add a "VALID" flag to the records in the table. When joined to the user-provided GEOIDs, a missing flag will
+            # indicate that the GEOID was not found in the lookup table.
+            morpcGeosLookup["VALID"] = True
+            morpcGeosLookup["VALID"] = morpcGeosLookup["VALID"].astype("bool")
+            naiveTranslation = False
+        except Exception as e:
+            logger.warning(f"Failed to MORPC geography lookup table. GEOID translations will be naive (not validated). {e}")
+    else:
+        logger.warning("Not attempting to validate translations per user instruction. GEOID translations will be naive.")
+
+    # If the user requested to validate the GEOIDs and we were able to load the lookup table, join the VALID
+    # flag from the lookup table for each user-provided GEOID that appears in the lookup table. If some GEOIDs
+    # did not appear in the lookup table, warn the user and continue.
+    if(not naiveTranslation):            
+        df = df.join(morpcGeosLookup["VALID"])
+        missingIndex = df.loc[df["VALID"] != True].index
+        if(not len(missingIndex) == 0):
+            logger.warn("The following GEOIDs were not found in the MORPC geography lookup table and may be invalid.  If so, their translations will also be invalid.")
+            logger.warn(f"Missing GEOIDs: {",".join(list(missingIndex))}")
+        df = df.drop(columns="VALID")
+
+    # Since we've already verified that all of the user-provided geographies have an equivalent in the target SUMLEVEL, we can simply replace
+    # the SUMLEVEL portion of their GEOIDs all at once.
+    df = df.reset_index()
+    df["GEOIDFQ_NEW"] = df["GEOIDFQ"].str.slice_replace(start=0, stop=3, repl=targetSumlevel)
+
+    # Check for null values in the translated GEOIDs. Throw an error if any appear.
+    failedTranslationIndex = df.loc[df["GEOIDFQ_NEW"].isna()].index
+    if(len(failedTranslationIndex) > 0):
+        logger.error(f"Translation failed for the following geographies: {list(failedTranslationIndex)}")
+        raise RuntimeError
+    # Extract the translated GEOIDs as a series and name it to match the series provided by the user
+    translatedSeries = df["GEOIDFQ_NEW"]
+    translatedSeries.name = geoidSeries.name
+    
+    return translatedSeries
+    
+def morpc_geoid_to_census(geoidSeries, validateTranslation=True, gitRootPath="../", verbose=False):
+    """Given a series of fully-qualified MORPC GEOIDs, this function translates each GEOID in the series to its equivalent
+    Census GEOID.  MORPC maintains a set of fully-qualified geographic identifiers (GEOIDFQs) that mimic the fully qualified 
+    GEOIDs used by the Census Bureau. Similar to Census GEOIDFQs, MORPC GEOIDFQs have the form XXX0000USYYYYYYYY, where XXX 
+    reflects the three-digit geographic summary level (SUMLEVEL) of the geography, "0000US" is a string literal which 
+    means nothing but is included to mimic Census GEOIDFQs, and YYYYYYYY short-form GEOID for each geography that is 
+    unique within the SUMLEVEL and whose length and composition depends on the SUMLEVEL. For cases where a MORPC geography
+    corresponds to a Census geography, the short-form GEOID must match the Census geography, however a MORPC SUMLEVEL may be
+    comprised of geographies from multiple Census SUMLEVELs. Nonetheless, the short-form GEOID must still be unique within
+    the MORPC SUMLEVEL.
+
+    See also morpc.census.geos.census_geoid_to_morpc()
+    
+    Parameters
+    ----------
+    geoidSeries : pandas.core.series.Series
+        A Pandas Series object which contains a list of MORPC GEOIDs. GEOIDs from multiple SUMLEVELs may be 
+        included, in which case each SUMLEVEL will be handled separately.  The following SUMLEVELs are supported:
+            M10 - Active and prospective MORPC member jurisdictions, including whole cities, villages, and non-incorporated
+                  townships.  Non-incorporated townships are assumed to be fully contained in a single county. As of March 2026,
+                  there are some cases where townships span county boundaries, however in each of these cases the out-of-county
+                  portion of the township is coterminus with a city or village and thus the incorporated place takes precedence.
+                  These geographies are defined using Census-maintained (i.e. TIGER) boundaries. Also known as "JURIS" geos.
+            M11 - County parts for active and prospective MORPC member jurisdictions, including non-incorporated townships and
+                  parts of cities and villages.  These geographies are defined using Census-maintained (i.e. TIGER) boundaries.
+                  Also known as "JURIS-COUNTY" geos.
+            M23 - These are whole counties (like Census SUMLEVEL 050), however they are defined using MORPC-maintained boundaries
+                  rather than Census boundaries. Also known as "COUNTY-MORPC" geos.
+            M24 - Like M10, these are whole cities, villages, and non-incorporated townships, however these are defined using
+                  MORPC-maintained boundaries rather than Census boundaries.  Also known as "JURIS-MORPC" geos.
+            M25 - Like M11, these are county parts of cities, villages, and non-incorporated townships, however these are defined 
+                  using MORPC-maintained boundaries rather than Census boundaries.  Also known as "JURIS-COUNTY-MORPC" geos.
+    validateTranslation : bool
+        When validateTranslation is True (default), the function will attempt to validate the provided list of GEOIDs using the 
+        lookup table output from the morpc-geos-collect workflow prior to attempting to translate them.  If validateTranslation 
+        is False or if the lookup table is not availble, the function will attempt a naive translation of the GEOID, however the 
+        resulting GEOID may not be valid.  The lookup table is located via gitRootPath (see below).
+    gitRootPath : str
+        The path to a folder containing the Git repository for the morpc-geos-collect workflow. Defaults to the parent 
+        directory ("../").  .
+    verbose : bool
+        Set verbose to True to increase logging output from the function.
+
+    Returns
+    -------
+    translatedSeries : pandas.core.series.Series
+        A Pandas Series object in which each element is the Census equivalent of the corresponding MORPC GEOID in the user-
+        provided geoidSeries.
+
+    """
+    import pandas as pd
+    import logging
+    import morpc
+    import os
+
+    logger  = logging.getLogger(__name__)    
+
+    supportedSumlevels = ["M10","M11","M23","M24","M25"]
+
+    # Create a copy of the user-provided series that we can manipulate. Preserve the name of the series so we can name
+    # the returned series accordingly
+    myGeoidSeries = geoidSeries.copy()
+    myGeoidSeries.name = "GEOIDFQ"
+
+    # Convert the series to a dataframe and extract the original sumlevels. Create a field to capture the
+    # translated GEOID
+    df = pd.DataFrame(geoidSeries)
+    df["SUMLEVEL_ORIG"] = df["GEOIDFQ"].apply(lambda x:x[0:3])
+    df["GEOIDFQ_NEW"] = None
+    df["GEOIDFQ_NEW"] = df["GEOIDFQ_NEW"].astype("string")
+    df = df.set_index("GEOIDFQ")
+
+    # Verify that the SUMLEVELs for the user-provided GEOIDs are all supported
+    for sumlevel in df["SUMLEVEL_ORIG"].unique():
+        if(not sumlevel in supportedSumlevels):
+            logger.error(f"SUMLEVEL {sumlevel} is not supported. Supported sumlevels are {','.join(supportedSumlevels)}")
+            raise RuntimeError
+
+    # Try to load the geography lookup table output from the morpc-geos-collect workflow from a local copy of the repository
+    # to be found in a subdirectory of gitRootPath. This is the authoritative list of geographies known to MORPC. If a GEOID
+    # is not listed here it may be invalid. If the attempt to load the lookup table fails, flag the translation as naive
+    # and warn the user.
+    naiveTranslation = True
+    if(validateTranslation == True):
+        try:
+            morpcGeosLookupPath = os.path.join(os.path.normpath(gitRootPath), "morpc-geos-collect", "output_data", "morpc-geos-lookup.resource.yaml")
+            logger.info(f"Attempting to load MORPC geography lookup table from path: {morpcGeosLookupPath}")
+            (morpcGeosLookup, morpcGeosLookupResource, morpcGeosLookupSchema) = morpc.frictionless.load_data(morpcGeosLookupPath)
+            morpcGeosLookup = morpcGeosLookup.set_index("GEOIDFQ")
+            # Add a "VALID" flag to the records in the table. When joined to the user-provided GEOIDs, a missing flag will
+            # indicate that the GEOID was not found in the lookup table.
+            morpcGeosLookup["VALID"] = True
+            morpcGeosLookup["VALID"] = morpcGeosLookup["VALID"].astype("bool")
+            naiveTranslation = False
+        except Exception as e:
+            logger.warning("Failed to MORPC geography lookup table. GEOID translations will be naive (not validated). {e}")
+    else:
+        logger.warning("Not attempting to validate translations per user instruction. GEOID translations will be naive.")
+
+    # If the user requested to validate the GEOIDs and we were able to load the lookup table, join the VALID
+    # flag from the lookup table for each user-provided GEOID that appears in the lookup table. If some GEOIDs
+    # did not appear in the lookup table, warn the user and continue.
+    if(not naiveTranslation):            
+        df = df.join(morpcGeosLookup["VALID"])
+        missingIndex = df.loc[df["VALID"] != True].index
+        if(not len(missingIndex) == 0):
+            logger.warn("The following GEOIDs were not found in the MORPC geography lookup table and may be invalid.  If so, their translations will also be invalid.")
+            logger.warn(f"Missing GEOIDs: {",".join(list(missingIndex))}")
+        df = df.drop(columns="VALID")
+
+    # We'll handle the collection of geographies in each SUMLEVEL separately. Iterate through the SUMLEVELs
+    for sumlevel in df["SUMLEVEL_ORIG"].unique():
+        if(verbose):
+            logger.info(f"Processing geographies in SUMLEVEL {sumlevel} ({morpc.HIERARCHY_STRING_LOOKUP[sumlevel]})")
+        # Extract only the records in this SUMLEVEL
+        thisSumlevel = df.loc[df["SUMLEVEL_ORIG"] == sumlevel].copy().reset_index()
+        if(sumlevel == "M10" or sumlevel == "M24"):
+            if(verbose):
+                logger.info(f"MORPC SUMLEVEL {sumlevel} is comprised of complete cities, villages, and non-incorporated townships.")
+                logger.info(f"Substituting Census SUMLEVEL {morpc.SUMLEVEL_LOOKUP["COUNTY-TOWNSHIP-REMAINDER"]} for non-incorporated townships.")
+                logger.info(f"Substituting Census SUMLEVEL {morpc.SUMLEVEL_LOOKUP["PLACE"]} for places (cities and villages.)")
+            # Identify townships. Township GEOIDs end in 99999
+            thisSumlevel["TOWNSHIP"] = thisSumlevel["GEOIDFQ"].str.endswith("99999")
+            # Modify the GEOIDs for the township geographies
+            thisSumlevel.loc[thisSumlevel["TOWNSHIP"] == True, "GEOIDFQ_NEW"] = morpc.SUMLEVEL_LOOKUP["COUNTY-TOWNSHIP-REMAINDER"] + thisSumlevel["GEOIDFQ"].str.removeprefix(sumlevel)
+            # Modify the GEOIDs for the place (city, village) geographies
+            thisSumlevel.loc[thisSumlevel["TOWNSHIP"] != True, "GEOIDFQ_NEW"] = morpc.SUMLEVEL_LOOKUP["PLACE"] + thisSumlevel["GEOIDFQ"].str.removeprefix(sumlevel)
+            # Drop the township identifier flag
+            thisSumlevel = thisSumlevel.drop(columns=["TOWNSHIP"])
+            # Update the values for this SUMLEVEL only in the working dataframe
+            df.update(thisSumlevel.set_index("GEOIDFQ"))
+        elif(sumlevel == "M11" or sumlevel == "M25"):
+            if(verbose):
+                logger.info(f"MORPC SUMLEVEL {sumlevel} is comprised of county parts of cities, villages, and non-incorporated townships.")
+                logger.info(f"Substituting Census SUMLEVEL {morpc.SUMLEVEL_LOOKUP["COUNTY-TOWNSHIP-REMAINDER"]} for county parts of non-incorporated townships.")
+                logger.info(f"Substituting Census SUMLEVEL {morpc.SUMLEVEL_LOOKUP["PLACE-COUNTY"]} for county parts of places (cities and villages).")
+            # Identify townships. Township GEOIDs end in 99999
+            thisSumlevel["TOWNSHIP"] = thisSumlevel["GEOIDFQ"].str.endswith("99999")
+            # Modify the GEOIDs for the township geographies
+            thisSumlevel.loc[thisSumlevel["TOWNSHIP"] == True, "GEOIDFQ_NEW"] = morpc.SUMLEVEL_LOOKUP["COUNTY-TOWNSHIP-REMAINDER"] + thisSumlevel["GEOIDFQ"].str.removeprefix(sumlevel)
+            # Modify the GEOIDs for the place (city, village) geographies
+            thisSumlevel.loc[thisSumlevel["TOWNSHIP"] != True, "GEOIDFQ_NEW"] = morpc.SUMLEVEL_LOOKUP["PLACE-COUNTY"] + thisSumlevel["GEOIDFQ"].str.removeprefix(sumlevel)
+            # Drop the township identifier flag
+            thisSumlevel = thisSumlevel.drop(columns=["TOWNSHIP"])
+            # Update the values for this SUMLEVEL only in the working dataframe
+            df.update(thisSumlevel.set_index("GEOIDFQ"))
+        elif(sumlevel == "M23"):
+            if(verbose):
+                logger.info(f"MORPC SUMLEVEL {sumlevel} is comprised of counties.")
+                logger.info(f"Substituting Census SUMLEVEL {morpc.SUMLEVEL_LOOKUP["COUNTY"]} for counties.")
+            # Modify the GEOIDs for all geos in this SUMLEVEL (all counties)
+            thisSumlevel["GEOIDFQ_NEW"] = morpc.SUMLEVEL_LOOKUP["COUNTY"] + thisSumlevel["GEOIDFQ"].str.removeprefix(sumlevel)
+            # Update the values for this SUMLEVEL only in the working dataframe
+            df.update(thisSumlevel.set_index("GEOIDFQ"))
+        else:
+            # Included just for completeness. Unsupported sumlevels should have been caught earlier.
+            logger.error(f"SUMLEVEL {sumlevel} is not supported. Supported sumlevels are {','.join(supportedSumlevels)}")
+            raise RuntimeError
+
+    # Check for null values in the translated GEOIDs. Throw an error if any appear.
+    failedTranslationIndex = df.loc[df["GEOIDFQ_NEW"].isna()].index
+    if(len(failedTranslationIndex) > 0):
+        logger.error(f"Translation failed for the following geographies: {list(failedTranslationIndex)}")
+        raise RuntimeError
+    # Extract the translated GEOIDs as a series and name it to match the series provided by the user
+    df = df.reset_index()
+    translatedSeries = df["GEOIDFQ_NEW"]
+    translatedSeries.name = geoidSeries.name
+    
+    return translatedSeries
