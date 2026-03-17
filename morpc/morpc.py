@@ -3432,7 +3432,7 @@ class generations():
                 
         return agesInYear
         
-def updateExistingTable(newData, schema, existingData=None, sortColumns=None, overwrite=False):
+def update_existing_table(newData, schema, existingData=None, sortColumns=None, overwrite=False):
     """
     This function takes a data table in a well-defined form (as captured in a Frictionless schema) and attempts to update
     an existing table in the same form if it exists or otherwise outputs the new data as-is.  If records with identical primary
