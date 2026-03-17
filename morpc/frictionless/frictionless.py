@@ -86,7 +86,7 @@ def name_to_desc_map(schema):
     return {schema.fields[i].name:schema.fields[i].description for i in range(len(schema.fields))}
 
   
-def cast_field_types(df, schema, forceInteger=False, forceInt64=False, nullBoolValue=False, handleMissingFields="error", handleMissingValues=True, verbose=False):
+def cast_field_types(df, schema, forceInteger=False, forceInt64=False, nullBoolValue=False, handleMissingFields="error", handleMissingValues=True):
     """
     Given a dataframe and the Frictionless Schema object (see load_schema), recast each of the fields in the 
     dataframe to the data type specified in the schema. s
@@ -150,7 +150,7 @@ def cast_field_types(df, schema, forceInteger=False, forceInt64=False, nullBoolV
                 continue
             elif(handleMissingFields == "add"):
                 logger.info("Adding field {} which is not present in dataframe".format(fieldName))
-                add_missing_fields(df, schema, fieldNames=fieldName, verbose=False)
+                add_missing_fields(df, schema, fieldNames=fieldName)
                 continue
             else:
                 logger.error("Field {} is not present in dataframe. To handle missing fields, see argument handleMissingFields.".format(fieldName))
@@ -658,7 +658,7 @@ def validate_resource(resourcePath):
         logger.error(f"Resource is NOT valid. Errors follow. {results}")
         return False
 
-def load_data(resourcePath, archiveDir=None, validate=False, forceInteger=False, forceInt64=False, useSchema="default", sheetName=None, layerName=None, driverName=None, lineEnds: Literal['\n', '\b\n'] = '\b\n', verbose=True):
+def load_data(resourcePath, archiveDir=None, validate=False, forceInteger=False, forceInt64=False, useSchema="default", sheetName=None, layerName=None, driverName=None, lineEnds: Literal['\n', '\b\n'] = '\b\n'):
     """Often we want to make a copy of some input data and work with the copy, for example to protect 
     the original data or to create an archival copy of it so that we can replicate the process later.  
     The `load_data()` function simplifies the process of reading the data and 
@@ -694,10 +694,8 @@ def load_data(resourcePath, archiveDir=None, validate=False, forceInteger=False,
     driverName : str
         The driver to use to load spatial data. Typically the driver can be inferred from the file extension, but must be specified
         in some situations including when the data is zipped. See morpc.load_spatial_data for more details.
-    lineEnds : ['\n', '\b\n']
+    lineEnds : ['unix', 'dos']
         The type of line end separator to use for the data. If does not match, try to convert. Defaults to '\b\n'
-    verbose : bool
-        Optional.  If False, then most output will be suppressed.  Defaults to True.
 
     Returns
     -------
@@ -798,7 +796,7 @@ def load_data(resourcePath, archiveDir=None, validate=False, forceInteger=False,
     elif(dataFileExtension == ".xlsx"):
         data = pd.read_excel(targetData, sheet_name=sheetName)
     elif(dataFileExtension in [".gpkg",".shp",".geojson",".gdb"]):
-        data = morpc.load_spatial_data(targetData, layerName=layerName, driverName=driverName, verbose=verbose)
+        data = morpc.load_spatial_data(targetData, layerName=layerName, driverName=driverName)
     else:
         logger.error("Unknown data file extension: {}".format(dataFileExtension))
         raise RuntimeError
@@ -806,7 +804,7 @@ def load_data(resourcePath, archiveDir=None, validate=False, forceInteger=False,
     if(useSchema == None):
         logger.info("Skipping casting of field types since we are ignoring schema.")
     else:
-        data = cast_field_types(data, schema, forceInteger=forceInteger, forceInt64=forceInt64, verbose=verbose)
+        data = cast_field_types(data, schema, forceInteger=forceInteger, forceInt64=forceInt64)
     
     return data, resource, schema
 
