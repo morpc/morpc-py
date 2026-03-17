@@ -310,19 +310,27 @@ def add_missing_fields(df, schema, fieldNames=None):
 
     return outDF
         
-def convert_lineend(path, target: Literal['\r\n', '\n']):
+def convert_lineend(path, target: Literal['dos', 'unix']):
     import re
+    import os
+
+    if not os.path.exists(path):
+        logger.error(f"{path} does not exist")
+        raise FileExistsError
+
+    logger.info(f"Converting {path} to {target} line ends")
     with open(path, 'rb') as f:
         line = f.readline()
     if line.endswith(b'\r\n'):
-        current = '\r\n'
+        current = 'dos'
     else:
-        current = '\n'
+        current = 'unix'
 
+    logger.debug(f"current line ends {current}")
     if current == target:
         pass
     else:
-        if target == '\n':
+        if target == 'unix':
             try:
                 with open(path, 'rb') as file:
                     content = file.read()
@@ -333,7 +341,7 @@ def convert_lineend(path, target: Literal['\r\n', '\n']):
                 logger.error(f"Error changing line endings: {e}") 
                 raise RuntimeError
 
-        if target == '\r\n':
+        if target == 'dos':
             try:
                 with open(path, 'rb') as file:
                     content = file.read()
@@ -346,7 +354,7 @@ def convert_lineend(path, target: Literal['\r\n', '\n']):
 
 def create_resource(dataPath, title=None, name=None, description=None, sources=None, resourcePath=None, schemaPath=None, resFormat=None, 
                                  resProfile=None, resMediaType=None, computeHash=True, computeBytes=True, ignoreSchema=False, 
-                                 writeResource=False, validate=False, lineEnds: Literal['\r\n', '\n'] = '\r\n'):
+                                 writeResource=False, validate=False, lineEnds: Literal['dos', 'unix'] = 'dos'):
     """Create a Frictionless resource object using sane default values for some attributes.  Optionally, write the 
     resource file to disk and validate the resource file, schema, and data. 
 
@@ -539,8 +547,8 @@ def create_resource(dataPath, title=None, name=None, description=None, sources=N
 
     unlocatedDataWarningIssued = False
 
-    if os.linesep != lineEnds:
-        logger.warning(f'Changing line endings.')
+    if os.linesep == '\n':
+        logger.info(f'Changing line endings.')
         if resourceFilePath == None:
             logger.error(f"Unable to find resource as {resourceFilePath}")
             raise RuntimeError
@@ -632,8 +640,7 @@ def validate_resource(resourcePath):
         logger.info("Validating resource on disk including data and schema (if applicable). This may take some time.")
         resourceOnDisk = frictionless.Resource(os.path.basename(resourcePath))
 
-        if os.linesep != '\r\n':
-            convert_lineend(resourceOnDisk.path, '\r\n')
+        convert_lineend(resourceOnDisk.path, 'dos')
 
         results = resourceOnDisk.validate()
 
@@ -651,7 +658,7 @@ def validate_resource(resourcePath):
         logger.error(f"Resource is NOT valid. Errors follow. {results}")
         return False
 
-def load_data(resourcePath, archiveDir=None, validate=False, forceInteger=False, forceInt64=False, useSchema="default", sheetName=None, layerName=None, driverName=None, verbose=True):
+def load_data(resourcePath, archiveDir=None, validate=False, forceInteger=False, forceInt64=False, useSchema="default", sheetName=None, layerName=None, driverName=None, lineEnds: Literal['\n', '\b\n'] = '\b\n', verbose=True):
     """Often we want to make a copy of some input data and work with the copy, for example to protect 
     the original data or to create an archival copy of it so that we can replicate the process later.  
     The `load_data()` function simplifies the process of reading the data and 
@@ -687,6 +694,8 @@ def load_data(resourcePath, archiveDir=None, validate=False, forceInteger=False,
     driverName : str
         The driver to use to load spatial data. Typically the driver can be inferred from the file extension, but must be specified
         in some situations including when the data is zipped. See morpc.load_spatial_data for more details.
+    lineEnds : ['\n', '\b\n']
+        The type of line end separator to use for the data. If does not match, try to convert. Defaults to '\b\n'
     verbose : bool
         Optional.  If False, then most output will be suppressed.  Defaults to True.
 
