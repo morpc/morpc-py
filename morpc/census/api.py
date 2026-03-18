@@ -340,9 +340,9 @@ def get_params(group, variables=None):
 
     logger.debug(f"Getting parameters to pass to get parameter.")
     if variables != None:
-        get_param = f"GEO_ID,NAME,{",".join(variables)}"
+        get_param = f"{",".join(variables)}"
     else:
-        get_param = f"GEO_ID,NAME,group({group})"
+        get_param = f"group({group})"
     logger.info(f"'get' parameters for query are {get_param}")
     
     return get_param
@@ -563,7 +563,7 @@ class CensusAPI:
         try: 
             self.UNIVERSE = get_group_universe(self.SURVEY, [2023 if self.YEAR < 2023 else self.YEAR][0], self.GROUP)
         except Exception as e:
-            self.UNIVERSE = 'Not Defined by Census'
+            self.UNIVERSE = 'Not Defined in API, see (CensusAPI.REQUEST for API url details)'
             logger.warning(f"Table {survey_table}, {group} does not have a universe defined in census metadata. Please define to avoid downstream errors.")
         self.SCOPE = scope.lower() 
         if scale is not None:
@@ -620,18 +620,17 @@ class CensusAPI:
         logger.info(f"Melting data into long format.")
 
 
-        long = self.DATA.reset_index().melt(id_vars=['GEO_ID', 'NAME'], var_name='variable', value_name='value')
+        long = self.DATA.melt(id_vars=['GEO_ID', 'NAME'], var_name='variable', value_name='value')
         logger.debug(f"\n\n{long.head(5).to_markdown()}")
 
         long = long.loc[~long['value'].isna()]
-        long = long.loc[long['variable'].str.endswith(('E', 'M'))]
         logger.debug(f"Removing unneeded variable types, variables remaining: {[x for x in long['variable'].unique()]}")
 
-        long['variable_type'] = [re.findall(r"_[0-9]+([A-Z]{1,2})", x)[0] for x in long['variable']]
+        long['variable_type'] = [re.findall(r"_[0-9]+([A-Z]{1,2})", x)[0] if "_" in x else "drop" for x in long['variable']]
 
-        logger.debug(f"included variable types: {[x for x in long['variable_type']]}")
+        long = long.loc[long['variable_type']!='drop']
 
-        long = long.loc[~long['variable_type'].str.endswith('A')]
+        logger.debug(f"included variable types: {", ".join(long['variable_type'].unique())}")
 
         long['variable_type'] = [VARIABLE_TYPES[x] for x in long['variable_type']]
 
@@ -691,7 +690,7 @@ class CensusAPI:
                 if column == 'percent_moe':
                     field = {"name":"percent_moe", "type":"number", "description":"Margin of error for the percent estimate"}
                 if column == 'total':
-                    field = {"name":"total", "type":"integer", "description":"Total value for the variable"}
+                    field = {"name":"total", "type":"number", "description":"Total value for the variable"}
                 if column not in ['estimate', 'moe', 'percent_estimate', 'percent_moe', 'total']:
                     self.logger.error(f"Unknown column {column} found in data. Cannot define schema.")
                     raise errors.SchemaError
@@ -815,7 +814,7 @@ class CensusAPI:
 
 class DimensionTable:
     _DimensionTable_logger = logging.getLogger(__name__).getChild(__qualname__)
-    def __init__(self, CensusAPI_LONG, droplevels=None, variable_map=None, variable_order=None):
+    def __init__(self, CensusAPI_LONG, variable_map=None, variable_order=None):
         """
         Class for creating dimension tables from CensusAPI data in long format.
 
@@ -827,6 +826,8 @@ class DimensionTable:
         from datetime import datetime
         self.LONG = CensusAPI_LONG.copy() # Store a copy of the data
 
+        self.variable_type = [x for x in self.LONG.columns if x not in ['concept', 'universe', 'GEO_ID', 'NAME', 'reference_period', 'variable_label', 'variable']]
+
         # If variable map was passed, aggregate rows based on new mapping. 
         if variable_map!=None:
             logger.info(f"Passed a variable map. Adjusting variables ({", ".join([x for x in variable_map.keys()])}) to new variables ({", ".join([x for x in variable_order.keys()])}).")
@@ -836,7 +837,7 @@ class DimensionTable:
                 self.LONG['variable_label'], self.LONG['variable'] = find_replace_variable_map(self.LONG['variable_label'], self.LONG['variable'], map=variable_map)
                 # TODO: Handle MOE for variable mapping
                 # Issue URL: https://github.com/morpc/morpc-py/issues/113
-                self.LONG = self.LONG.groupby(['concept', 'universe', 'GEO_ID', 'NAME', 'reference_period', 'variable_label', 'variable']).agg({'estimate': 'sum'}).reset_index()
+                self.LONG = self.LONG.groupby(['concept', 'universe', 'GEO_ID', 'NAME', 'reference_period', 'variable_label', 'variable']).sum().reset_index()
 
         self.logger = logging.getLogger(__name__).getChild(self.__class__.__name__).getChild(str(datetime.now()))
         self.logger.info(f"Initializing DimensionTable object.")
@@ -852,9 +853,9 @@ class DimensionTable:
         long = self.LONG
         for column in long.columns:
             long[column] = [np.nan if value in MISSING_VALUES else value for value in long[column]]
-        self._columns = [column for column in long if column not in ['variable', 'estimate', 'variable_label', 'moe']]
+        self._columns = [column for column in long if column not in ['variable', 'estimate', 'total', 'variable_label', 'moe']]
 
-        wide = long.pivot(index='variable', columns=[x for x in self._columns], values='estimate')
+        wide = long.pivot(index='variable', columns=[x for x in self._columns], values=self.variable_type)
         columns_levels = wide.columns.names
         wide.columns = wide.columns.to_list()
         wide = wide.join(self.DESC_TABLE)
