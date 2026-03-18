@@ -466,7 +466,7 @@ def morpc_juris_part_to_full(geoidSeries, validateTranslation=True, gitRootPath=
     Returns
     -------
     mappingDataFrame : pandas.core.frame.DataFrame
-        A Pandas DataFrame object which maps each of the input geographies to its parent geography.
+        A Pandas DataFrame object which maps each of the input MORPC GEOIDs to its parent MORPC GEOID.
 
     """
     import pandas as pd
@@ -485,7 +485,7 @@ def morpc_juris_part_to_full(geoidSeries, validateTranslation=True, gitRootPath=
 
     # Convert the series to a dataframe and extract the original sumlevels. Create a field to capture the
     # translated GEOID
-    df = pd.DataFrame(geoidSeries)
+    df = pd.DataFrame(myGeoidSeries)
     df["SUMLEVEL_ORIG"] = df["GEOIDFQ"].apply(lambda x:x[0:3])
     df["GEOIDFQ_PARENT"] = None
     df["GEOIDFQ_PARENT"] = df["GEOIDFQ_PARENT"].astype("string")
@@ -630,10 +630,9 @@ def census_geoid_to_morpc(geoidSeries, targetSumlevel, validateTranslation=True,
 
     Returns
     -------
-    translatedSeries : pandas.core.series.Series
-        A Pandas Series object in which each element is the MORPC equivalent of the corresponding Census GEOID in the user-
-        provided geoidSeries in the context of the specified target SUMLEVEL.
-
+    mappingDataFrame : pandas.core.frame.DataFrame
+        A Pandas DataFrame object which maps each of the input Census GEOIDs to its MORPC equivalent in the context of the 
+        specified target SUMLEVEL.
     """
     import pandas as pd
     import logging
@@ -664,10 +663,10 @@ def census_geoid_to_morpc(geoidSeries, targetSumlevel, validateTranslation=True,
 
     # Convert the series to a dataframe and extract the original sumlevels. Create a field to capture the
     # translated GEOID
-    df = pd.DataFrame(geoidSeries)
+    df = pd.DataFrame(myGeoidSeries)
     df["SUMLEVEL_ORIG"] = df["GEOIDFQ"].apply(lambda x:x[0:3])
-    df["GEOIDFQ_NEW"] = None
-    df["GEOIDFQ_NEW"] = df["GEOIDFQ_NEW"].astype("string")
+    df["GEOIDFQ_MORPC"] = None
+    df["GEOIDFQ_MORPC"] = df["GEOIDFQ_MORPC"].astype("string")
     df = df.set_index("GEOIDFQ")
 
     # Check the Census SUMLEVELs present in the series to make sure they have equivalents in the user-specified target
@@ -712,18 +711,29 @@ def census_geoid_to_morpc(geoidSeries, targetSumlevel, validateTranslation=True,
     # Since we've already verified that all of the user-provided geographies have an equivalent in the target SUMLEVEL, we can simply replace
     # the SUMLEVEL portion of their GEOIDs all at once.
     df = df.reset_index()
-    df["GEOIDFQ_NEW"] = df["GEOIDFQ"].str.slice_replace(start=0, stop=3, repl=targetSumlevel)
+    df["GEOIDFQ_MORPC"] = df["GEOIDFQ"].str.slice_replace(start=0, stop=3, repl=targetSumlevel)
 
     # Check for null values in the translated GEOIDs. Throw an error if any appear.
-    failedTranslationIndex = df.loc[df["GEOIDFQ_NEW"].isna()].index
+    failedTranslationIndex = df.loc[df["GEOIDFQ_MORPC"].isna()].index
     if(len(failedTranslationIndex) > 0):
         logger.error(f"Translation failed for the following geographies: {list(failedTranslationIndex)}")
         raise RuntimeError
-    # Extract the translated GEOIDs as a series and name it to match the series provided by the user
-    translatedSeries = df["GEOIDFQ_NEW"]
-    translatedSeries.name = geoidSeries.name
+        
+    df = df.filter(items=["GEOIDFQ","GEOIDFQ_MORPC"], axis="columns")
+
+    # If the user requested to validate the GEOIDs and we were able to load the lookup table, join the VALID
+    # flag from the lookup table for each parent GEOID that appears in the lookup table. If some GEOIDs
+    # did not appear in the lookup table, warn the user and continue.
+    if(not naiveTranslation):            
+        df = df.merge(morpcGeosLookup["VALID"], left_on="GEOIDFQ_MORPC", right_on="GEOIDFQ", how="left")
+        missingGeoids = df.loc[df["VALID"] != True, "GEOIDFQ_MORPC"]
+        if(not len(missingGeoids) == 0):
+            logger.warn(f"The following GEOIDs were not found in the MORPC geography lookup table and may be invalid: {','.join(list(missingGeoids))}")
+        df = df.drop(columns="VALID")
     
-    return translatedSeries
+    mappingDataFrame = df.copy().rename(columns={"GEOIDFQ":geoidSeries.name})
+    
+    return mappingDataFrame
     
 def morpc_geoid_to_census(geoidSeries, validateTranslation=True, gitRootPath="../", verbose=False):
     """Given a series of fully-qualified MORPC GEOIDs, this function translates each GEOID in the series to its equivalent
@@ -770,9 +780,8 @@ def morpc_geoid_to_census(geoidSeries, validateTranslation=True, gitRootPath="..
 
     Returns
     -------
-    translatedSeries : pandas.core.series.Series
-        A Pandas Series object in which each element is the Census equivalent of the corresponding MORPC GEOID in the user-
-        provided geoidSeries.
+    mappingDataFrame : pandas.core.frame.DataFrame
+        A Pandas DataFrame object which maps each of the input MORPC GEOIDs to its Census equivalent
 
     """
     import pandas as pd
@@ -791,10 +800,10 @@ def morpc_geoid_to_census(geoidSeries, validateTranslation=True, gitRootPath="..
 
     # Convert the series to a dataframe and extract the original sumlevels. Create a field to capture the
     # translated GEOID
-    df = pd.DataFrame(geoidSeries)
+    df = pd.DataFrame(myGeoidSeries)
     df["SUMLEVEL_ORIG"] = df["GEOIDFQ"].apply(lambda x:x[0:3])
-    df["GEOIDFQ_NEW"] = None
-    df["GEOIDFQ_NEW"] = df["GEOIDFQ_NEW"].astype("string")
+    df["GEOIDFQ_CENSUS"] = None
+    df["GEOIDFQ_CENSUS"] = df["GEOIDFQ_CENSUS"].astype("string")
     df = df.set_index("GEOIDFQ")
 
     # Verify that the SUMLEVELs for the user-provided GEOIDs are all supported
@@ -849,9 +858,9 @@ def morpc_geoid_to_census(geoidSeries, validateTranslation=True, gitRootPath="..
             # Identify townships. Township GEOIDs end in 99999
             thisSumlevel["TOWNSHIP"] = thisSumlevel["GEOIDFQ"].str.endswith("99999")
             # Modify the GEOIDs for the township geographies
-            thisSumlevel.loc[thisSumlevel["TOWNSHIP"] == True, "GEOIDFQ_NEW"] = morpc.SUMLEVEL_LOOKUP["COUNTY-TOWNSHIP-REMAINDER"] + thisSumlevel["GEOIDFQ"].str.removeprefix(sumlevel)
+            thisSumlevel.loc[thisSumlevel["TOWNSHIP"] == True, "GEOIDFQ_CENSUS"] = morpc.SUMLEVEL_LOOKUP["COUNTY-TOWNSHIP-REMAINDER"] + thisSumlevel["GEOIDFQ"].str.removeprefix(sumlevel)
             # Modify the GEOIDs for the place (city, village) geographies
-            thisSumlevel.loc[thisSumlevel["TOWNSHIP"] != True, "GEOIDFQ_NEW"] = morpc.SUMLEVEL_LOOKUP["PLACE"] + thisSumlevel["GEOIDFQ"].str.removeprefix(sumlevel)
+            thisSumlevel.loc[thisSumlevel["TOWNSHIP"] != True, "GEOIDFQ_CENSUS"] = morpc.SUMLEVEL_LOOKUP["PLACE"] + thisSumlevel["GEOIDFQ"].str.removeprefix(sumlevel)
             # Drop the township identifier flag
             thisSumlevel = thisSumlevel.drop(columns=["TOWNSHIP"])
             # Update the values for this SUMLEVEL only in the working dataframe
@@ -864,9 +873,9 @@ def morpc_geoid_to_census(geoidSeries, validateTranslation=True, gitRootPath="..
             # Identify townships. Township GEOIDs end in 99999
             thisSumlevel["TOWNSHIP"] = thisSumlevel["GEOIDFQ"].str.endswith("99999")
             # Modify the GEOIDs for the township geographies
-            thisSumlevel.loc[thisSumlevel["TOWNSHIP"] == True, "GEOIDFQ_NEW"] = morpc.SUMLEVEL_LOOKUP["COUNTY-TOWNSHIP-REMAINDER"] + thisSumlevel["GEOIDFQ"].str.removeprefix(sumlevel)
+            thisSumlevel.loc[thisSumlevel["TOWNSHIP"] == True, "GEOIDFQ_CENSUS"] = morpc.SUMLEVEL_LOOKUP["COUNTY-TOWNSHIP-REMAINDER"] + thisSumlevel["GEOIDFQ"].str.removeprefix(sumlevel)
             # Modify the GEOIDs for the place (city, village) geographies
-            thisSumlevel.loc[thisSumlevel["TOWNSHIP"] != True, "GEOIDFQ_NEW"] = morpc.SUMLEVEL_LOOKUP["PLACE-COUNTY"] + thisSumlevel["GEOIDFQ"].str.removeprefix(sumlevel)
+            thisSumlevel.loc[thisSumlevel["TOWNSHIP"] != True, "GEOIDFQ_CENSUS"] = morpc.SUMLEVEL_LOOKUP["PLACE-COUNTY"] + thisSumlevel["GEOIDFQ"].str.removeprefix(sumlevel)
             # Drop the township identifier flag
             thisSumlevel = thisSumlevel.drop(columns=["TOWNSHIP"])
             # Update the values for this SUMLEVEL only in the working dataframe
@@ -876,7 +885,7 @@ def morpc_geoid_to_census(geoidSeries, validateTranslation=True, gitRootPath="..
                 logger.info(f"MORPC SUMLEVEL {sumlevel} is comprised of counties.")
                 logger.info(f"Substituting Census SUMLEVEL {morpc.SUMLEVEL_LOOKUP["COUNTY"]} for counties.")
             # Modify the GEOIDs for all geos in this SUMLEVEL (all counties)
-            thisSumlevel["GEOIDFQ_NEW"] = morpc.SUMLEVEL_LOOKUP["COUNTY"] + thisSumlevel["GEOIDFQ"].str.removeprefix(sumlevel)
+            thisSumlevel["GEOIDFQ_CENSUS"] = morpc.SUMLEVEL_LOOKUP["COUNTY"] + thisSumlevel["GEOIDFQ"].str.removeprefix(sumlevel)
             # Update the values for this SUMLEVEL only in the working dataframe
             df.update(thisSumlevel.set_index("GEOIDFQ"))
         else:
@@ -885,13 +894,23 @@ def morpc_geoid_to_census(geoidSeries, validateTranslation=True, gitRootPath="..
             raise RuntimeError
 
     # Check for null values in the translated GEOIDs. Throw an error if any appear.
-    failedTranslationIndex = df.loc[df["GEOIDFQ_NEW"].isna()].index
+    failedTranslationIndex = df.loc[df["GEOIDFQ_CENSUS"].isna()].index
     if(len(failedTranslationIndex) > 0):
         logger.error(f"Translation failed for the following geographies: {list(failedTranslationIndex)}")
         raise RuntimeError
-    # Extract the translated GEOIDs as a series and name it to match the series provided by the user
-    df = df.reset_index()
-    translatedSeries = df["GEOIDFQ_NEW"]
-    translatedSeries.name = geoidSeries.name
+
+    df = df.filter(items=["GEOIDFQ","GEOIDFQ_CENSUS"], axis="columns")
+
+    # If the user requested to validate the GEOIDs and we were able to load the lookup table, join the VALID
+    # flag from the lookup table for each parent GEOID that appears in the lookup table. If some GEOIDs
+    # did not appear in the lookup table, warn the user and continue.
+    if(not naiveTranslation):            
+        df = df.merge(morpcGeosLookup["VALID"], left_on="GEOIDFQ_CENSUS", right_on="GEOIDFQ", how="left")
+        missingGeoids = df.loc[df["VALID"] != True, "GEOIDFQ_CENSUS"]
+        if(not len(missingGeoids) == 0):
+            logger.warn(f"The following GEOIDs were not found in the MORPC geography lookup table and may be invalid: {','.join(list(missingGeoids))}")
+        df = df.drop(columns="VALID")
     
-    return translatedSeries
+    mappingDataFrame = df.copy().rename(columns={"GEOIDFQ":geoidSeries.name})
+    
+    return mappingDataFrame
