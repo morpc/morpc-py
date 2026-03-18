@@ -1,4 +1,4 @@
-__version__ = "0.4.2"
+__version__ = "0.4.3"
 
 import logging
 logger = logging.getLogger(__name__)
@@ -9,6 +9,6 @@ from .geocode import *
 import morpc.frictionless
 import morpc.census
 import morpc.plot
-import morpc.color
+import morpc.color.colors as colors
 import morpc.color.palette as palette
 import morpc.rest_api

@@ -1,163 +1,11 @@
-from yaml import safe_load
-import morpc
-from importlib.resources import files
-
-import json
-
-try:
-    with files('morpc').joinpath('color', 'morpc_colors_2026.yaml').open('r') as file: 
-        morpc_colors_2026 = safe_load(file)
-except ValueError as e:
-    print(e)
-
-try:
-    with files('morpc').joinpath('color', 'morpc_colors.json').open('r') as file: 
-        morpc_colors = json.load(file)
-except ValueError as e:
-    print(e)
-
-class get_colors():
-
-    def __init__(self, morpc_colors=morpc_colors):
-        import os
-        ## Use importlib.resources to access non-package files.
-        ## See https://docs.python.org/3/library/importlib.resources.html#importlib-resources-functional
-        self.morpc_colors = morpc_colors
-
-        self.KEYS = {}
-        for __COLOR in self.morpc_colors:
-            __key = self.morpc_colors[__COLOR]['key']['position'] - 1
-            self.KEYS[__COLOR] = self.morpc_colors[__COLOR]['gradient']['hex'][__key]
-
-    def SEQ(self, color, reverse=False):
-        self.hex_list = self.morpc_colors[color]['gradient']['hex']
-        self.hex_list_r = self.hex_list[::-1]
-
-        if reverse:
-            return self.hex_list_r
-        else:
-            return self.hex_list
-
-    def SEQ2(self, colors, reverse=False):
-        if len(colors) != 2:
-            raise ValueError('Pass two color names')
-
-        left = self.morpc_colors[colors[0]]['gradient']['hex'][0:2]
-        start = self.morpc_colors[colors[0]]['gradient']['hex'][2]
-        stop = self.morpc_colors[colors[1]]['gradient']['hex'][-4]
-        right = self.morpc_colors[colors[1]]['gradient']['hex'][-3:]
-
-        _cmap = get_continuous_cmap([start, stop], N=6)
-        self.hex_list = left + rgb_list_to_hex_list([_cmap(i) for i in range(_cmap.N)]) + right
-        self.hex_list_r = self.hex_list[::-1]
-
-        if reverse:
-            return self.hex_list_r
-        else:
-            return self.hex_list
-
-    def SEQ3(self, colors, reverse=False):
-        if len(colors) != 3:
-            raise ValueError('Pass three color names')
-
-        first = self.morpc_colors[colors[0]]['gradient']['hex'][0:2]
-        start1 = self.morpc_colors[colors[0]]['gradient']['hex'][2]
-        stop1 = self.morpc_colors[colors[1]]['gradient']['hex'][6]
-        middle = self.morpc_colors[colors[1]]['gradient']['hex'][6]
-        start2 = self.morpc_colors[colors[1]]['gradient']['hex'][6]
-        stop2 = self.morpc_colors[colors[2]]['gradient']['hex'][8]
-        last = self.morpc_colors[colors[2]]['gradient']['hex'][9:10]
-
-        _cmap1 = get_continuous_cmap([start1, stop1], N=4)
-        _cmap1 = rgb_list_to_hex_list([_cmap1(i) for i in range(_cmap1.N)])
-        _cmap2 = get_continuous_cmap([start2, stop2], N=5)
-        _cmap2 = rgb_list_to_hex_list([_cmap2(i) for i in range(_cmap2.N)])
-        self.hex_list = first + _cmap1[0:-1] + [middle] + _cmap2[1:5] + last
-        self.hex_list_r = self.hex_list[::-1]
-
-        if reverse:
-            return self.hex_list_r
-        else:
-            return self.hex_list
-
-    def DIV(self, colors, reverse=False):
-        if len(colors) != 3:
-            raise ValueError('Pass three color names')
-
-        first = self.morpc_colors[colors[0]]['gradient']['hex'][5:8]
-        start1 = self.morpc_colors[colors[0]]['gradient']['hex'][4]
-        stop1 = self.morpc_colors[colors[1]]['gradient']['hex'][1]
-        middle = self.morpc_colors[colors[1]]['gradient']['hex'][1]
-        start2 = self.morpc_colors[colors[1]]['gradient']['hex'][1]
-        stop2 = self.morpc_colors[colors[2]]['gradient']['hex'][4]
-        last = self.morpc_colors[colors[2]]['gradient']['hex'][6:8]
-
-        _cmap1 = get_continuous_cmap([start1, stop1], N=3)
-        _cmap1 = rgb_list_to_hex_list([_cmap1(i) for i in range(_cmap1.N)])
-        _cmap2 = get_continuous_cmap([start2, stop2], N=4)
-        _cmap2 = rgb_list_to_hex_list([_cmap2(i) for i in range(_cmap2.N)])
-        self.hex_list = first[::-1] + _cmap1[0:2] + [middle] + _cmap2[1:4] + last
-        self.hex_list_r = self.hex_list[::-1]
-        self.hex_list_r = self.hex_list[::-1]
-
-        if reverse:
-            return self.hex_list_r
-        else:
-            return self.hex_list
-
-    def QUAL(self, n):
-        self.hex_list = []
-        if n <= 10:
-            for color in self.morpc_colors:
-                if not 'grey' in color:
-                    __key = self.morpc_colors[color]['key']['position']-1
-                    self.hex_list.append(self.morpc_colors[color]['gradient']['hex'][__key])
-        if 10 < n <= 20:
-            for color in self.morpc_colors:
-                if not 'grey' in color:
-                    key_pos = self.morpc_colors[color]['key']['position']-1
-                    positions = [key_pos - 2, key_pos]
-                    for pos in positions:
-                        self.hex_list.append(self.morpc_colors[color]['gradient']['hex'][pos])
-        if 20 < n <= 30:
-            for color in self.morpc_colors:
-                if not 'grey' in color:
-                    key_pos = self.morpc_colors[color]['key']['position']-1
-                    positions = [key_pos - 2, key_pos, key_pos + 2]
-                    for pos in positions:
-                        self.hex_list.append(self.morpc_colors[color]['gradient']['hex'][pos])
-
-        self.hex_list = self.hex_list[0:n]
-        
-        return self.hex_list
-
-def select_color_array(_list, key, n):
-    import numpy as np
-    if key not in list(range(0, len(_list))):
-        raise ValueError("key not in list.")
-    if n > len(_list):
-        raise ValueError("Too many values requested.")
-
-    result = [key]
-    left = key - 1
-    right = key + 1
-
-    while len(result) < n:
-        if left >= 0:
-            result.append(left)
-            left -= 1
-            if len(result) == n:
-                break
-        if right < len(_list):
-            result.append(right)
-            right += 1
-    result.sort()
-    
-    return [_list[i] for i in result]
-
 
 
 # Everything below is used for constructing the palette 
+from logging import getLogger
+
+logger = getLogger(__name__)
+
+
 def hex_to_hls(hex_color):
     """
     Convert a HEX color to HLS (Hue, Lightness, Saturation).
@@ -295,6 +143,7 @@ def plot_from_rgb_list(rgb_colors, labels = ['hls', 'grey', 'hex'], position=Non
 def rgb_list_to_hex_list(rgb_colors):
     hex_colors = []
     for i, rgb in enumerate(rgb_colors):
+        rgb = rgb[0:3]
         hex_color = rgb_to_hex(rgb)
         hex_colors.append(hex_color)
     return hex_colors
@@ -362,9 +211,27 @@ def rgb_scale_from_hue(hue, sats, greys=None):
         scale.append(rgb)
     return scale
 
-def overlay_color(rgb_hex_colors, light="white", dark="black", threshold=4, reverse=False):
+def overlay_color(rgb_hex_colors, light="white", dark="black", level='AA', reverse=False):
     """
-    Decide which color is suitable to write onto the given colors
+    Check if a list of color is light or dark and return appropriate text colors. It is largely implemented in ploting to get text colors for data labels. See morpc.plot.excel and morpc.census.api.DimensionTable.plot_bar
+
+    Parameters
+    ----------
+    rgb_hex_colors : list
+        A list of color string, to be handles by Colour.Color
+    light : str, optional
+        The color for the font if the bkground is dark, by default "white"
+    dark : str, optional
+        The color of the text if the bkground is light, by default "black"
+    level : {'AA', 'AAA', 'AA18'}, optional
+        The accesibility level to use for the contrart ratio. See color_contrast.AccesibilityLevel, by default 'AA'
+    reverse : bool, optional
+        Whether to reverse to colors, by default False
+
+    Returns
+    -------
+    list
+        The colors to assign to text in order of the backgrounds. 
     """
 
     if reverse:
@@ -372,9 +239,10 @@ def overlay_color(rgb_hex_colors, light="white", dark="black", threshold=4, reve
         dark2 = light
         light = light2
         dark = dark2
-    return [light if float(check_contrast(x,'#FFFFFF')['ratio']) > threshold else dark for x in rgb_hex_colors]
 
-def check_contrast(bkgcolor, textcolor = "#FFFFFF"):
+    return [light if check_contrast(x, access_level =  level) else dark for x in rgb_hex_colors]
+
+def check_contrast(bkgcolor, textcolor = "#FFFFFF", access_level='AA'):
     """
     Test if a color text has approved contrast ratios on a background color
 
@@ -388,15 +256,29 @@ def check_contrast(bkgcolor, textcolor = "#FFFFFF"):
     """
     import requests
     import json
-    fcolor = textcolor.lstrip("#")
-    bcolor = bkgcolor.lstrip("#")
+    from color_contrast import check_contrast, AccessibilityLevel
 
-    url = f"https://webaim.org/resources/contrastchecker/?fcolor={fcolor}&bcolor={bcolor}&api"
+    if access_level == 'AA':
+        level = AccessibilityLevel.AA
+    elif access_level == 'AAA':
+        level = AccessibilityLevel.AAA
+    elif access_level == 'AA18':
+        level = AccessibilityLevel.AA18
+    else:
+        logger.error(f"{access_level} is not a valid or implemented accessibility level. Use AAA, AAA, or AA18")
+        raise ValueError
 
-    r = requests.get(url)
-    dict = r.json()
+    ## depreciated from querying webaim for contrast for local package. See https://github.com/ZugBahnHof/color-contrast. 
+    # fcolor = textcolor.lstrip("#")
+    # bcolor = bkgcolor.lstrip("#")
 
-    return dict
+    # url = f"https://webaim.org/resources/contrastchecker/?fcolor={fcolor}&bcolor={bcolor}&api"
+
+    # r = requests.get(url)
+    # dict = r.json()
+    return check_contrast(textcolor, bkgcolor, level=level)
+
+
 
 def get_continuous_cmap(hex_list, float_list=None, N=256):
     ''' creates and returns a color map that can be used in heat map figures.

@@ -4,6 +4,8 @@ Reference: https://specs.frictionlessdata.io/table-schema/
 """
 
 import logging
+from math import e
+from typing import Literal
 
 from sqlalchemy import False_
 
@@ -84,7 +86,7 @@ def name_to_desc_map(schema):
     return {schema.fields[i].name:schema.fields[i].description for i in range(len(schema.fields))}
 
   
-def cast_field_types(df, schema, forceInteger=False, forceInt64=False, nullBoolValue=False, handleMissingFields="error", handleMissingValues=True, verbose=False):
+def cast_field_types(df, schema, forceInteger=False, forceInt64=False, nullBoolValue=False, handleMissingFields="error", handleMissingValues=True):
     """
     Given a dataframe and the Frictionless Schema object (see load_schema), recast each of the fields in the 
     dataframe to the data type specified in the schema. s
@@ -148,7 +150,7 @@ def cast_field_types(df, schema, forceInteger=False, forceInt64=False, nullBoolV
                 continue
             elif(handleMissingFields == "add"):
                 logger.info("Adding field {} which is not present in dataframe".format(fieldName))
-                add_missing_fields(df, schema, fieldNames=fieldName, verbose=False)
+                add_missing_fields(df, schema, fieldNames=fieldName)
                 continue
             else:
                 logger.error("Field {} is not present in dataframe. To handle missing fields, see argument handleMissingFields.".format(fieldName))
@@ -308,11 +310,51 @@ def add_missing_fields(df, schema, fieldNames=None):
 
     return outDF
         
+def convert_lineend(path, target: Literal['dos', 'unix']):
+    import re
+    import os
 
+    if not os.path.exists(path):
+        logger.error(f"{path} does not exist")
+        raise FileExistsError
+
+    logger.info(f"Converting {path} to {target} line ends")
+    with open(path, 'rb') as f:
+        line = f.readline()
+    if line.endswith(b'\r\n'):
+        current = 'dos'
+    else:
+        current = 'unix'
+
+    logger.debug(f"current line ends {current}")
+    if current == target:
+        pass
+    else:
+        if target == 'unix':
+            try:
+                with open(path, 'rb') as file:
+                    content = file.read()
+                content = content.replace(b'\r\n', b'\n')  
+                with open(path, 'wb') as file:
+                    file.write(content)      
+            except Exception as e:
+                logger.error(f"Error changing line endings: {e}") 
+                raise RuntimeError
+
+        if target == 'dos':
+            try:
+                with open(path, 'rb') as file:
+                    content = file.read()
+                content = re.sub(b'(?<!\r)\n', b'\r\n', content)  
+                with open(path, 'wb') as file:
+                    file.write(content)    
+            except Exception as e:
+                logger.error(f"Error changing line endings: {e}") 
+                raise RuntimeError
 
 def create_resource(dataPath, title=None, name=None, description=None, sources=None, resourcePath=None, schemaPath=None, resFormat=None, 
                                  resProfile=None, resMediaType=None, computeHash=True, computeBytes=True, ignoreSchema=False, 
-                                 writeResource=False, validate=False):
+                                 writeResource=False, validate=False, lineEnds: Literal['dos', 'unix'] = 'dos'):
     """Create a Frictionless resource object using sane default values for some attributes.  Optionally, write the 
     resource file to disk and validate the resource file, schema, and data. 
 
@@ -368,6 +410,8 @@ def create_resource(dataPath, title=None, name=None, description=None, sources=N
     validate : bool
         Optional. If True, the resource file, schema file, and data file will be validated. Note that writeResource must be True to
         use this option.
+    lineEnds : ['\r\n', '\n']
+        Convert all line endings in text files to DOS or UNIX stile endings. Defaults to '\r\n', DOS endings.
 
     Returns
     -------
@@ -502,6 +546,15 @@ def create_resource(dataPath, title=None, name=None, description=None, sources=N
         resource.schema = schemaFilePath
 
     unlocatedDataWarningIssued = False
+
+    if os.linesep == '\n':
+        logger.info(f'Changing line endings.')
+        if resourceFilePath == None:
+            logger.error(f"Unable to find resource as {resourceFilePath}")
+            raise RuntimeError
+        else:
+            convert_lineend(os.path.join(os.path.dirname(resourceFilePath), dataFilePath), lineEnds)
+
     if(computeHash):
         if(resourceFilePath != None):
             resource.hash = morpc.md5(os.path.join(os.path.dirname(resourceFilePath), dataFilePath))
@@ -558,6 +611,7 @@ def write_resource(resource, resourcePath):
         A Frictionless TableResource object which describes the data
     resourcePath : str
         The path to the Frictionless Resource file that describes the data.
+
     """
 
     import os
@@ -578,11 +632,16 @@ def validate_resource(resourcePath):
     import frictionless
     cwd = os.getcwd()
 
+
+
     try:
         os.chdir(os.path.dirname(os.path.abspath(resourcePath)))
       
         logger.info("Validating resource on disk including data and schema (if applicable). This may take some time.")
         resourceOnDisk = frictionless.Resource(os.path.basename(resourcePath))
+
+        convert_lineend(resourceOnDisk.path, 'dos')
+
         results = resourceOnDisk.validate()
 
     except Exception as e:
@@ -599,7 +658,7 @@ def validate_resource(resourcePath):
         logger.error(f"Resource is NOT valid. Errors follow. {results}")
         return False
 
-def load_data(resourcePath, archiveDir=None, validate=False, forceInteger=False, forceInt64=False, useSchema="default", sheetName=None, layerName=None, driverName=None, verbose=True):
+def load_data(resourcePath, archiveDir=None, validate=False, forceInteger=False, forceInt64=False, useSchema="default", sheetName=None, layerName=None, driverName=None, lineEnds: Literal['\n', '\b\n'] = '\b\n'):
     """Often we want to make a copy of some input data and work with the copy, for example to protect 
     the original data or to create an archival copy of it so that we can replicate the process later.  
     The `load_data()` function simplifies the process of reading the data and 
@@ -635,8 +694,8 @@ def load_data(resourcePath, archiveDir=None, validate=False, forceInteger=False,
     driverName : str
         The driver to use to load spatial data. Typically the driver can be inferred from the file extension, but must be specified
         in some situations including when the data is zipped. See morpc.load_spatial_data for more details.
-    verbose : bool
-        Optional.  If False, then most output will be suppressed.  Defaults to True.
+    lineEnds : ['unix', 'dos']
+        The type of line end separator to use for the data. If does not match, try to convert. Defaults to '\b\n'
 
     Returns
     -------
@@ -737,7 +796,7 @@ def load_data(resourcePath, archiveDir=None, validate=False, forceInteger=False,
     elif(dataFileExtension == ".xlsx"):
         data = pd.read_excel(targetData, sheet_name=sheetName)
     elif(dataFileExtension in [".gpkg",".shp",".geojson",".gdb"]):
-        data = morpc.load_spatial_data(targetData, layerName=layerName, driverName=driverName, verbose=verbose)
+        data = morpc.load_spatial_data(targetData, layerName=layerName, driverName=driverName)
     else:
         logger.error("Unknown data file extension: {}".format(dataFileExtension))
         raise RuntimeError
@@ -745,7 +804,7 @@ def load_data(resourcePath, archiveDir=None, validate=False, forceInteger=False,
     if(useSchema == None):
         logger.info("Skipping casting of field types since we are ignoring schema.")
     else:
-        data = cast_field_types(data, schema, forceInteger=forceInteger, forceInt64=forceInt64, verbose=verbose)
+        data = cast_field_types(data, schema, forceInteger=forceInteger, forceInt64=forceInt64)
     
     return data, resource, schema
 
