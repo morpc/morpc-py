@@ -247,47 +247,76 @@ def get_query_req(scale, year='2023'):
     logger.info(f"{scale} requires {query_requirements}")
     return query_requirements
 
-def geo_params_from_scope_scale(scope, scale=None):
+def geo_params_from_scope_scale(scope: str, scale: str | None = None) -> dict:
+    """
+    Creates a dictionary with 'for' and 'in' or 'ucgid' parameters that conforms to Census API query requirements.
 
+    Parameters
+    ----------
+    scope : str
+        see morpc.census.geos.SCOPES
+    scale : str, optional
+        see morpc.SUMLEVEL_DESCRIPTION['censusQueryName'], by default None
+
+    Returns
+    -------
+    dict
+        example - {"for": "county:*", "in":"state:39"} or {'ucgid':'psuedo(...)'}
+
+    Raises
+    ------
+    ValueError
+        When the defined scale and scope are invalid combinations. 
+    """
     logger.debug(f"Building parameters to pass for geographies Scope: {scope} and Scale: {scale}")
     params = {}
+    scope_sumlevel = list(set([x[0:3] for x in geoids_from_scope(scope)]))[0]
+
     if scale == None:
         logger.info(f"No scale specified. Using {scope} parameters. {SCOPES[scope]}")
         params.update(SCOPES[scope])
+
     else:
         logger.info(f"Scale {scale} specified for scope {scope}.")
-        if "in" in SCOPES[scope]:
-            logger.info(f"Scope {scope} already has 'in' parameter. Converting to ucgid=pseudo() type predicate.")
-            pseudos = pseudos_from_scale_scope(scale, scope)
-            params.update({'ucgid': f"pseudo({','.join(pseudos)})"})
+        scale_sumlevel = morpc.SUMLEVEL_FROM_CENSUSQUERY[scale]
+
+        if scope_sumlevel == scale_sumlevel:
+            logger.warning(f"Scope and Scale have same sumlevel, using Scope {scope}.")
+            params.update(SCOPES[scope])
+
         else:
-            logger.info(f"Scope {scope} has no 'in' parameter. Applying scale.")
-            params.update({"in": SCOPES[scope]['for']})
-            params.update({"for": f"{scale}:*"})
-
-            logger.info(f"Checking for valid 'for' and 'in' parameters: {params}")
-            query_req = get_query_req(scale)
-
-            if isinstance(params['in'], str):
-                in_list = params['in'].split(':')[0]
-            elif isinstance(params['in'], list):
-                in_list = [x.split(':')[0] for x in params['in']]
+            if "in" in SCOPES[scope]:
+                    logger.info(f"Scope {scope} already has 'in' parameter. Converting to ucgid=pseudo() type predicate.")
+                    pseudos = pseudos_from_scale_scope(scale, scope)
+                    params.update({'ucgid': f"pseudo({','.join(pseudos)})"})
             else:
-                logger.error(f"unable to parse 'in' parameter from {params}")
-                raise ValueError
+                logger.info(f"Scope {scope} has no 'in' parameter. Applying scale.")
+                params.update({"in": SCOPES[scope]['for']})
+                params.update({"for": f"{scale}:*"})
 
-            logger.info(f"'in' params: {in_list}")
+                logger.info(f"Checking for valid 'for' and 'in' parameters: {params}")
+                query_req = get_query_req(scale)
 
-            for req in query_req['requires']:
-                if req not in in_list:
-                    if req not in query_req['wildcard']:
-                        logger.error(f"{scale} requires designating a scope with {req} variable.")
-                    else:
-                        logger.info(f"Adding wildcard to fulfill hierarchical geographic requirement {req}")
-                        if not isinstance(params, list):
-                            params['in'] = [params['in'], f"{req}:*"]
+                if isinstance(params['in'], str):
+                    in_list = params['in'].split(':')[0]
+                elif isinstance(params['in'], list):
+                    in_list = [x.split(':')[0] for x in params['in']]
+                else:
+                    logger.error(f"unable to parse 'in' parameter from {params}")
+                    raise ValueError
+
+                logger.info(f"'in' params: {in_list}")
+
+                for req in query_req['requires']:
+                    if req not in in_list:
+                        if req not in query_req['wildcard']:
+                            logger.error(f"{scale} requires designating a scope with {req} variable.")
                         else:
-                            params['in'].append(f"{req}:*")
+                            logger.info(f"Adding wildcard to fulfill hierarchical geographic requirement {req}")
+                            if not isinstance(params, list):
+                                params['in'] = [params['in'], f"{req}:*"]
+                            else:
+                                params['in'].append(f"{req}:*")
         
     logger.debug(f"params from scope and scale: {params}")
     return params
@@ -323,7 +352,7 @@ def pseudos_from_scale_scope(scale, scope):
 
     return pseudos
 
-def geoids_from_params(param_dict, year = 2023):
+def geoids_from_params(param_dict: dict, year = 2023) -> list:
     """
     returns a list of GEOIDFQs from psuedo ucgids, or for and in parameters. 
 
