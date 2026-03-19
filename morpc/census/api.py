@@ -188,6 +188,36 @@ INCOME_TO_POVERTY_SORT_ORDER = {
     '4.00 and over': 6
 }
 
+NTD_AGEMAP = {'Under 5 years': '18 years and under',
+ '5 to 9 years': '18 years and under',
+ '10 to 14 years': '18 years and under',
+ '15 to 17 years': '18 years and under',
+ '18 and 19 years': '18 years and under', ## APPORTION HALF HERE AND HALF IN 19 YEARS
+ '20 years': '19 to 64 years',
+ '21 years': '19 to 64 years',
+ '22 to 24 years': '19 to 64 years',
+ '25 to 29 years': '19 to 64 years',
+ '30 to 34 years': '19 to 64 years',
+ '35 to 39 years': '19 to 64 years',
+ '40 to 44 years': '19 to 64 years',
+ '45 to 49 years': '19 to 64 years',
+ '50 to 54 years': '19 to 64 years',
+ '55 to 59 years': '19 to 64 years',
+ '60 and 61 years': '19 to 64 years',
+ '62 to 64 years': '19 to 64 years',
+ '65 and 66 years': '65 years and over',
+ '67 to 69 years': '65 years and over',
+ '70 to 74 years': '65 years and over',
+ '75 to 79 years': '65 years and over',
+ '80 to 84 years': '65 years and over',
+ '85 years and over': '65 years and over'}
+
+NTD_AGEMAP_ORDER = {
+    'Total': 0,
+    '18 years and under': 1,
+    '20 to 64 years': 2, 
+    '65 years and over': 3}
+
 
 def find_replace_variable_map(labels, variables, map):
     labels = list(labels)
@@ -596,6 +626,10 @@ class CensusAPI:
             self.DATA = get(self.REQUEST['url'], self.REQUEST['params'])
             logger.debug(f"Request converted to DataFrame:")
             logger.debug(f"\n\n{self.DATA.head(5).to_markdown()}")
+            if self.DATA.loc[self.DATA.duplicated()].shape[0] != 0:
+                logger.warning(f"Detected duplicate data. This can be due to using ucgid=psued() for geos. Removing {self.DATA.loc[self.DATA.duplicated()].shape[0]} duplicates.")
+                self.DATA = self.DATA.loc[~self.DATA.duplicated()]
+
 
         except Exception as e:
             self.logger.error(f"Error retrieving data: {e}")
@@ -630,6 +664,8 @@ class CensusAPI:
 
         long = long.loc[long['variable_type']!='drop']
 
+        long = long.loc[long['variable_type'].isin([x for x in VARIABLE_TYPES.keys()])]
+
         logger.debug(f"included variable types: {", ".join(long['variable_type'].unique())}")
 
         long['variable_type'] = [VARIABLE_TYPES[x] for x in long['variable_type']]
@@ -644,7 +680,12 @@ class CensusAPI:
 
         long['concept'] = self.CONCEPT.capitalize()
 
-        long = long.pivot(index=['GEO_ID', 'NAME', 'reference_period', 'concept', 'universe', 'variable_label', 'variable'], columns='variable_type', values='value').reset_index().rename_axis(None, axis=1)
+        try:
+            long = long.pivot(index=['GEO_ID', 'NAME', 'reference_period', 'concept', 'universe', 'variable_label', 'variable'], columns='variable_type', values='value').reset_index().rename_axis(None, axis=1)
+        except ValueError as e:
+            logger.error(f"Failed to do final pivot: Error {e}")
+            raise ValueError
+
         long = long.sort_values(by=['GEO_ID', 'variable', 'reference_period'])
 
         for column in long.columns:
@@ -824,6 +865,7 @@ class DimensionTable:
             The CensusAPI object to create dimension tables from.
         """
         from datetime import datetime
+        import pandas as pd
         self.LONG = CensusAPI_LONG.copy() # Store a copy of the data
 
         self.variable_type = [x for x in self.LONG.columns if x not in ['concept', 'universe', 'GEO_ID', 'NAME', 'reference_period', 'variable_label', 'variable']]
