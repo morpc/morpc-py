@@ -2,12 +2,6 @@
 Purpose: This module is used to access metadata and establish classes for US Census Bureau data. 
 
 For more information on the workflow and use of this module see './doc/api module diagram.drawio'
-
-Examples:
-
-req = morpc.census.api.get_api_req('acs/acs5', 2023, 'B01001', 'region15', scale = 'tract', variables = 'B01001_001E')
-
-morpc.req.get_json_safely(req)
 """
 
 from enum import unique
@@ -541,10 +535,9 @@ def censusapi_name(survey_table, year, scope, group, scale = None, variables=Non
     from morpc import HIERARCHY_STRING_FROM_SINGULAR
     return f"census-{survey_table.replace("/","-")}-{year}-{"" if scale is None else HIERARCHY_STRING_FROM_SINGULAR[scale].replace("-","").lower() + '-'}{scope}-{group}{"-select-variables" if variables is not None else ""}".lower()
 
-
 class CensusAPI:
     _CensusAPI_logger = logging.getLogger(__name__).getChild(__qualname__)
-    def __init__(self, survey_table, year, group, scope, scale=None, variables=None):
+    def __init__(self, survey_table, year, group, scope, scale=None, variables=None, return_long=True):
         """
         Class for working with Census API Survey Data. Creates an object representing data for a variable by year by survey. 
 
@@ -634,8 +627,8 @@ class CensusAPI:
         except Exception as e:
             self.logger.error(f"Error retrieving data: {e}")
             raise RuntimeError("Failed to retrieve data from Census API.")
-        
-        self.LONG = self.melt()
+        if return_long == True:
+            self.LONG = self.melt()
 
     def melt(self):
         """
@@ -653,8 +646,7 @@ class CensusAPI:
 
         logger.info(f"Melting data into long format.")
 
-
-        long = self.DATA.melt(id_vars=['GEO_ID', 'NAME'], var_name='variable', value_name='value')
+        long = self.DATA.reset_index().melt(id_vars=['GEO_ID' if 'NAME' not in self.DATA.columns else ['GEO_ID','NAME']][0], var_name='variable', value_name='value')
         logger.debug(f"\n\n{long.head(5).to_markdown()}")
 
         long = long.loc[~long['value'].isna()]
@@ -680,8 +672,10 @@ class CensusAPI:
 
         long['concept'] = self.CONCEPT.capitalize()
 
+        logger.debug(f"Table before pivot: \n{long.head(5).to_markdown()}")
+
         try:
-            long = long.pivot(index=['GEO_ID', 'NAME', 'reference_period', 'concept', 'universe', 'variable_label', 'variable'], columns='variable_type', values='value').reset_index().rename_axis(None, axis=1)
+            long = long.pivot(index=[['GEO_ID', 'reference_period', 'concept', 'universe', 'variable_label', 'variable'] if 'NAME' not in self.DATA.columns else ['GEO_ID', 'NAME','reference_period', 'concept', 'universe', 'variable_label', 'variable']][0], columns='variable_type', values='value').reset_index().rename_axis(None, axis=1)
         except ValueError as e:
             logger.error(f"Failed to do final pivot: Error {e}")
             raise ValueError
