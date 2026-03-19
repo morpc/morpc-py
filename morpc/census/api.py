@@ -626,6 +626,10 @@ class CensusAPI:
             self.DATA = get(self.REQUEST['url'], self.REQUEST['params'])
             logger.debug(f"Request converted to DataFrame:")
             logger.debug(f"\n\n{self.DATA.head(5).to_markdown()}")
+            if self.DATA.loc[self.DATA.duplicated()].shape[0] != 0:
+                logger.warning(f"Detected duplicate data. This can be due to using ucgid=psued() for geos. Removing {self.DATA.loc[self.DATA.duplicated()].shape[0]} duplicates.")
+                self.DATA = self.DATA.loc[~self.DATA.duplicated()]
+
 
         except Exception as e:
             self.logger.error(f"Error retrieving data: {e}")
@@ -677,7 +681,7 @@ class CensusAPI:
         long['concept'] = self.CONCEPT.capitalize()
 
         try:
-            long = long.pivot_table(index=['GEO_ID', 'NAME', 'reference_period', 'concept', 'universe', 'variable_label', 'variable'], columns='variable_type', values='value').reset_index().rename_axis(None, axis=1)
+            long = long.pivot(index=['GEO_ID', 'NAME', 'reference_period', 'concept', 'universe', 'variable_label', 'variable'], columns='variable_type', values='value').reset_index().rename_axis(None, axis=1)
         except ValueError as e:
             logger.error(f"Failed to do final pivot: Error {e}")
             raise ValueError
