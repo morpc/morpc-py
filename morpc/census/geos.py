@@ -60,6 +60,11 @@ MORPC_REGION_SCOPES = [
         "in": "state:39", 
         "for": f"county:{','.join([morpc.CONST_COUNTY_NAME_TO_ID[x][2:6] for x in morpc.CONST_REGIONS['CBSA']])}"
         }
+        },
+    {"regionmobility": {
+        "in": "state:39", 
+        "for": f"county:{','.join([morpc.CONST_COUNTY_NAME_TO_ID[x][2:6] for x in morpc.CONST_REGIONS['Mobility Region']])}"
+        }
         }
 ]
 

@@ -125,6 +125,7 @@ CONST_REGIONS["OneColumbus Region"] = CONST_REGIONS["REGIONONECBUS"]
 CONST_REGIONS["REGIONCEDS"] = CONST_REGIONS["REGION10"] + ["Logan"]
 CONST_REGIONS["CEDS Region"] = CONST_REGIONS["REGIONCEDS"]
 CONST_REGIONS["CBSA"] = CONST_REGIONS["REGION7"] + ["Hocking","Morrow","Perry"]
+CONST_REGIONS['Mobility Region'] = CONST_REGIONS['REGION7'] + ['Logan', 'Fayette']
 
 # Region identifiers
 # Note that the Columbus MSA already has a GEOID that is defined by the Census Bureau.  See CONST_COLUMBUS_MSA_ID above.
