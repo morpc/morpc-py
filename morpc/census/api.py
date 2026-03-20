@@ -533,8 +533,8 @@ def censusapi_name(survey_table, year, scope, group, scale = None, variables=Non
     str
         the name used for the data in CensusAPI
     """
-    from morpc import HIERARCHY_STRING_FROM_SINGULAR
-    return f"census-{survey_table.replace("/","-")}-{year}-{"" if scale is None else HIERARCHY_STRING_FROM_SINGULAR[scale].replace("-","").lower() + '-'}{scope}-{group}{"-select-variables" if variables is not None else ""}".lower()
+    from morpc import HIERARCHY_STRING_FROM_CENSUSNAME
+    return f"census-{survey_table.replace("/","-")}-{year}-{"" if scale is None else HIERARCHY_STRING_FROM_CENSUSNAME[scale].replace("-","").lower() + '-'}{scope}-{group}{"-select-variables" if variables is not None else ""}".lower()
 
 class CensusAPI:
     _CensusAPI_logger = logging.getLogger(__name__).getChild(__qualname__)
@@ -572,9 +572,8 @@ class CensusAPI:
             RuntimeError: Failed to validate parameters
 
         """
-        from morpc import HIERARCHY_STRING_FROM_SINGULAR
         
-        self.NAME = f"census-{survey_table.replace("/","-")}-{year}-{"" if scale is None else HIERARCHY_STRING_FROM_SINGULAR[scale].replace("-","").lower() + '-'}{scope}-{group}{"-select-variables" if variables is not None else ""}".lower()
+        self.NAME = censusapi_name(survey_table, year, scope, group, scale, variables)
 
         self.logger = logging.getLogger(__name__).getChild(self.__class__.__name__).getChild(self.NAME)
 
