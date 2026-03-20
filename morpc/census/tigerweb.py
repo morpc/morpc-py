@@ -1,8 +1,9 @@
 import logging
+from typing import Literal
 
 logger = logging.getLogger(__name__)
 
-def get_tigerweb_layers_map(year, survey='ACS'):
+def get_tigerweb_layers_map(year: int = 2023, survey:Literal['ACS','DEC']='ACS'):
     """
     Parameters: s
     -----------

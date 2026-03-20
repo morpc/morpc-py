@@ -126,6 +126,7 @@ CONST_REGIONS["REGIONCEDS"] = CONST_REGIONS["REGION10"] + ["Logan"]
 CONST_REGIONS["CEDS Region"] = CONST_REGIONS["REGIONCEDS"]
 CONST_REGIONS["CBSA"] = CONST_REGIONS["REGION7"] + ["Hocking","Morrow","Perry"]
 CONST_REGIONS['Mobility Region'] = CONST_REGIONS['REGION7'] + ['Logan', 'Fayette']
+CONST_REGIONS['MPO Region'] = ['Delaware', 'Franklin']
 
 # Region identifiers
 # Note that the Columbus MSA already has a GEOID that is defined by the Census Bureau.  See CONST_COLUMBUS_MSA_ID above.
@@ -381,18 +382,18 @@ SUMLEVEL_DESCRIPTIONS = {
         "idField":"COUSUBFP",
         "nameField":"COUSUB",
         "censusQueryName": "county subdivision",
-        "censusRestAPI_layername": None,
+        "censusRestAPI_layername": 'county subdivisions',
         "geoidfq_format": "{SUMLEVEL}{VARIANT}{COMPONENT}US{STATE}{COUNTY}{COUSUB}"
     },
     '070': {
-        "singular":"county subdivision part/remainder",
-        "plural":"county subdivision parts/remainders",
+        "singular":"county subdivision/remainder (or part)",
+        "plural":"county subdivision/remainders (or parts)",
         "hierarchy_string":"COUNTY-TOWNSHIP-REMAINDER",
         "authority":"census",
         "idField":"COUSUBPARTID",
         "nameField":"COUSUBPART",
-        "censusQueryName": "county subdivision/remainder (or part)",
-        "censusRestAPI_layername": 'county subdivisions',
+        "censusQueryName": "place/remainder (or part)",
+        "censusRestAPI_layername": None,
         "geoidfq_format": "{SUMLEVEL}{VARIANT}{COMPONENT}US{STATE}{COUNTY}{COUSUB}{PLACEREM}"
 
     },
@@ -815,9 +816,10 @@ SUMLEVEL_LOOKUP = {value["hierarchy_string"]:key for key, value in zip(SUMLEVEL_
 SUMLEVEL_FROM_CENSUSQUERY = {value['censusQueryName']:key for key, value in SUMLEVEL_DESCRIPTIONS.items() if value['censusQueryName'] is not None}  
 # HIERARCHY_STRING_LOOKUP provides a dictionary that maps each sumlevel code to its hierarchy string (as defined in
 # SUMLEVEL_DESCRIPTIONS) For example, HIERARCHY_STRING_LOOKUP["310"] = "CBSA".
-HIERARCHY_STRING_LOOKUP = {key:value["hierarchy_string"] for key, value in zip(SUMLEVEL_DESCRIPTIONS.keys(), SUMLEVEL_DESCRIPTIONS.values())}
 
+HIERARCHY_STRING_LOOKUP = {key:value["hierarchy_string"] for key, value in zip(SUMLEVEL_DESCRIPTIONS.keys(), SUMLEVEL_DESCRIPTIONS.values())}
 HIERARCHY_STRING_FROM_SINGULAR = {name['singular']:hierarchy["hierarchy_string"] for name, hierarchy in zip(SUMLEVEL_DESCRIPTIONS.values(), SUMLEVEL_DESCRIPTIONS.values())}
+HIERARCHY_STRING_FROM_CENSUSNAME = {name['censusQueryName']:hierarchy["hierarchy_string"] for name, hierarchy in zip(SUMLEVEL_DESCRIPTIONS.values(), SUMLEVEL_DESCRIPTIONS.values())}
 
 SINGULAR_TO_PLURAL = {sumlevel['singular']:sumlevel['plural'] for sumlevel in SUMLEVEL_DESCRIPTIONS.values()}
 HIERARCHY_STRING_TO_SINGULAR = {sumlevel['hierarchy_string']:sumlevel['singular'] for sumlevel in SUMLEVEL_DESCRIPTIONS.values()}
