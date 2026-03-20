@@ -349,6 +349,8 @@ def geo_params_from_scope_scale(scope: str, scale: str | None = None) -> dict:
             try:
                 pseudos = pseudos_from_scale_scope(scale, scope)
                 params.update({'ucgid': f"pseudo({','.join(pseudos)})"})
+
+                return params
             except ValueError as e:
                 logger.warning(f"Failed to build psuedos, {e}")
             
