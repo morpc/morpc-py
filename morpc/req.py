@@ -11,7 +11,7 @@ def get_text_safely(url, params=None, headers=None):
         logger.error(f"Request content: {r.url}")
         raise requests.HTTPError
     else:
-        logger.debug(f"Request successful. Decoding return JSON.")
+        logger.debug(f"Request successful. Returning plain text.")
 
         text = r.text
 

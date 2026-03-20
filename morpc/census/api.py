@@ -500,7 +500,8 @@ def get(url, params, varBatchSize=20):
         text = get_text_safely(f"{url}{params_string}")
 
         try:
-            censusData = pd.read_csv(StringIO(text.replace("[",'').replace("]",'')), sep=",", quotechar='"')
+            censusData = pd.read_csv(StringIO(text.replace("[",'').replace("]",'').rstrip(',')), sep=",", quotechar='"')
+            censusData = censusData.drop(columns=[x for x in censusData.columns if x.startswith('Unnamed')])
 
         except Exception as e:
             logger.error(f"Error creating Dataframe from records. {e}")
@@ -646,25 +647,36 @@ class CensusAPI:
 
         logger.info(f"Melting data into long format.")
 
-        long = self.DATA.reset_index().melt(id_vars=['GEO_ID' if 'NAME' not in self.DATA.columns else ['GEO_ID','NAME']][0], var_name='variable', value_name='value')
+        long = self.DATA.melt(id_vars=['GEO_ID' if 'NAME' not in self.DATA.columns else ['GEO_ID','NAME']][0], var_name='variable', value_name='value')
         logger.debug(f"\n\n{long.head(5).to_markdown()}")
 
-        long = long.loc[~long['value'].isna()]
-        logger.debug(f"Removing unneeded variable types, variables remaining: {[x for x in long['variable'].unique()]}")
 
-        long['variable_type'] = [re.findall(r"_[0-9]+([A-Z]{1,2})", x)[0] if "_" in x else "drop" for x in long['variable']]
+        long = long.loc[long['variable'].isin([x for x in self.VARS.keys()])]
+        logger.debug(f"Removed unneeded variables, variables remaining: {[x for x in long['variable'].unique()]}")
 
-        long = long.loc[long['variable_type']!='drop']
+        long['variable_type'] = [re.findall(r"_[0-9]+([A-Z]{1,2})", x)[0] 
+                                 if "_" in x 
+                                 else self.VARS[x]['label'].split('!!')[0].lower()
+                                 for x in long['variable']]
 
-        long = long.loc[long['variable_type'].isin([x for x in VARIABLE_TYPES.keys()])]
+        long['variable_type'] = [VARIABLE_TYPES[x] 
+                                 if x in VARIABLE_TYPES 
+                                 else x 
+                                 for x in long['variable_type']]
+
+        long = long.loc[long['variable_type'].isin(VARIABLE_TYPES.values())]
 
         logger.debug(f"included variable types: {", ".join(long['variable_type'].unique())}")
 
-        long['variable_type'] = [VARIABLE_TYPES[x] for x in long['variable_type']]
+        long['variable_label'] = [re.split("!!", self.VARS[x]['label'],maxsplit=1)[1] 
+                                  if '!!' in self.VARS[x]['label']
+                                  else self.VARS[x]['label'] 
+                                  for x in long['variable']]
 
-        long['variable_label'] = [re.split("!!", self.VARS[variable]['label'],maxsplit=1)[1] for variable in long['variable']]
-
-        long['variable'] = [re.findall(r"([A-Z0-9_]+[0-9]+)[A-Z]+", x)[0] for x in long['variable']]
+        long['variable'] = [re.findall(r"([A-Z0-9_]+[0-9]+)[A-Z]+", x)[0]
+                            if x[-1].isalpha()
+                            else x
+                            for x in long['variable']]
 
         long['reference_period'] = self.YEAR
 
@@ -675,7 +687,14 @@ class CensusAPI:
         logger.debug(f"Table before pivot: \n{long.head(5).to_markdown()}")
 
         try:
-            long = long.pivot(index=[['GEO_ID', 'reference_period', 'concept', 'universe', 'variable_label', 'variable'] if 'NAME' not in self.DATA.columns else ['GEO_ID', 'NAME','reference_period', 'concept', 'universe', 'variable_label', 'variable']][0], columns='variable_type', values='value').reset_index().rename_axis(None, axis=1)
+            long = long.pivot(
+                index=[
+                    ['GEO_ID', 'reference_period', 'concept', 'universe', 'variable_label', 'variable'] 
+                    if 'NAME' not in self.DATA.columns 
+                    else ['GEO_ID', 'NAME','reference_period', 'concept', 'universe', 'variable_label', 'variable']
+                    ][0], 
+                columns='variable_type', 
+                values='value').reset_index().rename_axis(None, axis=1)
         except ValueError as e:
             logger.error(f"Failed to do final pivot: Error {e}")
             raise ValueError
