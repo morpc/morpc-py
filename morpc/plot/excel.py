@@ -1,6 +1,9 @@
 
 import logging
+from os import PathLike
 from types import NoneType
+from typing import Literal
+from pandas import DataFrame
 
 import xlsxwriter
 import xlsxwriter.exceptions
@@ -10,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 class ExcelChart:
     _excelchart_logger = logging.getLogger(__name__).getChild(__qualname__)
-    def __init__(self, df, path=None, sheetname=None, config=None):
+    def __init__(self, df: DataFrame, path: str | PathLike, sheetname: str, config=None):
         """
         Creates a excel document with table and chart using MORPC defaults.
 
@@ -121,7 +124,14 @@ class ExcelChart:
             self.logger.error(f"Write Error: {e}, Is the workbook open in excel?.")
             raise RuntimeError
     
-    def add_chart(self, type, subtype=None, title=None, x_ordered=None, y_label=None, x_label=None, series=None, data_labels=None):
+    def add_chart(self, 
+                  type: Literal['area', 'bar', 'column', 'doughnut', 'line', 'pie', 'radar', 'scatter', 'stock'], 
+                  subtype: Literal['stacked', 'percent_stacked', 'straight_with_markers', 'straight', 'smooth', 'smooth_with_markers', 'with_markers', 'filled'] | None = None, 
+                  title: str | None = None, 
+                  y_label: str | None = None, 
+                  x_label: str | None = None, 
+                  series: list | None = None, 
+                  data_labels: None | Literal['center', 'above', 'outside_end'] = None):
         """
         Add a chart to the worksheet.
 
@@ -133,11 +143,6 @@ class ExcelChart:
             Set the subtype of the chart, by default None. See https://xlsxwriter.readthedocs.io/chart.html#the-chart-class
         title : str, optional
             Name of chart and used as title, by default None
-        x_ordered : {None, 'ascending', 'descending'} | list
-            Whether to order the x axis. None, no ordering occurs. 
-            'ascending' orders the axis in ascending order by y value.
-            'descending' orders the axis in descending order by y value.
-            list :  orders the axis in order of the list passed.
         series : list of str, optional
             A list of the variables in index to use in the series of the chart. Does not filter table, just the chart. Defaults to None which shows all variables.
         data_lables : {'center', 'above', 'outside_end', None}
