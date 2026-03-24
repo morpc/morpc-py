@@ -2270,6 +2270,11 @@ def data_chart_to_excel(df, writer, sheet_name="Sheet1", chartType="column", dat
                 Options to control the appearance of the legend. Will be used directly by chart.set_legend(). Legend is displayed by
                 default and positioned at the bottom of the chart.  Style defaults to MORPC branding. See
                 https://xlsxwriter.readthedocs.io/chart.html#chart-set-legend
+            "y2AxisColumns": list
+                List of columns which should be associated with the secondary y axis.
+            "y2AxisOptions": dict
+                Options to control the appearance of the secondary y axis.  Will be used directly by chart.set_y2_axis(). No defaults are applied.
+                All required values must by specified. See https://xlsxwriter.readthedocs.io/chart.html#chart-set-y2-axis
     
     Returns
     -------
@@ -2412,7 +2417,9 @@ def data_chart_to_excel(df, writer, sheet_name="Sheet1", chartType="column", dat
         "xAxisOptions": None,     # Dict. Will be used by chart.set_x_axis()
         "yAxisOptions": None,     # Dict. Will be used by chart.set_y_axis()
         "legendOptions": None,    # Dict. Will be used by chart.set_legend()
-        "includeColumns": None    # List of columns to be added as series to chart.   
+        "includeColumns": None,    # List of columns to be added as series to chart.   
+        "y2AxisColumns": None,     # List of columns to be associated with secondary y axis
+        "y2AxisOptions": None     # Dict. Will be used by chart.set_y2_axis()
     }
     if(chartOptions != None):
         myChartOptions = recursiveUpdate(myChartOptions, chartOptions)
@@ -2425,7 +2432,7 @@ def data_chart_to_excel(df, writer, sheet_name="Sheet1", chartType="column", dat
 
     if(myChartOptions["includeColumns"] == None):
         myChartOptions["includeColumns"] = list(df.columns)
-       
+      
     workbook = writer.book
 
     df.to_excel(writer, sheet_name=sheet_name, index=myDataOptions["index"])
@@ -2490,6 +2497,14 @@ def data_chart_to_excel(df, writer, sheet_name="Sheet1", chartType="column", dat
         print("WARNING: Chart type is set to omit.  Chart will be omitted.")
         return
 
+    y2AxisColumns = []
+    if(myChartOptions["y2AxisColumns"] != None):
+        if(chartType != "line"):
+            print(f"WARNING: Secondary axis will be used for one or more columns. Only line charts are supported for secondary axes. Forcing chart to line type.")
+            chartType = "line"
+        if(myChartOptions["y2AxisOptions"] == None):
+            print(f"WARNING: Axis options not specified for secondary y axis. No MORPC-specific defaults are applied. See chartOptions['y2AxisOptions'].")
+        y2AxisColumns = myChartOptions["y2AxisColumns"]
   
     chart = workbook.add_chart({
         "type": chartType, 
@@ -2579,7 +2594,11 @@ def data_chart_to_excel(df, writer, sheet_name="Sheet1", chartType="column", dat
         if(type(myChartOptions["titles"]) == dict):
             myYAxisOptions["name"] = myChartOptions["titles"].get("yTitle", yAxisOptionsDefaults["name"])
            
-        chart.add_series(mySeriesOptions)
+        if(colname in y2AxisColumns):
+            mySeriesOptions["y2_axis"] = True
+            chart.add_series(mySeriesOptions)
+        else:
+            chart.add_series(mySeriesOptions)
 
     if(chartType in axisSwapTypes):
         tempX = myXAxisOptions["name"]
@@ -2589,7 +2608,10 @@ def data_chart_to_excel(df, writer, sheet_name="Sheet1", chartType="column", dat
  
     chart.set_title(myTitleOptions)
     chart.set_x_axis(myXAxisOptions)
-    chart.set_y_axis(myYAxisOptions)        
+    chart.set_y_axis(myYAxisOptions)
+    if(myChartOptions["y2AxisColumns"] != None):
+        if(myChartOptions["y2AxisOptions"] != None):
+            chart.set_y2_axis(myChartOptions["y2AxisOptions"])
     chart.set_legend(myLegendOptions)   
     # If the user specified chart size options, use them as-is. There are 
     # no defaults for this.
