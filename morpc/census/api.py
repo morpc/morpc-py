@@ -372,14 +372,14 @@ def get_params(group, variables=None):
     return get_param
 
 def get_api_request(survey_table, year, group, scope, variables=None, scale=None):
-    from morpc.census.geos import geo_params_from_scope_scale
+    from morpc.census.geos import geoinfo_from_scope_scale
 
     logger.debug(f"Building final requests parameters and url.")
     url = get_query_url(survey_table, year)
 
     get_param = get_params(group, variables=variables)
 
-    geo_param = geo_params_from_scope_scale(scope, scale)
+    geo_param = geoinfo_from_scope_scale(scope, scale, output='params')
 
     params = {
         'get': get_param,
@@ -616,12 +616,12 @@ class CensusAPI:
 
         try:
             logger.info(f"Getting data from {self.REQUEST['url']} with parameters {self.REQUEST['params']}.")
-            self.DATA = get(self.REQUEST['url'], self.REQUEST['params'])
+            self.DATA = get(self.REQUEST['url'], self.REQUEST['params']).reset_index()
             logger.debug(f"Request converted to DataFrame:")
             logger.debug(f"\n\n{self.DATA.head(5).to_markdown()}")
             if self.DATA.loc[self.DATA.duplicated()].shape[0] != 0:
-                logger.warning(f"Detected duplicate data. This can be due to using ucgid=psued() for geos. Removing {self.DATA.loc[self.DATA.duplicated()].shape[0]} duplicates.")
-                self.DATA = self.DATA.loc[~self.DATA.duplicated()]
+                logger.warning(f"Detected duplicate data. This can be due to using ucgid=pseudo() for geos. Removing {self.DATA.loc[self.DATA.duplicated()].shape[0]} duplicates.")
+                self.DATA = self.DATA.loc[~self.DATA.duplicated()].reset_index()
 
 
         except Exception as e:
