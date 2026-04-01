@@ -3,6 +3,7 @@ from typing import Literal
 import logging
 
 from pandas import DataFrame
+from sqlalchemy import all_
 logger  = logging.getLogger(__name__)
 
 import morpc
@@ -402,7 +403,12 @@ def geoinfo_from_scope_scale(scope: str, scale: str | None = None, output: Liter
                     return {'ucgid': ",".join(geoinfo_for_hierarchical_geos(scope, scale)['GEO_ID'])}
                 geoinfo = geoinfo_for_hierarchical_geos(scope, scale)
 
-    return geoinfo
+    if output == 'table':
+        return geoinfo
+    if output == 'json':
+        return geoinfo.set_index('GEO_ID').to_dict()['NAME']
+    if output == 'list':
+        return geoinfo['GEO_ID'].to_list()
 
 
 def geoids_from_scope(scope, output: Literal['list','table','json']='list'):
@@ -508,7 +514,7 @@ def geoinfo_from_params(param_dict: dict, year: int = 2023, output: Literal['lis
 #     ucgids = [x[0] for x in json[1:]]
 #     return ucgids
 
-def fetch_geos_from_geoids(geoidfqs, year, survey):
+def fetch_geos_from_geoids(geoidfqs, year, survey, chunk_size=500):
     """
     Fetches a table of geometries from a list of Census GEOIDFQs using the Rest API.
 
@@ -517,52 +523,98 @@ def fetch_geos_from_geoids(geoidfqs, year, survey):
         A list of fully qualified Census GEOIDs, i.e. ['0550000US39049', '0550000US39045']
 
     year : str
-        The year of the data to ret
+        The year of the data to return
+
+    survey : str
+        The survey to return the geos for, "ACS" or "DEC"
     """
 
     from morpc.census.tigerweb import get_layer_url
     import pandas as pd
     import geopandas as gpd
+    
+    all_geoidfqs = geoidfqs
+    all_geometries = []
 
-    # Get sum levels in the data
-    sumlevels = set([x[0:3] for x in geoidfqs])
+    if len(geoidfqs) > chunk_size:
+        start = 0
+        offset = chunk_size
+        while start < len(all_geoidfqs):
+            if start+offset > len(all_geoidfqs):
+                offset = len(all_geoidfqs)-start
+            logger.info(f"Fetching geoids {start} - {start+offset}")
+            geoidfqs = all_geoidfqs[start:start+offset+1]
+        
+        # Get sum levels in the data
+            sumlevels = set([x[0:3] for x in geoidfqs])
 
-    logger.info(f"Sum levels {', '.join(sumlevels)} are in data.")
+            logger.info(f"Sum levels {', '.join(sumlevels)} are in data.")
 
-    geometries = []
-    for sumlevel in sumlevels: # Get geometries for each sumlevel iteratively
-        # Get rest api layer name and get url
-        layerName = morpc.SUMLEVEL_DESCRIPTIONS[sumlevel]['censusRestAPI_layername']
-        if layerName == None:
-            logger.error(f"Sumlevel {sumlevel} does not have a layer in TigerWeb REST API.")
-            raise NotImplementedError
+            for sumlevel in sumlevels: # Get geometries for each sumlevel iteratively
+                # Get rest api layer name and get url
+                layerName = morpc.SUMLEVEL_DESCRIPTIONS[sumlevel]['censusRestAPI_layername']
+                if layerName == None:
+                    logger.error(f"Sumlevel {sumlevel} does not have a layer in TigerWeb REST API.")
+                    raise NotImplementedError
 
-        url = get_layer_url(year, layer_name=layerName, survey=survey)
-        logger.info(f"Fetching geometries for {layerName} ({sumlevel}) from {url}")
+                url = get_layer_url(year, layer_name=layerName, survey=survey)
+                logger.info(f"Fetching geometries for {layerName} ({sumlevel}) from {url}")
 
-        # Construct a list of geoids from data to us to query API
-        geoids = ",".join([f"'{x.split('US')[-1]}'" for x in geoidfqs if x.startswith(sumlevel)])
+                # Construct a list of geoids from data to us to query API
+                geoids = ",".join([f"'{x.split('US')[-1]}'" for x in geoidfqs if x.startswith(sumlevel)])
 
-        logger.info(f"There are {len(geoids)} geographies in {layerName}")
-        logger.debug(f"{', '.join(geoidfqs)}")
+                logger.info(f"There are {len(geoids)} geographies in {layerName}")
+                logger.debug(f"{geoids}")
 
-        # Build resource file and query API
-        logger.info(f"Building resource file to fetch from RestAPI.")
-        resource = morpc.rest_api.resource(name='temp', url=url, where= f"GEOID in ({geoids})", outfields='GEOID,NAME')
+                # Build resource file and query API
+                logger.info(f"Building resource file to fetch from RestAPI.")
+                resource = morpc.rest_api.resource(name='temp', url=url, where=f"GEOID in ({geoids})", outfields='GEOID,NAME', split=False, max_record_count=chunk_size)
 
-        logger.info(f"Fetching geographies from RestAPI.")
-        geos = morpc.rest_api.gdf_from_resource(resource)
-        geos['GEOIDFQ'] = [f"{sumlevel}0000US{x}" for x in geos['GEOID']]
+                logger.info(f"Fetching geographies from RestAPI.")
+                geos = morpc.rest_api.gdf_from_resource(resource)
+                geos['GEOIDFQ'] = [f"{sumlevel}0000US{x}" for x in geos['GEOID']]
 
-        geometries.append(geos[['GEOIDFQ', 'NAME', 'geometry']])
+            all_geometries.append(geos[['GEOIDFQ', 'NAME', 'geometry']])
+            start += offset+1
+    else:
+        sumlevels = set([x[0:3] for x in geoidfqs])
+
+        logger.info(f"Sum levels {', '.join(sumlevels)} are in data.")
+
+        for sumlevel in sumlevels: # Get geometries for each sumlevel iteratively
+            # Get rest api layer name and get url
+            layerName = morpc.SUMLEVEL_DESCRIPTIONS[sumlevel]['censusRestAPI_layername']
+            if layerName == None:
+                logger.error(f"Sumlevel {sumlevel} does not have a layer in TigerWeb REST API.")
+                raise NotImplementedError
+
+            url = get_layer_url(year, layer_name=layerName, survey=survey)
+            logger.info(f"Fetching geometries for {layerName} ({sumlevel}) from {url}")
+
+            # Construct a list of geoids from data to us to query API
+            geoids = ",".join([f"'{x.split('US')[-1]}'" for x in geoidfqs if x.startswith(sumlevel)])
+
+            logger.info(f"There are {len(geoids)} geographies in {layerName}")
+            logger.debug(f"{', '.join(geoidfqs)}")
+
+            # Build resource file and query API
+            logger.info(f"Building resource file to fetch from RestAPI.")
+            resource = morpc.rest_api.resource(name='temp', url=url, where= f"GEOID in ({geoids})", outfields='GEOID,NAME', split=False, max_record_count=chunk_size)
+
+            logger.info(f"Fetching geographies from RestAPI.")
+            geos = morpc.rest_api.gdf_from_resource(resource)
+            geos['GEOIDFQ'] = [f"{sumlevel}0000US{x}" for x in geos['GEOID']]
+
+            all_geometries.append(geos[['GEOIDFQ', 'NAME', 'geometry']])
+
     logger.info("Combining geometries...")
-    geometries = pd.concat(geometries)
+    geometries = pd.concat(all_geometries)
     geometries = geometries.rename(columns={'GEOIDFQ': 'GEO_ID'})
     geometries = geometries.set_index('GEO_ID')
 
     return gpd.GeoDataFrame(geometries, geometry='geometry')
 
-def fetch_geos_from_scale_scope(scope, scale=None, year='2023', survey='ACS'):
+def fetch_geos_from_scale_scope(scope, scale=None, year='2023', survey='ACS', chunk_size=500):
     """
     Returns a geodataframe of with geoids and and geometries from scales and scope.
 
@@ -579,9 +631,9 @@ def fetch_geos_from_scale_scope(scope, scale=None, year='2023', survey='ACS'):
         The survey to retrive the data for, ACS or DEC
     """
 
-    geoids = geoinfo_from_scope_scale(scope, scale)['GEO_ID'].to_list()
+    geoids = geoinfo_from_scope_scale(scope, scale, output='list')
 
-    geos = fetch_geos_from_geoids(geoids, year, survey)
+    geos = fetch_geos_from_geoids(geoids, year, survey, chunk_size=chunk_size)
 
     return geos
 
