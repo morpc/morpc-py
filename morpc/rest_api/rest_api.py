@@ -8,9 +8,11 @@ from ArcGIS services.
 
 import logging
 
+from httpx import HTTPError
+
 logger = logging.getLogger(__name__)
 
-def resource(name, url, where='1=1', outfields='*', max_record_count=None):
+def resource(name, url, where='1=1', outfields='*', split = True, max_record_count=None):
     """Creates a frictionless Resource object from an ArcGIS REST API service URL.
 
     Parameters:
@@ -27,6 +29,10 @@ def resource(name, url, where='1=1', outfields='*', max_record_count=None):
     outfields : str, optional
         A comma-separated list of field names to include in the results. Default is '*', which
         includes all fields.
+
+    split : boolean
+        If False, just use single url as path and handle splitting by max record count later. 
+        If True, Split the url into separate urls for fetching. 
     
     max_record_count : int, optional
         The maximum number of records to fetch in a single request. If not provided, it defaults
@@ -54,33 +60,43 @@ def resource(name, url, where='1=1', outfields='*', max_record_count=None):
     logger.info(f"Query Params: where = {where}, outFields = {outfields}")
 
     # Get the total record count
-    total_record_count = totalRecordCount(url, where=where, outfields=outfields)
+    try:
+        total_record_count = totalRecordCount(url, where=where, outfields=outfields)
+    except HTTPError as e:
+        logger.error(f"Failed to get total record count, HTTPError: {e}")
+
     logger.info(f"Total number of geographies: {total_record_count}")
     
     # Determine the max record count
     if max_record_count is None:
-        if total_record_count > 500:
-            max_record_count = 500
-            logger.info(f"Splitting query into fetch ")
-        else:
-            max_record_count = total_record_count
+        try:
+            max_record_count = maxRecordCount(url)
+        except ValueError as e:
+            logger.warning(f"Unable to find maxRecordCount. Using default.")
+            if total_record_count > 500:
+                max_record_count = 500
+                logger.info(f"Splitting query into fetch ")
+            else:
+                max_record_count = total_record_count
     logger.info(f"Fetching {max_record_count} at a time.")
 
-
-    # Construct list of source urls to account for max record counts
-    logger.info(f"Saving source urls in resource.")
-    sources = []
-    offsets = [x for x in range(0, total_record_count, max_record_count)]
-    for i in range(len(offsets)):
-        start = offsets[i]
-        source = {
-            "url": f"{url}/query?",
-            "params": query
-                }
-        source['params']['resultOffset'] = start
-        path = source['url'] + urllib.parse.urlencode(query)
-        sources.append(path)
-    logger.debug(f"all sources: {', '.join(sources)}")
+    if split:
+        # Construct list of source urls to account for max record counts
+        logger.info(f"Saving source urls in resource.")
+        sources = []
+        offsets = [x for x in range(0, total_record_count, max_record_count)]
+        for i in range(len(offsets)):
+            start = offsets[i]
+            source = {
+                "url": f"{url}/query?",
+                "params": query
+                    }
+            source['params']['resultOffset'] = start
+            path = source['url'] + urllib.parse.urlencode(query)
+            sources.append(path)
+        logger.debug(f"all sources: {', '.join(sources)}")
+    else:
+        sources = url
 
     # Construct the frictionless Resource object
     resource = {
@@ -93,6 +109,7 @@ def resource(name, url, where='1=1', outfields='*', max_record_count=None):
             "type": "arcgis_service",
             "params": query,
             "total_records": total_record_count,
+            "max_record_count": max_record_count
         }
     }
 
@@ -327,14 +344,43 @@ def totalRecordCount(url, where, outfields='*'):
     params = {
         "outfields": "*",
         "where": where,
-        "f": "geojson",
+        "f": "json",
         "returnCountOnly": "true"}
-    json = get_json_safely(url, params = params)
+    try:
+        json = get_json_safely(url, params = params)
+    except HTTPError as e:
+        logger.error(f"HTTPError: {e}")
     total_count = int(re.findall('[0-9]+',str(json))[0])
     logger.info(f"Total records: {total_count}")
 
     return total_count
 
+def maxRecordCount(url):
+    """Fetches the total number of records from an ArcGIS REST API service.
+    Parameters:
+    -----------
+    url : str
+        The URL of the ArcGIS REST API service.
+    Returns:
+    --------    
+    total_count : int
+        The total number of records in the service.
+    """
+    import requests
+    import re
+    from morpc.req import get_json_safely
+    # Find the total number of records
+    logger.info(f"Requesting metadata for total record")
+    url= f"{url}?f=pjson"
+    json = get_json_safely(url)
+    try:
+        max_record_count = json['maxRecordCount']
+    except ValueError as e:
+        logger.error('Could not find maxRecordCount in json. revert to default value.')
+        raise ValueError
+    logger.info(f"Total records: {max_record_count}")
+
+    return max_record_count
 
 # Depreciated for wkt2
 # def esri_wkid_to_epsg(esri_wkid):
