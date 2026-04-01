@@ -332,8 +332,6 @@ def geoinfo_for_hierarchical_geos(scope, scale):
     # combine and return
     return pd.concat(geoinfos)
 
-
-
 def geoinfo_from_scope_scale(scope: str, scale: str | None = None, output: Literal['list','table','json','params']='list'):
     """
     Creates a dictionary with 'for' and 'in' or 'ucgid' parameters that conforms to Census API query requirements.
@@ -358,6 +356,8 @@ def geoinfo_from_scope_scale(scope: str, scale: str | None = None, output: Liter
 
     # If there is no scale, just use scope.
     if scale == None:
+        if scope.startswith('region'):
+            scale = 'county'
         logger.info(f"No scale specified. Using {scope} parameters. {SCOPES[scope]}")
         params.update(SCOPES[scope])
         if output == 'params':
@@ -579,7 +579,7 @@ def fetch_geos_from_scale_scope(scope, scale=None, year='2023', survey='ACS'):
         The survey to retrive the data for, ACS or DEC
     """
 
-    geoids = geoinfo_from_scope_scale(scope, scale)['GEO_ID']
+    geoids = geoinfo_from_scope_scale(scope, scale)['GEO_ID'].to_list()
 
     geos = fetch_geos_from_geoids(geoids, year, survey)
 
