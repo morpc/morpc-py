@@ -1,5 +1,7 @@
 import logging
 
+from requests import HTTPError
+
 logger = logging.getLogger(__name__)
 
 def get_text_safely(url, params=None, headers=None):
@@ -26,8 +28,10 @@ def get_json_safely(url, params=None, headers=None):
     logger.info(f"Getting data from {url} with parameters {params}.")
     r = requests.get(url, params=params, headers=headers)
     if r.status_code != 200:
-        logger.error(f"Request content: {r.url}")
-        raise requests.HTTPError
+        if "Output format not supported" in r.text:
+            logger.error(f"Unsupported format requested: {params['f']}")
+            raise HTTPError(r.text)
+        logger.error(f"Request content: {r.content}")
     else:
         logger.debug(f"Request successful. Decoding return JSON.")
         try:

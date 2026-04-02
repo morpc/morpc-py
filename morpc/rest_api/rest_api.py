@@ -6,13 +6,15 @@ including fetching data, converting ESRI WKID to WKT2, and creating frictionless
 from ArcGIS services.
 """
 
+from json import JSONDecodeError
 import logging
 
-from httpx import HTTPError
+from requests import HTTPError
+from morpc.req import get_json_safely
 
 logger = logging.getLogger(__name__)
 
-def resource(name, url, where='1=1', outfields='*', split = True, max_record_count=None):
+def resource(name, url, where='1=1', outfields='*', split=True, max_record_count=None):
     """Creates a frictionless Resource object from an ArcGIS REST API service URL.
 
     Parameters:
@@ -75,10 +77,9 @@ def resource(name, url, where='1=1', outfields='*', split = True, max_record_cou
             logger.warning(f"Unable to find maxRecordCount. Using default.")
             if total_record_count > 500:
                 max_record_count = 500
-                logger.info(f"Splitting query into fetch ")
             else:
                 max_record_count = total_record_count
-    logger.info(f"Fetching {max_record_count} at a time.")
+        logger.info(f"Fetching {max_record_count} at a time.")
 
     if split:
         # Construct list of source urls to account for max record counts
@@ -92,11 +93,11 @@ def resource(name, url, where='1=1', outfields='*', split = True, max_record_cou
                 "params": query
                     }
             source['params']['resultOffset'] = start
-            path = source['url'] + urllib.parse.urlencode(query)
+            path = source['url'] + urllib.parse.urlencode(query, safe='()')
             sources.append(path)
         logger.debug(f"all sources: {', '.join(sources)}")
     else:
-        sources = url
+        sources = f"{url}/query?" + urllib.parse.urlencode(query, safe='()')
 
     # Construct the frictionless Resource object
     resource = {
@@ -115,7 +116,7 @@ def resource(name, url, where='1=1', outfields='*', split = True, max_record_cou
 
     return frictionless.Resource(resource)
 
-def query(resource, api_key=None, recordcount_override=None):
+def query(resource, api_key=None):
     """Creates a GeoDataFrame from resource file for an ArcGIS Services. Automatically queries for maxRecordCount and
     iterates over the whole feature layer to return all features. Optional: Filter the results by including a list of field
     IDs.
@@ -125,10 +126,7 @@ def query(resource, api_key=None, recordcount_override=None):
     Parameters:
     ------------
     resource : str
-        The path to the resource file, which can be a local file or a URL to an ArcGIS REST API service.
-
-    field_ids : list of str
-        A list of strings that match field ids in the feature layer.
+        A frictionless.Resource or path to the resource file, which can be a local file or a URL to an ArcGIS REST API service.
 
     api_key : str, optional
         An API key for accessing the ArcGIS REST API service. If not provided, the function will attempt to access the service without an API key.
@@ -138,9 +136,6 @@ def query(resource, api_key=None, recordcount_override=None):
     gdf : pandas.core.frame.DataFrame
         A GeoPandas GeoDataframe constructed from the GeoJSON requested from the url.
 
-    Raises:
-    ---------
-    RuntimeError: If the provided field_ids are not available in the resource.  
     """
 
     import requests
@@ -168,39 +163,25 @@ def query(resource, api_key=None, recordcount_override=None):
             raise RuntimeError("No sources found in the resource. Check the resource file or URL.")\
         # If there is only one source, fetch it directly
         if len(sources) == 1:
-            r = s.get(sources[0], headers=headers)
-            # Check if the request was successful
-            if r.status_code != 200:
-                logger.error(f"Error fetching data from {sources[0]}: {r.status_code}")
-                raise RuntimeError(f"Failed to fetch data from {sources[0]}")
-            # Parse the JSON response
             try:
-                logger.info(f"Decoding json data.")
-                features = [r.json()]
-            except:
-                logger.error(f"CONTENTS OF REQUESTS {r.content}")
+                results = get_json_safely(sources[0], headers=headers, session=s)
+            except HTTPError as e:
+                logger.error(f"HTTPError: {e}")
         # If there are multiple sources, iterate over them
         if len(sources) > 1:
-
             for i in range(len(sources)):
                 print_bar(i, len(sources))
-                r = s.get(sources[i], headers=headers)
                 try:
-                    result = r.json()
-                except:
-                    logger.error(f"Failed to decode json. CONTENTS OF REQUESTS {r.content}")
+                    results = get_json_safely(sources[i], headers=headers, session=s)
+                except HTTPError as e:
+                    logger.error(f"HTTPError: {e}")
 
-                # Check if the request was successful
-                if 'error' in result:
-                    logger.error(f"Error fetching data: {result['error']['message']}")
-                    raise RuntimeError
-                
                 # Check if the result contains features
-                if 'features' not in result:
+                if 'features' not in results:
                     logger.error(f"No features found in the response. Check the URL or parameters.")
                     raise RuntimeError
-            
-                features.append(result)
+                            
+                features.append(results)
     try:
     # Combine list of feature collections into a single feature collection
         if len(features) == 0:
@@ -344,12 +325,20 @@ def totalRecordCount(url, where, outfields='*'):
     params = {
         "outfields": "*",
         "where": where,
-        "f": "json",
+        "f": "geojson",
         "returnCountOnly": "true"}
     try:
         json = get_json_safely(url, params = params)
     except HTTPError as e:
-        logger.error(f"HTTPError: {e}")
+        if "Output format not supported" in e:
+            try:
+                logger.warning(f"geoJSON not supported, trying Json...")
+                params['f'] = 'json'
+                json = get_json_safely(url, params = params)
+            except:
+                logger.error(f"HTTPError: {e}")
+                raise HTTPError
+
     total_count = int(re.findall('[0-9]+',str(json))[0])
     logger.info(f"Total records: {total_count}")
 
