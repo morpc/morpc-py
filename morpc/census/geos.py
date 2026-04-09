@@ -568,7 +568,7 @@ def fetch_geos_from_geoids(geoidfqs, year, survey, chunk_size=500):
 
                 # Build resource file and query API
                 logger.info(f"Building resource file to fetch from RestAPI.")
-                resource = morpc.rest_api.resource(name='temp', url=url, where=f"GEOID in ({geoids})", outfields='GEOID,NAME', split=False, max_record_count=chunk_size)
+                resource = morpc.rest_api.resource(name='temp', url=url, where=f"GEOID in ({geoids})", outfields='GEOID,NAME', max_record_count=chunk_size)
 
                 logger.info(f"Fetching geographies from RestAPI.")
                 geos = morpc.rest_api.gdf_from_resource(resource)
@@ -599,7 +599,7 @@ def fetch_geos_from_geoids(geoidfqs, year, survey, chunk_size=500):
 
             # Build resource file and query API
             logger.info(f"Building resource file to fetch from RestAPI.")
-            resource = morpc.rest_api.resource(name='temp', url=url, where= f"GEOID in ({geoids})", outfields='GEOID,NAME', split=False, max_record_count=chunk_size)
+            resource = morpc.rest_api.resource(name='temp', url=url, where= f"GEOID in ({geoids})", outfields='GEOID,NAME', max_record_count=chunk_size)
 
             logger.info(f"Fetching geographies from RestAPI.")
             geos = morpc.rest_api.gdf_from_resource(resource)
