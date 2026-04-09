@@ -5,13 +5,24 @@ Reference: https://specs.frictionlessdata.io/table-schema/
 
 import logging
 from math import e
-from typing import Literal
+from os import chdir, PathLike, getcwd
+from typing import Literal, List
+import datetime
+from frictionless import Resource
+from semantic_version import Version
+import contextlib
 
-from sqlalchemy import False_
 
 logger = logging.getLogger(__name__)
 
-import datetime
+@contextlib.contextmanager
+def tempWorkingDirectory(dir):
+    cwd = getcwd()
+    chdir(dir)
+    try:
+        yield
+    finally:
+        chdir(cwd)
 
 
 def load_schema(path):
@@ -354,7 +365,7 @@ def convert_lineend(path, target: Literal['dos', 'unix']):
 
 def create_resource(dataPath, title=None, name=None, description=None, sources=None, resourcePath=None, schemaPath=None, resFormat=None, 
                                  resProfile=None, resMediaType=None, computeHash=True, computeBytes=True, ignoreSchema=False, 
-                                 writeResource=False, validate=False, lineEnds: Literal['dos', 'unix'] = 'dos'):
+                                 writeResource=False, validate=False, control=None, lineEnds: Literal['dos', 'unix'] = 'dos'):
     """Create a Frictionless resource object using sane default values for some attributes.  Optionally, write the 
     resource file to disk and validate the resource file, schema, and data. 
 
@@ -410,6 +421,8 @@ def create_resource(dataPath, title=None, name=None, description=None, sources=N
     validate : bool
         Optional. If True, the resource file, schema file, and data file will be validated. Note that writeResource must be True to
         use this option.
+    control : frictionless.formats.Control
+        Optional. For formats that are not standard tables, add a control from frictionless.formats
     lineEnds : ['\r\n', '\n']
         Convert all line endings in text files to DOS or UNIX stile endings. Defaults to '\r\n', DOS endings.
 
@@ -443,7 +456,11 @@ def create_resource(dataPath, title=None, name=None, description=None, sources=N
         ".dbf": {
             "format":"dbf",
             "mediatype":"application/dbf"
-        }        
+        },
+        ".sqlite": {
+            "format": "sqlite",
+            "mediatype": "application/vnd.sqlite3"
+        }
     }
     
     dataFilePath = os.path.normpath(dataPath)
@@ -515,7 +532,7 @@ def create_resource(dataPath, title=None, name=None, description=None, sources=N
     if sources != None:
         resourceSources = sources
     else:
-        resourceSources = None  
+        resourceSources = None 
         logger.info("Sources not specified. No source information will be included in the resource.")
 
     if resMediaType != None:
@@ -542,18 +559,22 @@ def create_resource(dataPath, title=None, name=None, description=None, sources=N
         "mediatype": resourceMediaType,
     })
 
+    if control != None:
+        resource = frictionless.Resource(resource.to_dict(), control=control)
+
     if(not ignoreSchema):
         resource.schema = schemaFilePath
 
     unlocatedDataWarningIssued = False
 
-    if os.linesep == '\n':
-        logger.info(f'Changing line endings.')
-        if resourceFilePath == None:
-            logger.error(f"Unable to find resource as {resourceFilePath}")
-            raise RuntimeError
-        else:
-            convert_lineend(os.path.join(os.path.dirname(resourceFilePath), dataFilePath), lineEnds)
+    if dataFileExtension == ".csv":
+        if os.linesep == '\n':
+            logger.info(f'Changing line endings.')
+            if resourceFilePath == None:
+                logger.error(f"Unable to find resource as {resourceFilePath}")
+                raise RuntimeError
+            else:
+                convert_lineend(os.path.join(os.path.dirname(resourceFilePath), dataFilePath), lineEnds)
 
     if(computeHash):
         if(resourceFilePath != None):
@@ -632,15 +653,11 @@ def validate_resource(resourcePath):
     import frictionless
     cwd = os.getcwd()
 
-
-
     try:
         os.chdir(os.path.dirname(os.path.abspath(resourcePath)))
       
         logger.info("Validating resource on disk including data and schema (if applicable). This may take some time.")
         resourceOnDisk = frictionless.Resource(os.path.basename(resourcePath))
-
-        convert_lineend(resourceOnDisk.path, 'dos')
 
         results = resourceOnDisk.validate()
 
@@ -853,6 +870,35 @@ def schema_from_avro(path):
     frictionlessSchema = frictionless.Schema.from_descriptor(frictionlessSchemaDescriptor)
     
     return frictionlessSchema
+
+def create_package(dir: PathLike, resources: List[str], name: str, version: str | Version, keywords: List[str] | None = None):
+    """
+    Create a data package from a list of resources
+    """
+    import os
+    import frictionless
+
+    if isinstance(version, str):
+        try:
+            version = Version(version)
+        except ValueError as e:
+            logger.error(f"Version is not valid: {e}")
+
+    with tempWorkingDirectory(dir):
+        resources = [frictionless.Resource(x) for x in resources]
+
+        package = frictionless.Package(
+            name=name,
+            resources=resources,
+            created=datetime.datetime.now(),
+            version=str(version),
+            keywords=keywords
+        )
+
+        package.to_yaml(f"{name}.package.yaml")
+
+    return package
+
 
 # TODO: reinclude the geojson specific functions
 
