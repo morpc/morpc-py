@@ -9,8 +9,11 @@ from os import chdir, PathLike, getcwd
 from typing import Literal, List
 import datetime
 from frictionless import Resource
+from numpy import NaN
+from pandas import NaT
 from semantic_version import Version
 import contextlib
+import dateutil
 
 
 logger = logging.getLogger(__name__)
@@ -138,12 +141,14 @@ def cast_field_types(df, schema, forceInteger=False, forceInt64=False, nullBoolV
         A copy of the input dataframe with the field types cast according to the schema.
 
     """
-
+    import morpc
     import frictionless
     import pandas as pd
     import shapely
     import json
     import numpy as np
+    import re
+    import math
     outDF = df.copy()
 
     if handleMissingValues:
@@ -197,7 +202,12 @@ def cast_field_types(df, schema, forceInteger=False, forceInt64=False, nullBoolV
         elif(fieldType == "number"):
             outDF[fieldName] = outDF[fieldName].astype("float")
         elif(fieldType == "date" or fieldType == "datetime"):
-            outDF[fieldName] = pd.to_datetime(outDF[fieldName])
+            try:
+                outDF[fieldName] = [morpc.utils.datetime_from_string(x) for x in outDF[fieldName]]
+            except Exception as e:
+                logger.error(f"Unable to parse date. {e}")
+                raise ValueError
+
         elif(fieldType == "year"):
             outDF[fieldName] = [pd.to_datetime(x, format='%Y').year for x in outDF[fieldName]]
         elif(fieldType == "geojson"):
