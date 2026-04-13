@@ -1,12 +1,19 @@
 import logging
+from os import wait
+
+from httpx import head
+from requests import HTTPError, Session
 
 logger = logging.getLogger(__name__)
 
-def get_text_safely(url, params=None, headers=None):
+def get_text_safely(url, params=None, headers=None, session: Session | None = None):
     import requests
 
-    logger.info(f"Getting data from {url} with parameters {params}.")
-    r = requests.get(url, headers=headers, params=params)
+    if not isinstance(session, Session):
+        session = Session()
+
+    logger.debug(f"Getting data from {url} with parameters {params}.")
+    r = session.get(url, headers=headers, params=params)
     if r.status_code != 200:
         logger.error(f"Request content: {r.url}")
         raise requests.HTTPError
@@ -15,29 +22,55 @@ def get_text_safely(url, params=None, headers=None):
 
         text = r.text
 
-    r.close()
 
     return text
 
 
-def get_json_safely(url, params=None, headers=None):
+def get_json_safely(url, params=None, headers=None, session: Session | None = None, returnurl: bool = False):
     import requests
 
-    logger.info(f"Getting data from {url} with parameters {params}.")
-    r = requests.get(url, params=params, headers=headers)
+    if not isinstance(session, Session):
+        session = Session()
+
+    logger.debug(f"Getting data from {url} with parameters {params}.")
+    r = session.get(url, params=params, headers=headers)
     if r.status_code != 200:
-        logger.error(f"Request content: {r.url}")
-        raise requests.HTTPError
+        if "Output format not supported" in r.text:
+            logger.error(f"Output format not supported: {params['f']}")
+            raise HTTPError(f"Output format not supported: {params['f']}")
+        if r.status_code == 500:
+            logger.error(f"Status Code 500: retrying request")
+            r = session.get(url, params=params, headers=headers)
+            if r.status_code != 200:
+                logger.error(f"Failed second attempt, aborting.")
+                raise HTTPError
+            else:
+                json = r.json()
+        else:
+            logger.error(f"Request failed. Content: {r.content}")
     else:
         logger.debug(f"Request successful. Decoding return JSON.")
         try:
             json = r.json()
+            if 'error' in json:
+                if json['error']['code'] == 500:
+                    wait(1)
+                    try:
+                        r=session.get(url=url, params=params, headers=headers)
+                        json = r.json()
+                    except Exception as e:
+                        logger.error(f"Request failed: {r.url}")
+                        logger.error(f"Failed second attempt. {e}")
+                        raise RuntimeError
+                logger.error(f"Server returned error {json['error']}")
         except:
             logger.error(f"JSONDecoderError. Check the url. {r.url}")
             raise requests.JSONDecodeError
-    r.close()
 
-    return json
+    if returnurl:
+        return json, r.url
+    else:
+        return json
 
 def post_safely(url, params=None, headers=None):
     import requests

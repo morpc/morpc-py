@@ -6,7 +6,17 @@ including fetching data, converting ESRI WKID to WKT2, and creating frictionless
 from ArcGIS services.
 """
 
+import itertools
+from json import JSONDecodeError
 import logging
+from types import NoneType
+from typing import List
+import urllib.parse
+
+from pandas import concat
+from requests import HTTPError
+import urllib
+from morpc.req import get_json_safely
 
 logger = logging.getLogger(__name__)
 
@@ -54,51 +64,43 @@ def resource(name, url, where='1=1', outfields='*', max_record_count=None):
     logger.info(f"Query Params: where = {where}, outFields = {outfields}")
 
     # Get the total record count
-    total_record_count = totalRecordCount(url, where=where, outfields=outfields)
+    try:
+        total_record_count = totalRecordCount(url, where=where, outfields=outfields)
+    except HTTPError as e:
+        logger.error(f"Failed to get total record count, HTTPError: {e}")
+
     logger.info(f"Total number of geographies: {total_record_count}")
     
     # Determine the max record count
     if max_record_count is None:
-        if total_record_count > 500:
-            max_record_count = 500
-            logger.info(f"Splitting query into fetch ")
-        else:
-            max_record_count = total_record_count
-    logger.info(f"Fetching {max_record_count} at a time.")
-
-
-    # Construct list of source urls to account for max record counts
-    logger.info(f"Saving source urls in resource.")
-    sources = []
-    offsets = [x for x in range(0, total_record_count, max_record_count)]
-    for i in range(len(offsets)):
-        start = offsets[i]
-        source = {
-            "url": f"{url}/query?",
-            "params": query
-                }
-        source['params']['resultOffset'] = start
-        path = source['url'] + urllib.parse.urlencode(query)
-        sources.append(path)
-    logger.debug(f"all sources: {', '.join(sources)}")
+        try:
+            max_record_count = maxRecordCount(url)
+        except ValueError as e:
+            logger.warning(f"Unable to find maxRecordCount. Using default.")
+            if total_record_count > 500:
+                max_record_count = 500
+            else:
+                max_record_count = total_record_count
+        logger.info(f"Fetching {max_record_count} at a time.")
 
     # Construct the frictionless Resource object
     resource = {
         "name": re.sub('[:/_ ]', '-', name).lower(),
         "format": "json",
-        "path": sources,
+        "path": url,
         "schema": schema(url, outfields=outfields),
         "mediatype": "application/geo+json",
         "_metadata": {
             "type": "arcgis_service",
             "params": query,
             "total_records": total_record_count,
+            "max_record_count": max_record_count
         }
     }
 
     return frictionless.Resource(resource)
 
-def query(resource, api_key=None, recordcount_override=None):
+def gdf_from_resource(resource, out_fields: List[str] | None = None):
     """Creates a GeoDataFrame from resource file for an ArcGIS Services. Automatically queries for maxRecordCount and
     iterates over the whole feature layer to return all features. Optional: Filter the results by including a list of field
     IDs.
@@ -108,26 +110,23 @@ def query(resource, api_key=None, recordcount_override=None):
     Parameters:
     ------------
     resource : str
-        The path to the resource file, which can be a local file or a URL to an ArcGIS REST API service.
+        A frictionless.Resource or path to the resource file, which can be a local file or a URL to an ArcGIS REST API service.
 
-    field_ids : list of str
-        A list of strings that match field ids in the feature layer.
-
-    api_key : str, optional
-        An API key for accessing the ArcGIS REST API service. If not provided, the function will attempt to access the service without an API key.
-
+    out_fields : list[str]
+        A list of strings representing the fields to include in the query.
     Returns:
     ----------
     gdf : pandas.core.frame.DataFrame
         A GeoPandas GeoDataframe constructed from the GeoJSON requested from the url.
 
-    Raises:
-    ---------
-    RuntimeError: If the provided field_ids are not available in the resource.  
     """
 
-    import requests
+    from requests import Session
     import frictionless
+    import enlighten
+    import geopandas as gpd
+    import pandas as pd
+    from time import sleep
 
 
     headers = {"User-Agent": "Mozilla/5.0 (X11; CrOS x86_64 12871.102.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/81.0.4044.141 Safari/537.36"}
@@ -137,113 +136,68 @@ def query(resource, api_key=None, recordcount_override=None):
         resource = frictionless.Resource(path=resource)
     elif isinstance(resource, frictionless.Resource):
         # If it's already a Resource object, use it directly
-        pass    
+        pass
 
-    sources = resource.paths
+    if not isinstance(out_fields, NoneType):
+        for field in out_fields:
+            if field not in resource.schema.field_names:
+                logger.error(f"field {field} not in resource fields: {resource.schema.field_names}")
+                raise ValueError
+
+    metadata = resource.to_dict()['_metadata']
+
+    offsets = [x for x in range(0, metadata['total_records'], metadata['max_record_count'])]
+
+    # Construct URLS for each request based on offests
+    urls = []
+    for offset in offsets:
+        url = resource.path
+        params = metadata['params']
+        if not isinstance(out_fields, NoneType):
+            params.update({'outFields': ",".join(out_fields)})
+        params.update({'resultRecordCounty': metadata['max_record_count']})
+        params.update({'resultOffset': offset})
+        url = f"{resource.path}/query?" + urllib.parse.urlencode(params, safe=",()")
+        urls.append(url)
 
     # Fetch the GeoJSON data in chunks via source urls constructed above
-    features = []
-    logger.info(f"Sending {len(sources)} requests.")
-    with requests.Session() as s:
-        # Check if sources is None or empty
-        if sources is None or len(sources) == 0:
-            logger.error("No sources found in the resource. Check the resource file or URL.")
-            raise RuntimeError("No sources found in the resource. Check the resource file or URL.")\
-        # If there is only one source, fetch it directly
-        if len(sources) == 1:
-            r = s.get(sources[0], headers=headers)
-            # Check if the request was successful
-            if r.status_code != 200:
-                logger.error(f"Error fetching data from {sources[0]}: {r.status_code}")
-                raise RuntimeError(f"Failed to fetch data from {sources[0]}")
-            # Parse the JSON response
-            try:
-                logger.info(f"Decoding json data.")
-                features = [r.json()]
-            except:
-                logger.error(f"CONTENTS OF REQUESTS {r.content}")
-        # If there are multiple sources, iterate over them
-        if len(sources) > 1:
+    gdfs = []
+    with Session() as session:
+        with enlighten.Manager() as manager: # Load progress bar
+            with manager.counter(total=len(urls), desc='Downloading:', unit='requests') as pb:
+                for url in urls:
+                    r = session.get(url)
+                    while r.status_code != 200:
+                        logger.warning(f"Status Code {r.status_code}, trying again. URL: {r.url}")
+                        if r.status_code == 400:
+                            if "Output format not supported" in r.text:
+                                url = url.replace('geojson', 'json').replace('&returnGeometry=true','')
+                                logger.warning(f"Output format not supported, trying json. {url}")
+                        sleep(1)
+                        r = session.get(url, headers=headers)
 
-            for i in range(len(sources)):
-                print_bar(i, len(sources))
-                r = s.get(sources[i], headers=headers)
-                try:
-                    result = r.json()
-                except:
-                    logger.error(f"Failed to decode json. CONTENTS OF REQUESTS {r.content}")
+                    try:
+                        json = r.json()
+                    except JSONDecodeError as e:
+                        logger.error(f"Failed to decode json. {r.content}")
+                        raise JSONDecodeError(e)
 
-                # Check if the request was successful
-                if 'error' in result:
-                    logger.error(f"Error fetching data: {result['error']['message']}")
-                    raise RuntimeError
-                
-                # Check if the result contains features
-                if 'features' not in result:
-                    logger.error(f"No features found in the response. Check the URL or parameters.")
-                    raise RuntimeError
-            
-                features.append(result)
-    try:
-    # Combine list of feature collections into a single feature collection
-        if len(features) == 0:
-            logger.error("No features found in the response. Check the URL or parameters.")
-            raise RuntimeError
-        elif len(features) == 1:
-            feature_collection = features[0]
-        if len(features) > 1:
-            features = [item for sublist in features for item in sublist['features']]
-            feature_collection = {
-                "type": "FeatureCollection",
-                "features": features
-            }
-    except Exception as e:
-        logger.error(f"Error combining features: {e}", len(features))
-        raise RuntimeError("Failed to combine features from the response.")
+                    try:
+                        gdf = gpd.GeoDataFrame.from_features(json)
+                    except Exception as e:
+                        logger.error(f"Failed to create gdf. {e}")
+                        logger.error(f"{r.url}")
+                        logger.error(f"{json}")
+                        raise RuntimeError
 
-    return feature_collection
+                    gdfs.append(gdf)
+                    pb.update()
 
-def gdf_from_resource(resource):
-    """
-    Converts a resource file from an ArcGIS REST API service into a GeoDataFrame.
-    Parameters:
-    -----------
-    resource : str or frictionless.Resource
-        The path to the resource file, which can be a local file or a URL to an ArcGIS REST API service.
+    gdf = pd.concat(gdfs)
+    if len(gdf) != len(metadata['total_records']):
+        logger.error(f"Number of records do not match. Expected {len(metadata['total_records'])}, downloaded: {len(gdf)}")
 
-    Returns:
-    --------
-    gdf : geopandas.GeoDataFrame
-        A GeoPandas GeoDataFrame constructed from the GeoJSON requested from the URL.
-
-    Raises:
-    --------
-    RuntimeError: If the provided resource is not a valid ArcGIS REST API service or if there are issues with the request.  
-
-    """
-    import frictionless
-    import geopandas as gpd
-
-    # Check if the resource is a string or a frictionless Resource object
-    if isinstance(resource, str):
-        logger.info(f"Loading file at {resource} as resource file.")
-        # If it's a string, create a frictionless Resource object from the URL or file path
-        resource = frictionless.Resource(path=resource)
-    elif isinstance(resource, frictionless.Resource):
-        # If it's already a Resource object, use it directly
-        pass    
-
-    # Fetch the GeoJSON data from the resource
-    logger.info(f"Fetching geometry data from {resource}")
-    features = query(resource)
-      
-    # Convert GeoJSON features to GeoDataFrame
-    gdf = gpd.GeoDataFrame.from_features(features, crs='EPSG:4326') # Start with EPSG:4326
-    
-    # Set the coordinate reference system of the GeoDataFrame
-    gdf = gpd.GeoDataFrame(gdf, geometry='geometry').drop_duplicates()
-
-    return(gdf)
+    return gdf
 
 def schema(url, outfields=None):
     """Extracts the schema from a JSON object returned by an ArcGIS REST API service.
@@ -321,88 +275,66 @@ def totalRecordCount(url, where, outfields='*'):
     import requests
     import re
     from morpc.req import get_json_safely
+
     # Find the total number of records
     logger.info(f"Requesting metadata for total record")
+
+    # Create query for total record count
     url= f"{url}/query/"
     params = {
         "outfields": "*",
         "where": where,
         "f": "geojson",
-        "returnCountOnly": "true"}
-    json = get_json_safely(url, params = params)
+        "returnCountOnly": "true"} ## Inlcude in paramters to return only the total records
+    
+    # Try to fetch it as a geojson
+    try:
+        json = get_json_safely(url, params = params)
+
+    # If it errors, check if geojson is not supported and try json
+    except HTTPError as e:
+        try:
+            logger.warning(f"geoJSON not supported, trying Json...")
+            params['f'] = 'json'
+            json = get_json_safely(url, params = params)
+        except:
+            logger.error(f"HTTPError: {e}")
+            raise HTTPError
+
     total_count = int(re.findall('[0-9]+',str(json))[0])
     logger.info(f"Total records: {total_count}")
 
     return total_count
 
-
-# Depreciated for wkt2
-# def esri_wkid_to_epsg(esri_wkid):
-#     """Converts an ESRI WKID to an EPSG code.
-
-#     Parameters:
-#     -----------
-#     esri_wkid : int
-#         The ESRI WKID to be converted.  
-#     Returns:
-#     --------
-#     epsg : int
-#         The corresponding EPSG code.
-#     Example:
-#     --------
-#     >>> epsg = esri_wkid_to_epsg(4326)
-#     >>> print(epsg)
-#     4326    
-
-#     """
-#     import json
-#     import requests
-
-#     r = requests.get(f"https://spatialreference.org/ref/esri/{esri_wkid}/projjson.json")
-#     json = r.json()
-#     epsg = json['base_crs']['id']['code']
-#     return epsg
-
-def print_bar(i, total):
-    """Prints a progress bar to the console.
-
-    Parameters:     
+def maxRecordCount(url):
+    """Fetches the total number of records from an ArcGIS REST API service.
+    Parameters:
     -----------
-    i : int
-        The current iteration number.
-    total : int
-        The total number of iterations.
-    """
-    from IPython.display import clear_output
-
-    percent = round((i + 1)/total * 100, 3)
-    completed = round(percent)
-    not_completed = 100-completed
-    bar = f"{i+1}/{total} |{'|'*completed}{'.'*not_completed}| {percent}%"
-    print(bar)
-    clear_output(wait=True)
-
-def get_api_key(path):
-    """Reads an API key from a file.
-    Parameters: 
-    -----------
-    path : str
-        The path to the file containing the API key.
+    url : str
+        The URL of the ArcGIS REST API service.
     Returns:
-    --------
-    key : str
-        The API key read from the file.
-    Example:
-    --------
-    >>> key = get_api_key('path/to/api_key.txt')
+    --------    
+    total_count : int
+        The total number of records in the service.
     """
-    import os
 
-    # Verify file exists
-    if not os.path.exists(path):
-        print(f"File does not exist: {path}")
+    from morpc.req import get_json_safely
+    # Find the total number of records
+    logger.info(f"Requesting metadata for max records in query")
 
-    with open(path, 'r') as file:
-        key = file.readlines()
-    return key[0]
+    # Get properties json
+    url= f"{url}?f=pjson"
+
+    try:
+        json, url = get_json_safely(url, returnurl=True)
+        max_record_count = json['maxRecordCount']
+    except ValueError as e:
+        logger.error('Could not find maxRecordCount in json. revert to default value.')
+        raise ValueError
+    except KeyError as e:
+        logger.error(f"maxRecordCount not in json: {url}")
+    logger.info(f"Total records: {max_record_count}")
+
+
+    return max_record_count
 

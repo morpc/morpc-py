@@ -1,6 +1,9 @@
 from typing import Literal
 
 import logging
+
+from pandas import DataFrame
+from sqlalchemy import all_
 logger  = logging.getLogger(__name__)
 
 import morpc
@@ -253,13 +256,16 @@ def get_query_req(scale, year='2023'):
     logger.info(f"{scale} requires {query_requirements}")
     return query_requirements
 
-def geoids_for_hierarchical_geos(scope, scale):
+def geoinfo_for_hierarchical_geos(scope, scale):
     """
     For geographic calls that are more complex than can be handled with psuedo(). 
     
     Creates a list of geoids from iterating through hierarchy and constructing manually. 
+
+    Parameters:
+
     """
-    from morpc.census.geos import geoids_from_params, geoids_from_scope, get_query_req, SCOPES
+    from morpc.census.geos import geoinfo_from_params, geoids_from_scope, get_query_req, SCOPES
     import pandas as pd
 
     # Get the query requirements
@@ -274,6 +280,9 @@ def geoids_for_hierarchical_geos(scope, scale):
 
     # Create a table of the geoids for what is already in the scope
     parent_table = geoids_from_scope(scope, output='table').drop(columns='GEO_ID')
+
+    # To fill in required geographic levels build a table representing a query for each 
+    # query we need to construct the whole table. 
 
     # For each geography that is not in the scope but is in the requirements...
     for geo in not_in_scope:
@@ -292,7 +301,7 @@ def geoids_for_hierarchical_geos(scope, scale):
                 in_param_str.append(f"{x}:{",".join(row[x]) if isinstance(row[x],list) else row[x]}")
 
             # Get a list of all geoids (*) for the geography we are adding to the table
-            geoids = geoids_from_params({"in": in_param_str, "for": f"{geo}:*"}, output='table')[geo].to_list()
+            geoids = geoinfo_from_params({"in": in_param_str, "for": f"{geo}:*"}, output='table')[geo].to_list()
             logger.debug(f"at row:{i}, column:{geo} adding geoids {geoids}")
 
             # Add it to the table
@@ -306,7 +315,7 @@ def geoids_for_hierarchical_geos(scope, scale):
             parent_table = parent_table.explode(geo).reset_index().drop(columns='index')
 
     # With table each row representing a required query...
-    all_geoids = []
+    geoinfos = []
     # Itereate through each row
     for i, row in parent_table.iterrows():
 
@@ -316,15 +325,15 @@ def geoids_for_hierarchical_geos(scope, scale):
             in_param_str.append(f"{x}:{",".join(row[x]) if isinstance(row[x],list) else row[x]}")
 
         # Call this list of GEOIDFQs this time
-        geoids = geoids_from_params({"in": in_param_str, "for": f"{scale}:*"}, output='list')
+        geoinfo = geoinfo_from_params({"in": in_param_str, "for": f"{scale}:*"}, output='table')
 
         # Add to list
-        all_geoids += geoids
+        geoinfos.append(geoinfo)
 
     # combine and return
-    return all_geoids
+    return pd.concat(geoinfos)
 
-def geo_params_from_scope_scale(scope: str, scale: str | None = None) -> dict:
+def geoinfo_from_scope_scale(scope: str, scale: str | None = None, output: Literal['list','table','json','params']='list'):
     """
     Creates a dictionary with 'for' and 'in' or 'ucgid' parameters that conforms to Census API query requirements.
 
@@ -334,11 +343,8 @@ def geo_params_from_scope_scale(scope: str, scale: str | None = None) -> dict:
         see morpc.census.geos.SCOPES
     scale : str, optional
         see morpc.SUMLEVEL_DESCRIPTION['censusQueryName'], by default None
-
-    Returns
-    -------
-    dict
-        example - {"for": "county:*", "in":"state:39"} or {'ucgid':'psuedo(...)'}
+    output : {'list', 'table', 'json', 'params'}
+        The type of geoinfo to return
 
     Raises
     ------
@@ -351,8 +357,13 @@ def geo_params_from_scope_scale(scope: str, scale: str | None = None) -> dict:
 
     # If there is no scale, just use scope.
     if scale == None:
+        if scope.startswith('region'):
+            scale = 'county'
         logger.info(f"No scale specified. Using {scope} parameters. {SCOPES[scope]}")
         params.update(SCOPES[scope])
+        if output == 'params':
+            return params
+        geoinfo = geoinfo_from_params(params, output=output)
 
     # If there is a scale...
     else:
@@ -364,6 +375,9 @@ def geo_params_from_scope_scale(scope: str, scale: str | None = None) -> dict:
         if scope_sumlevel == scale_sumlevel:
             logger.warning(f"Scope and Scale have same sumlevel, using Scope {scope}.")
             params.update(SCOPES[scope])
+            if output == 'params':
+                return params
+            geoinfo = geoinfo_from_params(params, output='table')
 
         # If we need to use scale
         else:
@@ -371,29 +385,30 @@ def geo_params_from_scope_scale(scope: str, scale: str | None = None) -> dict:
             try:
                 pseudos = pseudos_from_scale_scope(scale, scope)
                 params.update({'ucgid': f"pseudo({','.join(pseudos)})"})
+                if output == 'params':
+                    return params
+                geoinfo = geoinfo_from_params(params, output='table')
 
-                return params
             except ValueError as e:
-                logger.warning(f"Failed to build psuedos, {e}")
                 logger.info(f"Manually building list of all geoids.")
             
-            # If geography combination is not valid...
+            # If geography combination is not valid combination for psuedos...
 
                             # (see list of available combinations 
                             # at https://www.census.gov/data/developers/guidance/api-user-guide/ucgid-predicate.html
                             # in the "List of Available Collections of Geographies.")
 
-            # If psuedos fails...
             # try to build "in" and "for" parameters to meet requirements. (see https://api.census.gov/data/2023/acs/acs5/geography.json)
-                geoids = geoids_for_hierarchical_geos(scope, scale)
+                if output == 'params':
+                    return {'ucgid': ",".join(geoinfo_for_hierarchical_geos(scope, scale)['GEO_ID'])}
+                geoinfo = geoinfo_for_hierarchical_geos(scope, scale)
 
-
-                # Finally...
-                # add wildcard for scale in 'for'...
-                params.update({"ucgid": ",".join(geoids)})
-
-    logger.debug(f"params from scope and scale: {params}")
-    return params
+    if output == 'table':
+        return geoinfo
+    if output == 'json':
+        return geoinfo.set_index('GEO_ID').to_dict()['NAME']
+    if output == 'list':
+        return geoinfo['GEO_ID'].to_list()
 
 
 def geoids_from_scope(scope, output: Literal['list','table','json']='list'):
@@ -430,7 +445,7 @@ def pseudos_from_scale_scope(scale, scope):
 
     return pseudos
 
-def geoids_from_params(param_dict: dict, year: int = 2023, output: Literal['list','table','json']='list') -> list:
+def geoinfo_from_params(param_dict: dict, year: int = 2023, output: Literal['list','table','json']='table') -> list:
     """
     returns a list of GEOIDFQs from psuedo ucgids, or for and in parameters. 
 
@@ -443,14 +458,19 @@ def geoids_from_params(param_dict: dict, year: int = 2023, output: Literal['list
     import pandas as pd
     url = f"https://api.census.gov/data/{year}/geoinfo"
     params = {
-        'get': 'GEO_ID',
+        'get': 'GEO_ID,NAME',
     }
     logger.debug(f"Updating params from {param_dict}")
 
     if 'ucgid' in param_dict:
-        params.update({
-            'ucgid': param_dict['ucgid']
-        })
+        if 'pseudo' in param_dict['ucgid']:
+            params.update({
+                'ucgid': param_dict['ucgid']
+            })
+        else:
+            logger.error(f"ucgid without pseudo. {params}")
+            raise NotImplementedError
+        
     elif 'for' in param_dict:
         params.update({
             'for': param_dict['for']
@@ -494,7 +514,7 @@ def geoids_from_params(param_dict: dict, year: int = 2023, output: Literal['list
 #     ucgids = [x[0] for x in json[1:]]
 #     return ucgids
 
-def fetch_geos_from_geoids(geoidfqs, year, survey):
+def fetch_geos_from_geoids(geoidfqs, year, survey, chunk_size=500):
     """
     Fetches a table of geometries from a list of Census GEOIDFQs using the Rest API.
 
@@ -503,52 +523,98 @@ def fetch_geos_from_geoids(geoidfqs, year, survey):
         A list of fully qualified Census GEOIDs, i.e. ['0550000US39049', '0550000US39045']
 
     year : str
-        The year of the data to ret
+        The year of the data to return
+
+    survey : str
+        The survey to return the geos for, "ACS" or "DEC"
     """
 
     from morpc.census.tigerweb import get_layer_url
     import pandas as pd
     import geopandas as gpd
+    
+    all_geoidfqs = geoidfqs
+    all_geometries = []
 
-    # Get sum levels in the data
-    sumlevels = set([x[0:3] for x in geoidfqs])
+    if len(geoidfqs) > chunk_size:
+        start = 0
+        offset = chunk_size
+        while start < len(all_geoidfqs):
+            if start+offset > len(all_geoidfqs):
+                offset = len(all_geoidfqs)-start
+            logger.info(f"Fetching geoids {start} - {start+offset}")
+            geoidfqs = all_geoidfqs[start:start+offset+1]
+        
+        # Get sum levels in the data
+            sumlevels = set([x[0:3] for x in geoidfqs])
 
-    logger.info(f"Sum levels {', '.join(sumlevels)} are in data.")
+            logger.info(f"Sum levels {', '.join(sumlevels)} are in data.")
 
-    geometries = []
-    for sumlevel in sumlevels: # Get geometries for each sumlevel iteratively
-        # Get rest api layer name and get url
-        layerName = morpc.SUMLEVEL_DESCRIPTIONS[sumlevel]['censusRestAPI_layername']
-        if layerName == None:
-            logger.error(f"Sumlevel {sumlevel} does not have a layer in TigerWeb REST API.")
-            raise NotImplementedError
+            for sumlevel in sumlevels: # Get geometries for each sumlevel iteratively
+                # Get rest api layer name and get url
+                layerName = morpc.SUMLEVEL_DESCRIPTIONS[sumlevel]['censusRestAPI_layername']
+                if layerName == None:
+                    logger.error(f"Sumlevel {sumlevel} does not have a layer in TigerWeb REST API.")
+                    raise NotImplementedError
 
-        url = get_layer_url(year, layer_name=layerName, survey=survey)
-        logger.info(f"Fetching geometries for {layerName} ({sumlevel}) from {url}")
+                url = get_layer_url(year, layer_name=layerName, survey=survey)
+                logger.info(f"Fetching geometries for {layerName} ({sumlevel}) from {url}")
 
-        # Construct a list of geoids from data to us to query API
-        geoids = ",".join([f"'{x.split('US')[-1]}'" for x in geoidfqs if x.startswith(sumlevel)])
+                # Construct a list of geoids from data to us to query API
+                geoids = ",".join([f"'{x.split('US')[-1]}'" for x in geoidfqs if x.startswith(sumlevel)])
 
-        logger.info(f"There are {len(geoids)} geographies in {layerName}")
-        logger.debug(f"{', '.join(geoidfqs)}")
+                logger.info(f"There are {len(geoids)} geographies in {layerName}")
+                logger.debug(f"{geoids}")
 
-        # Build resource file and query API
-        logger.info(f"Building resource file to fetch from RestAPI.")
-        resource = morpc.rest_api.resource(name='temp', url=url, where= f"GEOID in ({geoids})", outfields='GEOID,NAME')
+                # Build resource file and query API
+                logger.info(f"Building resource file to fetch from RestAPI.")
+                resource = morpc.rest_api.resource(name='temp', url=url, where=f"GEOID in ({geoids})", outfields='GEOID,NAME', max_record_count=chunk_size)
 
-        logger.info(f"Fetching geographies from RestAPI.")
-        geos = morpc.rest_api.gdf_from_resource(resource)
-        geos['GEOIDFQ'] = [f"{sumlevel}0000US{x}" for x in geos['GEOID']]
+                logger.info(f"Fetching geographies from RestAPI.")
+                geos = morpc.rest_api.gdf_from_resource(resource)
+                geos['GEOIDFQ'] = [f"{sumlevel}0000US{x}" for x in geos['GEOID']]
 
-        geometries.append(geos[['GEOIDFQ', 'NAME', 'geometry']])
+            all_geometries.append(geos[['GEOIDFQ', 'NAME', 'geometry']])
+            start += offset+1
+    else:
+        sumlevels = set([x[0:3] for x in geoidfqs])
+
+        logger.info(f"Sum levels {', '.join(sumlevels)} are in data.")
+
+        for sumlevel in sumlevels: # Get geometries for each sumlevel iteratively
+            # Get rest api layer name and get url
+            layerName = morpc.SUMLEVEL_DESCRIPTIONS[sumlevel]['censusRestAPI_layername']
+            if layerName == None:
+                logger.error(f"Sumlevel {sumlevel} does not have a layer in TigerWeb REST API.")
+                raise NotImplementedError
+
+            url = get_layer_url(year, layer_name=layerName, survey=survey)
+            logger.info(f"Fetching geometries for {layerName} ({sumlevel}) from {url}")
+
+            # Construct a list of geoids from data to us to query API
+            geoids = ",".join([f"'{x.split('US')[-1]}'" for x in geoidfqs if x.startswith(sumlevel)])
+
+            logger.info(f"There are {len(geoids)} geographies in {layerName}")
+            logger.debug(f"{', '.join(geoidfqs)}")
+
+            # Build resource file and query API
+            logger.info(f"Building resource file to fetch from RestAPI.")
+            resource = morpc.rest_api.resource(name='temp', url=url, where= f"GEOID in ({geoids})", outfields='GEOID,NAME', max_record_count=chunk_size)
+
+            logger.info(f"Fetching geographies from RestAPI.")
+            geos = morpc.rest_api.gdf_from_resource(resource)
+            geos['GEOIDFQ'] = [f"{sumlevel}0000US{x}" for x in geos['GEOID']]
+
+            all_geometries.append(geos[['GEOIDFQ', 'NAME', 'geometry']])
+
     logger.info("Combining geometries...")
-    geometries = pd.concat(geometries)
+    geometries = pd.concat(all_geometries)
     geometries = geometries.rename(columns={'GEOIDFQ': 'GEO_ID'})
     geometries = geometries.set_index('GEO_ID')
 
     return gpd.GeoDataFrame(geometries, geometry='geometry')
 
-def fetch_geos_from_scale_scope(scope, scale=None, year='2023', survey='ACS'):
+def fetch_geos_from_scale_scope(scope, scale=None, year='2023', survey='ACS', chunk_size=500):
     """
     Returns a geodataframe of with geoids and and geometries from scales and scope.
 
@@ -565,7 +631,11 @@ def fetch_geos_from_scale_scope(scope, scale=None, year='2023', survey='ACS'):
         The survey to retrive the data for, ACS or DEC
     """
 
-    return fetch_geos_from_geoids(geoids_from_params(geo_params_from_scope_scale(scope, scale)), year, survey)
+    geoids = geoinfo_from_scope_scale(scope, scale, output='list')
+
+    geos = fetch_geos_from_geoids(geoids, year, survey, chunk_size=chunk_size)
+
+    return geos
 
 def morpc_juris_part_to_full(geoidSeries, validateTranslation=True, gitRootPath="../"):
     """Given a series of fully-qualified MORPC GEOIDs representing county parts of MORPC jurisdictions (i.e. SUMLEVEL
