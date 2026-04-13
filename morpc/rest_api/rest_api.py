@@ -194,7 +194,7 @@ def gdf_from_resource(resource, out_fields: List[str] | None = None):
                     pb.update()
 
     gdf = pd.concat(gdfs)
-    if len(gdf) != len(metadata['total_records']):
+    if len(gdf) != metadata['total_records']:
         logger.error(f"Number of records do not match. Expected {len(metadata['total_records'])}, downloaded: {len(gdf)}")
 
     return gdf
