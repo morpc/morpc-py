@@ -3575,6 +3575,9 @@ def update_existing_table(newData, schema, existingData=None, sortColumns=None, 
         myNewData = myNewData.reset_index()
         outputData = outputData.reset_index()
 
+    logger.info("Reordering fields in merged data as specified in the schema.")
+    outputData = outputData.filter(items=schema.field_names, axis="columns")
+
     logger.info("Casting merged data to data types specified in schema.")
     outputData = morpc.frictionless.cast_field_types(outputData, schema)
 
