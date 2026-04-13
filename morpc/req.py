@@ -1,6 +1,5 @@
 import logging
-from os import wait
-
+from time import sleep
 from httpx import head
 from requests import HTTPError, Session
 
@@ -54,7 +53,7 @@ def get_json_safely(url, params=None, headers=None, session: Session | None = No
             json = r.json()
             if 'error' in json:
                 if json['error']['code'] == 500:
-                    wait(1)
+                    sleep(1)
                     try:
                         r=session.get(url=url, params=params, headers=headers)
                         json = r.json()
