@@ -100,7 +100,7 @@ def resource(name, url, where='1=1', outfields='*', max_record_count=None):
 
     return frictionless.Resource(resource)
 
-def gdf_from_resource(resource, out_fields: List[str] | None = None):
+def gdf_from_resource(resource, out_fields: List[str] | None = None, CRS = 'epsg:4326'):
     """Creates a GeoDataFrame from resource file for an ArcGIS Services. Automatically queries for maxRecordCount and
     iterates over the whole feature layer to return all features. Optional: Filter the results by including a list of field
     IDs.
@@ -195,7 +195,9 @@ def gdf_from_resource(resource, out_fields: List[str] | None = None):
 
     gdf = pd.concat(gdfs)
     if len(gdf) != metadata['total_records']:
-        logger.error(f"Number of records do not match. Expected {len(metadata['total_records'])}, downloaded: {len(gdf)}")
+        logger.error(f"Number of records do not match. Expected {metadata['total_records']}, downloaded: {len(gdf)}")
+    
+    gdf = gdf.set_crs(CRS)
 
     return gdf
 
