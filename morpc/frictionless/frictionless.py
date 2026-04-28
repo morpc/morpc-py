@@ -100,7 +100,7 @@ def name_to_desc_map(schema):
     return {schema.fields[i].name:schema.fields[i].description for i in range(len(schema.fields))}
 
   
-def cast_field_types(df, schema, forceInteger=False, forceInt64=False, nullBoolValue=False, handleMissingFields="error", handleMissingValues=True):
+def cast_field_types(df, schema, forceInteger=False, forceInt64=False, forceNumber=False, nullBoolValue=False, handleMissingFields="error", handleMissingValues=True):
     """
     Given a dataframe and the Frictionless Schema object (see load_schema), recast each of the fields in the 
     dataframe to the data type specified in the schema. s
@@ -122,6 +122,9 @@ def cast_field_types(df, schema, forceInteger=False, forceInt64=False, nullBoolV
         necessary.  This is useful when trying to merge dataframes which would otherwise have mixed
         int32 and Int64 fields. Defaults to False.
     
+    forceNumber : bool
+        Optional. If True, then coerce columns that are converted to "number" using pd.to_numeric(errors='coerce').
+        
     nullBoolValue : bool
         Optional. When casting boolean fields, this parameter specifies whether null values
         should be interpreted as True or False.  Defaults to False.
@@ -194,22 +197,31 @@ def cast_field_types(df, schema, forceInteger=False, forceInt64=False, nullBoolV
                         # If the user has allowed coercion of the values to integers, then round the values to the ones place prior to 
                         # converting to "Int64"
                         logger.warning("Failed conversion of fieldname {} to type 'Int64'.  Trying to round first.".format(fieldName))
-                        outDF[fieldName] = outDF[fieldName].astype("float").round(0).astype("Int64")
+                        outDF[fieldName] = pd.to_numeric(outDF[fieldName], errors='coerce').round(0).astype("Int64")
                     else:
                         # If the user has not allow coercion of the values to integers, then throw an error.
                         logger.error("Unable to coerce value to Int64 type.  Ensure that fractional part of values is zero, or set forceInteger=True")
                         raise RuntimeError           
         elif(fieldType == "number"):
-            outDF[fieldName] = outDF[fieldName].astype("float")
+            try:
+                outDF[fieldName] = outDF[fieldName].astype("float")
+            except Exception as e:
+                if forceNumber == True:
+                    logger.debug(f"forceNumber is set to True, Coercing {fieldName} to numeric.")
+                    outDF[fieldName] = pd.to_numeric(outDF[fieldName], errors='coerce').astype("float")
+                else:
+                    logger.error(f"Unable to set {fieldName} to number. Set forceNumber as True to coerce. {e}")
+                    raise ValueError
         elif(fieldType == "date" or fieldType == "datetime"):
             try:
                 outDF[fieldName] = [morpc.utils.datetime_from_string(x) for x in outDF[fieldName]]
+                outDF[fieldName] = pd.to_datetime(outDF[fieldName], errors='coerce')
             except Exception as e:
                 logger.error(f"Unable to parse date. {e}")
                 raise ValueError
 
         elif(fieldType == "year"):
-            outDF[fieldName] = [pd.to_datetime(x, format='%Y').year for x in outDF[fieldName]]
+            outDF[fieldName] = [pd.to_datetime(x, format='%Y').year if re.match(r'[0-9]{4}',str(x)) else None for x in outDF[fieldName]]
         elif(fieldType == "geojson"):
             try:
                 logger.info(f"Fieldname {fieldName} as geojson. Attempting to convert to geometry.")
