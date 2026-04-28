@@ -9,3 +9,4 @@ demo/
 
 # MyST build outputs
 #_build
+*.env
