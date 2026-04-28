@@ -1,12 +1,12 @@
-from typing import Literal
 
 import logging
-
-from pandas import DataFrame
-from sqlalchemy import all_
 logger  = logging.getLogger(__name__)
 
+from pandas import DataFrame, Series
+from typing import Literal
+
 import morpc
+import morpc.req
 
 # TODO (jinskeep_morpc): Develop function for fetching census geographies leveraging scopes
 # Issue URL: https://github.com/morpc/morpc-py/issues/102
@@ -15,8 +15,6 @@ import morpc
 #   limited to census geographies. 
 #   [ ]: Consider storing the data as a remote frictionless resource similar to the acs data class.
 #   [ ]: Define scale and scopes that are used. Possibly lists for benchmarking (i.e. Most populous cities)
-
-import morpc.req
 
 STATE_SCOPES = [
     {
@@ -363,7 +361,7 @@ def geoinfo_from_scope_scale(scope: str, scale: str | None = None, output: Liter
         params.update(SCOPES[scope])
         if output == 'params':
             return params
-        geoinfo = geoinfo_from_params(params, output=output)
+        geoinfo = geoinfo_from_params(params, output='table')
 
     # If there is a scale...
     else:
@@ -445,7 +443,7 @@ def pseudos_from_scale_scope(scale, scope):
 
     return pseudos
 
-def geoinfo_from_params(param_dict: dict, year: int = 2023, output: Literal['list','table','json']='table') -> list:
+def geoinfo_from_params(param_dict: dict, year: int = 2024, output: Literal['list','table','json']='table') -> list:
     """
     returns a list of GEOIDFQs from psuedo ucgids, or for and in parameters. 
 
@@ -514,7 +512,7 @@ def geoinfo_from_params(param_dict: dict, year: int = 2023, output: Literal['lis
 #     ucgids = [x[0] for x in json[1:]]
 #     return ucgids
 
-def fetch_geos_from_geoids(geoidfqs, year, survey, chunk_size=500):
+def fetch_geos_from_geoids(geoidfqs, year:int|None=None, survey:Literal['current', 'ACS', 'DEC']='current', chunk_size=500):
     """
     Fetches a table of geometries from a list of Census GEOIDFQs using the Rest API.
 
@@ -538,7 +536,7 @@ def fetch_geos_from_geoids(geoidfqs, year, survey, chunk_size=500):
 
     if len(geoidfqs) > chunk_size:
         start = 0
-        offset = chunk_size
+        offset = chunk_size-1
         while start < len(all_geoidfqs):
             if start+offset > len(all_geoidfqs):
                 offset = len(all_geoidfqs)-start
@@ -557,7 +555,7 @@ def fetch_geos_from_geoids(geoidfqs, year, survey, chunk_size=500):
                     logger.error(f"Sumlevel {sumlevel} does not have a layer in TigerWeb REST API.")
                     raise NotImplementedError
 
-                url = get_layer_url(year, layer_name=layerName, survey=survey)
+                url = get_layer_url(layer_name=layerName, year=year, survey=survey)
                 logger.info(f"Fetching geometries for {layerName} ({sumlevel}) from {url}")
 
                 # Construct a list of geoids from data to us to query API
@@ -568,13 +566,12 @@ def fetch_geos_from_geoids(geoidfqs, year, survey, chunk_size=500):
 
                 # Build resource file and query API
                 logger.info(f"Building resource file to fetch from RestAPI.")
-                resource = morpc.rest_api.resource(name='temp', url=url, where=f"GEOID in ({geoids})", outfields='GEOID,NAME', max_record_count=chunk_size)
+                resource = morpc.rest_api.resource(name='temp', url=url, where=f"GEOID in ({geoids})", outfields='GEOID', max_record_count=chunk_size)
 
                 logger.info(f"Fetching geographies from RestAPI.")
                 geos = morpc.rest_api.gdf_from_resource(resource)
-                geos['GEOIDFQ'] = [f"{sumlevel}0000US{x}" for x in geos['GEOID']]
 
-            all_geometries.append(geos[['GEOIDFQ', 'NAME', 'geometry']])
+            all_geometries.append(geos)
             start += offset+1
     else:
         sumlevels = set([x[0:3] for x in geoidfqs])
@@ -592,29 +589,27 @@ def fetch_geos_from_geoids(geoidfqs, year, survey, chunk_size=500):
             logger.info(f"Fetching geometries for {layerName} ({sumlevel}) from {url}")
 
             # Construct a list of geoids from data to us to query API
-            geoids = ",".join([f"'{x.split('US')[-1]}'" for x in geoidfqs if x.startswith(sumlevel)])
+            geoids = ",".join([f"'{x.split('US')[-1]}" for x in geoidfqs if x.startswith(sumlevel)])
 
             logger.info(f"There are {len(geoids)} geographies in {layerName}")
             logger.debug(f"{', '.join(geoidfqs)}")
 
             # Build resource file and query API
             logger.info(f"Building resource file to fetch from RestAPI.")
-            resource = morpc.rest_api.resource(name='temp', url=url, where= f"GEOID in ({geoids})", outfields='GEOID,NAME', max_record_count=chunk_size)
-
+            resource = morpc.rest_api.resource(name='temp', url=url, where= f"GEOID in ({geoids})", outfields='GEOID', max_record_count=chunk_size)
+            logger.debug(f"{resource}")
             logger.info(f"Fetching geographies from RestAPI.")
             geos = morpc.rest_api.gdf_from_resource(resource)
-            geos['GEOIDFQ'] = [f"{sumlevel}0000US{x}" for x in geos['GEOID']]
 
-            all_geometries.append(geos[['GEOIDFQ', 'NAME', 'geometry']])
+            all_geometries.append(geos)
 
     logger.info("Combining geometries...")
     geometries = pd.concat(all_geometries)
-    geometries = geometries.rename(columns={'GEOIDFQ': 'GEO_ID'})
-    geometries = geometries.set_index('GEO_ID')
+    geometries = geometries.rename(columns={'GEOID': 'GEO_ID'})
 
     return gpd.GeoDataFrame(geometries, geometry='geometry')
 
-def fetch_geos_from_scale_scope(scope, scale=None, year='2023', survey='ACS', chunk_size=500):
+def fetch_geos_from_scale_scope(scope, scale=None, year=None, survey='current', chunk_size=500):
     """
     Returns a geodataframe of with geoids and and geometries from scales and scope.
 
@@ -631,9 +626,16 @@ def fetch_geos_from_scale_scope(scope, scale=None, year='2023', survey='ACS', ch
         The survey to retrive the data for, ACS or DEC
     """
 
-    geoids = geoinfo_from_scope_scale(scope, scale, output='list')
+    geoinfo = geoinfo_from_scope_scale(scope, scale, output='table')
+    geoinfo['GEOIDFQ'] = geoinfo['GEO_ID']
+    geoinfo['GEO_ID'] = [x.split('US')[-1] for x in geoinfo['GEO_ID']]
+    geos = fetch_geos_from_geoids(geoinfo['GEOIDFQ'].to_list(), year, survey, chunk_size=chunk_size)
 
-    geos = fetch_geos_from_geoids(geoids, year, survey, chunk_size=chunk_size)
+    try:
+        geos = geos.set_index('GEO_ID').join(geoinfo.set_index('GEO_ID')).reset_index()
+        geos = geos.loc[~geos['geometry'].isna()]
+    except Exception as e:
+        logger.error(f"Unable to join geoinfo to geos, returning only geos.")
 
     return geos
 
@@ -1111,3 +1113,51 @@ def morpc_geoid_to_census(geoidSeries, validateTranslation=True, gitRootPath="..
     mappingDataFrame = df.copy().rename(columns={"GEOIDFQ":geoidSeries.name})
     
     return mappingDataFrame
+
+def geoidfq_to_columns(geoidfqs: Series | DataFrame):
+    import pandas as pd
+    import re
+
+    if isinstance(geoidfqs, pd.Series):
+        logger.debug(f"Converting GEOIDFQs from Series")
+        df = pd.DataFrame(geoidfqs, columns=['geoidfq']).set_index('geoidfq')
+    else:
+        df = geoidfqs
+        if df.index.name in ['GEOIDFQ', 'geoidfq']:
+            df = df.reset_index()
+        df.columns = [x.lower() for x in df.columns]
+        if 'geoidfq' not in df.columns:
+            logger.error(f"GEOIDFQs not in DataFrame.")
+            raise ValueError
+        df = df.set_index('geoidfq')
+        
+    df['sumlevel'] = [x[0:3] for x in df.reset_index()['geoidfq']]
+    df['variant'] = [x[3:5] for x in df.reset_index()['geoidfq']]
+    df['geocomp'] = [x[5:7] for x in df.reset_index()['geoidfq']]
+
+    sumlevel_dfs=[]
+    sumlevels = list(set(df['sumlevel']))
+    for sumlevel in sumlevels:
+        logger.debug(f"Converting SUMLEVEL {sumlevel}")
+        temp = df.loc[df['sumlevel']==sumlevel]
+        temp = temp.drop(columns=temp.columns)
+        template = morpc.SUMLEVEL_DESCRIPTIONS[sumlevel]['geoidfq_format']
+        columns = [[y[0].lower(), y[1]] for y in [x.split(':') for x in re.findall(r'\{(.+?)\}', template)] if y[0] not in ['SUMLEVEL', 'VARIANT', 'GEOCOMP']]
+        start = 9
+        for column in columns:
+            name = column[0]
+            end = start + int(column[1])
+            temp[name] = [x[start:end] for x in temp.reset_index()['geoidfq']]
+            start = end
+        sumlevel_dfs.append(temp)
+    sumlevel_dfs = pd.concat(sumlevel_dfs)
+    overlap = df.columns.intersection(sumlevel_dfs.columns)
+    if len(overlap) > 0:
+        logger.warning(f"Columns overlap: using columns from new columns {overlap}")
+        df = df.drop(columns = overlap)
+    df = df.join(sumlevel_dfs)
+    geo_col = df.pop('geometry')
+    df.insert(len(df.columns),'geometry', geo_col)
+
+
+    return df
