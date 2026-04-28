@@ -3,6 +3,48 @@ from typing import Literal
 
 logger = logging.getLogger(__name__)
 
+current_endpoints = {
+    'public use microdata areas': 0,
+    'zip code tabulation areas': 2,
+    'tribal tracts': 4,
+    'tribal block groups': 6,
+    'tracts': 8,
+    'block groups': 10,
+    'unified school districts': 14,
+    'secondary school districts': 16,
+    'elementary school districts': 18,
+    'school district administrative areas': 84,
+    'estates': 20,
+    'county subdivisions': 22,
+    'subbarrios': 24,
+    'consolidated cities': 26,
+    'incorporated places': 28,
+    'designated places': 30,
+    'alaska native regional corporations': 32,
+    'tribal subdivisions': 34,
+    'federal american indian reservations': 36,
+    'off-reservation trust lands': 38,
+    'state american indian reservations': 40,
+    'hawaiian home lands': 42,
+    'alaska native village statistical areas': 44,
+    'oklahoma tribal statistical areas': 46,
+    'state designated tribal statistical areas': 48,
+    'tribal designated statistical areas': 50,
+    'american indian joint-use areas': 52,
+    'congressional districts': 54,
+    'state legislative districts - upper': 56,
+    'state legislative districts - lower': 58,
+    'divisions': 60,
+    'regions': 62,
+    'states': 80,
+    'counties': 82,
+    'urban areas': 88,
+    'combined statistical areas': 97,
+    'metropolitan divisions': 95,
+    'metropolitan statistical areas': 93,
+    'micropolitan statistical areas': 91
+    }
+
 def get_tigerweb_layers_map(year: int = 2023, survey:Literal['ACS','DEC']='ACS'):
     """
     Parameters: s
@@ -80,13 +122,13 @@ def get_tigerweb_layers_map(year: int = 2023, survey:Literal['ACS','DEC']='ACS')
     # remove census from keys in layers
     layers = {k.replace('census ', ''): v for k, v in layers.items()}
     # remove years from keys in layers
-    layers = {re.sub(r"^(19|20)\d{2}$ ", '', k): v for k, v in layers.items()}
+    layers = {re.sub(r"^(19|20)[0-9]{2} ", '', k): v for k, v in layers.items()}
     # remove the 11Xth from congressional districts
-    layers = {re.sub(r"^(11)\d{1}$th ", '', k): v for k, v in layers.items()}
+    layers = {re.sub(r"^(11)[0-9]{1}th ", '', k): v for k, v in layers.items()}
 
     return layers
     
-def get_layer_url(year, layer_name, survey='ACS'):
+def get_layer_url(layer_name, year:int|None=None, survey:Literal['current', 'ACS', 'DEC']='current'):
     """Constructs the URL for a specific TIGERweb layer based on the year, layer name, and survey type.
     Parameters:
     -----------
@@ -95,7 +137,7 @@ def get_layer_url(year, layer_name, survey='ACS'):
     layer_name : str
         The name of the layer to retrieve (e.g., 'tracts', 'counties').
     survey : str, optional
-        The survey type, either 'ACS' (American Community Survey) or 'DEC' for Decennial Census.
+        The survey type, either 'current', 'ACS' (American Community Survey) or 'DEC' for Decennial Census.
         Default is 'ACS'.
         
     Returns:
@@ -122,8 +164,8 @@ def get_layer_url(year, layer_name, survey='ACS'):
     
     logger.info(f"Validating Survey {survey} and Year {year}")
     # Validate inputs
-    if survey not in ['ACS', 'DEC']:
-        raise ValueError("Invalid survey type. Must be 'ACS' or 'DEC'.")
+    if survey not in ['ACS', 'DEC', 'current']:
+        raise ValueError("Invalid survey type. Must be 'current','ACS' or 'DEC'.")
     if survey == 'DEC' and year not in ['2010', '2020']:
         raise ValueError("Invalid year for Decennial Census. Must be 2010 or 2020.")
     if survey == 'ACS' and pd.to_numeric(year) < 2012:
@@ -131,19 +173,22 @@ def get_layer_url(year, layer_name, survey='ACS'):
     if survey == 'DEC':
         survey = 'Census'
     
-    layers = get_tigerweb_layers_map(year, survey)
-
+    if survey != 'current':
+        layers = get_tigerweb_layers_map(year, survey)
+        # Check if the layer name exists in the layers dictionary
+        if layer_name not in layers:
+            logger.error(f"Layer '{layer_name}' not found for year {year} and survey '{survey}'. Available layers: {list(layers.keys())}")
+            raise ValueError(f"Layer '{layer_name}' not found for year {year} and survey '{survey}'. Available layers: {list(layers.keys())}")
+        
     # Normalize the layer name to lowercase
     layer_name = layer_name.lower()
-    
-    # Check if the layer name exists in the layers dictionary
-
-    if layer_name not in layers:
-        logger.error(f"Layer '{layer_name}' not found for year {year} and survey '{survey}'. Available layers: {list(layers.keys())}")
-        raise ValueError(f"Layer '{layer_name}' not found for year {year} and survey '{survey}'. Available layers: {list(layers.keys())}")
 
     baseurl = f"https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/"
-    mapserver_path = f"tigerWMS_{survey}{year}/MapServer/{layers[layer_name]}"
+    if survey != 'current':
+        mapserver_path = f"tigerWMS_{survey}{year}/MapServer/{layers[layer_name]}"
+    else:
+        mapserver_path = f"tigerWMS_Current/MapServer/{current_endpoints[layer_name]}"
+
     mapserver_url = baseurl + mapserver_path
 
     logger.info(f"url: {mapserver_url}")
