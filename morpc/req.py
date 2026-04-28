@@ -5,7 +5,10 @@ from requests import HTTPError, Session
 
 logger = logging.getLogger(__name__)
 
-def get_text_safely(url, params=None, headers=None, session: Session | None = None):
+default_headers = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/69.0.3497.100 Safari/537.36"}
+
+
+def get_text_safely(url, params=None, headers=default_headers, session: Session | None = None):
     import requests
 
     if not isinstance(session, Session):
@@ -25,7 +28,7 @@ def get_text_safely(url, params=None, headers=None, session: Session | None = No
     return text
 
 
-def get_json_safely(url, params=None, headers=None, session: Session | None = None, returnurl: bool = False):
+def get_json_safely(url, params=None, headers=default_headers, session: Session | None = None, returnurl: bool = False):
     import requests
 
     if not isinstance(session, Session):
