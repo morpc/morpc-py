@@ -29,24 +29,76 @@ CONST_OHIO_STATE_ID = '39'
 CONST_OHIO_REGION_ID = '2'      # Midwest
 CONST_OHIO_DIVISION_ID = '3'    # East North Central
 
-# Functions to fetch and define geographic identifiers and scopes
-def get_state_ids():
-    """
-    Returns a list of all state FIPS codes.
-    """
-    import requests
-    url = 'https://api.census.gov/data/2023/geoinfo?get=NAME&for=state:*'
+# # Functions to fetch and define geographic identifiers and scopes
+# def get_state_ids():
+#     """
+#     Returns a list of all state FIPS codes.
+#     """
+#     import requests
+#     url = 'https://api.census.gov/data/2023/geoinfo?get=NAME&for=state:*'
 
-    r = requests.get(url)
-    data = r.json()
-    # convert to dictionary
-    state_dict = {item[0].lower(): pd.to_numeric(item[1]) for item in data[1:]}
-    r.close()
+#     r = requests.get(url)
+#     data = r.json()
+#     # convert to dictionary
+#     state_dict = {item[0].lower(): pd.to_numeric(item[1]) for item in data[1:]}
+#     r.close()
 
-    return state_dict
+#     return state_dict
 
+state_ids = {'alabama': '01',
+ 'alaska': '02',
+ 'arizona': '04',
+ 'arkansas': '05',
+ 'california': '06',
+ 'colorado': '08',
+ 'connecticut': '09',
+ 'delaware': '10',
+ 'district of columbia': '11',
+ 'florida': '12',
+ 'georgia': '13',
+ 'hawaii': '15',
+ 'idaho': '16',
+ 'illinois': '17',
+ 'indiana': '18',
+ 'iowa': '19',
+ 'kansas': '20',
+ 'kentucky': '21',
+ 'louisiana': '22',
+ 'maine': '23',
+ 'maryland': '24',
+ 'massachusetts': '25',
+ 'michigan': '26',
+ 'minnesota': '27',
+ 'mississippi': '28',
+ 'missouri': '29',
+ 'montana': '30',
+ 'nebraska': '31',
+ 'nevada': '32',
+ 'new hampshire': '33',
+ 'new jersey': '34',
+ 'new mexico': '35',
+ 'new york': '36',
+ 'north carolina': '37',
+ 'north dakota': '38',
+ 'ohio': '39',
+ 'oklahoma': '40',
+ 'oregon': '41',
+ 'pennsylvania': '42',
+ 'rhode island': '44',
+ 'south carolina': '45',
+ 'south dakota': '46',
+ 'tennessee': '47',
+ 'texas': '48',
+ 'utah': '49',
+ 'vermont': '50',
+ 'virginia': '51',
+ 'washington': '53',
+ 'west virginia': '54',
+ 'wisconsin': '55',
+ 'wyoming': '56',
+ 'puerto rico': '72'}
 # State name and abbreviation lookups
-CONST_STATE_NAME_TO_ID = get_state_ids()
+CONST_STATE_NAME_TO_ID = state_ids
 CONST_STATE_ID_TO_NAME = {value: key for key, value in CONST_STATE_NAME_TO_ID.items()}
 CONST_STATE_NAME_TO_ABBR = {
     "alabama": "al",
@@ -171,94 +223,96 @@ CONST_COUNTY_EXPAND = {value: key for key, value in CONST_COUNTY_ABBREV.items()}
 
 # County identifiers (Census GEOID)
 ## CONST_COUNTY_NAME_TO_ID maps the county name to its GEOID
-CONST_COUNTY_NAME_TO_ID = {'Lake': '39085',
- 'Hancock': '39063',
- 'Allen': '39003',
- 'Morgan': '39115',
- 'Portage': '39133',
- 'Butler': '39017',
- 'Fayette': '39047',
- 'Vinton': '39163',
- 'Paulding': '39125',
- 'Scioto': '39145',
- 'Fulton': '39051',
- 'Henry': '39069',
- 'Logan': '39091',
- 'Brown': '39015',
- 'Monroe': '39111',
- 'Trumbull': '39155',
- 'Pike': '39131',
- 'Pickaway': '39129',
- 'Muskingum': '39119',
- 'Lawrence': '39087',
- 'Adams': '39001',
- 'Crawford': '39033',
- 'Guernsey': '39059',
- 'Van Wert': '39161',
- 'Ottawa': '39123',
- 'Harrison': '39067',
- 'Richland': '39139',
- 'Champaign': '39021',
- 'Wayne': '39169',
- 'Clark': '39023',
- 'Hocking': '39073',
- 'Miami': '39109',
- 'Delaware': '39041',
- 'Darke': '39037',
- 'Lucas': '39095',
- 'Ashtabula': '39007',
- 'Preble': '39135',
- 'Jackson': '39079',
- 'Stark': '39151',
- 'Greene': '39057',
- 'Ashland': '39005',
- 'Mahoning': '39099',
- 'Tuscarawas': '39157',
- 'Highland': '39071',
- 'Carroll': '39019',
- 'Belmont': '39013',
- 'Meigs': '39105',
- 'Medina': '39103',
- 'Gallia': '39053',
- 'Coshocton': '39031',
- 'Huron': '39077',
- 'Wood': '39173',
- 'Franklin': '39049',
- 'Seneca': '39147',
- 'Williams': '39171',
- 'Union': '39159',
- 'Cuyahoga': '39035',
- 'Summit': '39153',
- 'Warren': '39165',
- 'Madison': '39097',
- 'Geauga': '39055',
- 'Fairfield': '39045',
- 'Hardin': '39065',
- 'Hamilton': '39061',
- 'Knox': '39083',
- 'Shelby': '39149',
- 'Clermont': '39025',
- 'Noble': '39121',
- 'Putnam': '39137',
- 'Holmes': '39075',
- 'Columbiana': '39029',
- 'Licking': '39089',
- 'Ross': '39141',
- 'Washington': '39167',
- 'Montgomery': '39113',
- 'Marion': '39101',
- 'Perry': '39127',
- 'Defiance': '39039',
- 'Erie': '39043',
- 'Auglaize': '39011',
- 'Athens': '39009',
- 'Jefferson': '39081',
- 'Morrow': '39117',
- 'Clinton': '39027',
- 'Lorain': '39093',
- 'Sandusky': '39143',
- 'Wyandot': '39175',
- 'Mercer': '39107'}
+CONST_COUNTY_NAME_TO_ID = {
+    'Lake': '39085',
+    'Hancock': '39063',
+    'Allen': '39003',
+    'Morgan': '39115',
+    'Portage': '39133',
+    'Butler': '39017',
+    'Fayette': '39047',
+    'Vinton': '39163',
+    'Paulding': '39125',
+    'Scioto': '39145',
+    'Fulton': '39051',
+    'Henry': '39069',
+    'Logan': '39091',
+    'Brown': '39015',
+    'Monroe': '39111',
+    'Trumbull': '39155',
+    'Pike': '39131',
+    'Pickaway': '39129',
+    'Muskingum': '39119',
+    'Lawrence': '39087',
+    'Adams': '39001',
+    'Crawford': '39033',
+    'Guernsey': '39059',
+    'Van Wert': '39161',
+    'Ottawa': '39123',
+    'Harrison': '39067',
+    'Richland': '39139',
+    'Champaign': '39021',
+    'Wayne': '39169',
+    'Clark': '39023',
+    'Hocking': '39073',
+    'Miami': '39109',
+    'Delaware': '39041',
+    'Darke': '39037',
+    'Lucas': '39095',
+    'Ashtabula': '39007',
+    'Preble': '39135',
+    'Jackson': '39079',
+    'Stark': '39151',
+    'Greene': '39057',
+    'Ashland': '39005',
+    'Mahoning': '39099',
+    'Tuscarawas': '39157',
+    'Highland': '39071',
+    'Carroll': '39019',
+    'Belmont': '39013',
+    'Meigs': '39105',
+    'Medina': '39103',
+    'Gallia': '39053',
+    'Coshocton': '39031',
+    'Huron': '39077',
+    'Wood': '39173',
+    'Franklin': '39049',
+    'Seneca': '39147',
+    'Williams': '39171',
+    'Union': '39159',
+    'Cuyahoga': '39035',
+    'Summit': '39153',
+    'Warren': '39165',
+    'Madison': '39097',
+    'Geauga': '39055',
+    'Fairfield': '39045',
+    'Hardin': '39065',
+    'Hamilton': '39061',
+    'Knox': '39083',
+    'Shelby': '39149',
+    'Clermont': '39025',
+    'Noble': '39121',
+    'Putnam': '39137',
+    'Holmes': '39075',
+    'Columbiana': '39029',
+    'Licking': '39089',
+    'Ross': '39141',
+    'Washington': '39167',
+    'Montgomery': '39113',
+    'Marion': '39101',
+    'Perry': '39127',
+    'Defiance': '39039',
+    'Erie': '39043',
+    'Auglaize': '39011',
+    'Athens': '39009',
+    'Jefferson': '39081',
+    'Morrow': '39117',
+    'Clinton': '39027',
+    'Lorain': '39093',
+    'Sandusky': '39143',
+    'Wyandot': '39175',
+    'Mercer': '39107'
+    }
 
 ## CONST_COUNTY_ID_TO_NAME inverts the above map, mapping the county GEOID to its name
 CONST_COUNTY_ID_TO_NAME = {value: key for key, value in CONST_COUNTY_NAME_TO_ID.items()}
@@ -328,7 +382,7 @@ SUMLEVEL_DESCRIPTIONS = {
         "nameField":"NATION",
         "censusQueryName": "us",
         "censusRestAPI_layername": None,
-        "geoidfq_format": "{SUMLEVEL}{VARIANT}{COMPONENT}US{NATION}"
+        "geoidfq_format": "{SUMLEVEL:3}{VARIANT:2}{GEOCOMP:2}US"
     },
     '020': {
         "singular":"Census region",
@@ -339,7 +393,7 @@ SUMLEVEL_DESCRIPTIONS = {
         "nameField":"REGION",
         "censusQueryName": "region",
         "censusRestAPI_layername": 'regions',
-        "geoidfq_format": "{SUMLEVEL}{VARIANT}{COMPONENT}US{REGION}"
+        "geoidfq_format": "{SUMLEVEL:3}{VARIANT:2}{GEOCOMP:2}US{REGION:1}"
     },
     '030': {
         "singular":"division",
@@ -350,7 +404,7 @@ SUMLEVEL_DESCRIPTIONS = {
         "nameField":"DIVISION",
         "censusQueryName": "division",
         "censusRestAPI_layername": 'divisions',
-        "geoidfq_format": "{SUMLEVEL}{VARIANT}{COMPONENT}US{DIVISION}"
+        "geoidfq_format": "{SUMLEVEL:3}{VARIANT:2}{GEOCOMP:2}US{DIVISION:1}"
     },
     '040': {
         "singular":"state",
@@ -361,7 +415,7 @@ SUMLEVEL_DESCRIPTIONS = {
         "nameField":"STATE",
         "censusQueryName": "state",
         "censusRestAPI_layername": 'states',
-        "geoidfq_format": "{SUMLEVEL}{VARIANT}{COMPONENT}US{STATE}"
+        "geoidfq_format": "{SUMLEVEL:3}{VARIANT:2}{GEOCOMP:2}US{STATE:2}"
     },
     '050': {
         "singular":"county",
@@ -372,7 +426,7 @@ SUMLEVEL_DESCRIPTIONS = {
         "nameField":"COUNTY",
         "censusQueryName": "county",
         "censusRestAPI_layername": 'counties',
-        "geoidfq_format": "{SUMLEVEL}{VARIANT}{COMPONENT}US{STATE}{COUNTY}"
+        "geoidfq_format": "{SUMLEVEL:3}{VARIANT:2}{GEOCOMP:2}US{STATE:2}{COUNTY:3}"
     },
     '060': {
         "singular":"county subdivision",
@@ -383,7 +437,7 @@ SUMLEVEL_DESCRIPTIONS = {
         "nameField":"COUSUB",
         "censusQueryName": "county subdivision",
         "censusRestAPI_layername": 'county subdivisions',
-        "geoidfq_format": "{SUMLEVEL}{VARIANT}{COMPONENT}US{STATE}{COUNTY}{COUSUB}"
+        "geoidfq_format": "{SUMLEVEL:3}{VARIANT:2}{GEOCOMP:2}US{STATE:2}{COUNTY:3}{COUSUB:5}"
     },
     '070': {
         "singular":"county subdivision/remainder (or part)",
@@ -394,7 +448,7 @@ SUMLEVEL_DESCRIPTIONS = {
         "nameField":"COUSUBPART",
         "censusQueryName": "place/remainder (or part)",
         "censusRestAPI_layername": None,
-        "geoidfq_format": "{SUMLEVEL}{VARIANT}{COMPONENT}US{STATE}{COUNTY}{COUSUB}{PLACEREM}"
+        "geoidfq_format": "{SUMLEVEL:3}{VARIANT:2}{GEOCOMP:2}US{STATE:2}{COUNTY:3}{COUSUB:5}{PLACEREM:5}"
 
     },
     # NOTE: Some references use SUMLEVEL 750 for block in the PL94 data, but the API
@@ -408,7 +462,7 @@ SUMLEVEL_DESCRIPTIONS = {
         "nameField":None,
         "censusQueryName": None,
         "censusRestAPI_layername": 'blocks',
-        "geoidfq_format": "{SUMLEVEL}{VARIANT}{COMPONENT}US{STATE}{TRACT}{BLKGRP}{BLOCK}"
+        "geoidfq_format": "{SUMLEVEL:3}{VARIANT:2}{GEOCOMP:2}US{STATE:2}{TRACT:6}{BLKGRP:1}{BLOCK:4}"
     },
     '140': {
         "singular":"tract",
@@ -419,7 +473,7 @@ SUMLEVEL_DESCRIPTIONS = {
         "nameField":None,
         "censusQueryName": "tract",
         "censusRestAPI_layername": 'tracts',
-        "geoidfq_format": "{SUMLEVEL}{VARIANT}{COMPONENT}US{STATE}{TRACT}"
+        "geoidfq_format": "{SUMLEVEL:3}{VARIANT:2}{GEOCOMP:2}US{STATE:2}{TRACT:6}"
     },
     '150': {
         "singular":"block group",
@@ -430,7 +484,7 @@ SUMLEVEL_DESCRIPTIONS = {
         "nameField":None,
         "censusQueryName": "block group",
         "censusRestAPI_layername": 'block groups',
-        "geoidfq_format": "{SUMLEVEL}{VARIANT}{COMPONENT}US{STATE}{TRACT}{BLKGRP}"
+        "geoidfq_format": "{SUMLEVEL:3}{VARIANT:2}{GEOCOMP:2}US{STATE:2}{TRACT:6}{BLKGRP:1}"
     },
     '155': {
         "singular":"place county part",
@@ -441,7 +495,7 @@ SUMLEVEL_DESCRIPTIONS = {
         "nameField":"PLACEPART",
         "censusQueryName": "county (or part)",
         "censusRestAPI_layername": None,
-        "geoidfq_format": "{SUMLEVEL}{VARIANT}{COMPONENT}US{STATE}{PLACE}{COUNTY}"
+        "geoidfq_format": "{SUMLEVEL:3}{VARIANT:2}{GEOCOMP:2}US{STATE:2}{PLACE:5}{COUNTY:3}"
     },
     '160': {
         "singular":"place",
@@ -452,7 +506,7 @@ SUMLEVEL_DESCRIPTIONS = {
         "nameField":"PLACE",
         "censusQueryName": "place",
         "censusRestAPI_layername": 'incorporated places',
-        "geoidfq_format": "{SUMLEVEL}{VARIANT}{COMPONENT}US{STATE}{PLACE}"
+        "geoidfq_format": "{SUMLEVEL:3}{VARIANT:2}{GEOCOMP:2}US{STATE:2}{PLACE:5}"
     },
     '310': {
         "singular":"core-based statistical area",
@@ -463,7 +517,7 @@ SUMLEVEL_DESCRIPTIONS = {
         "nameField":"CBSA",
         "censusQueryName": "metropolitan statistical area/micropolitan statistical area",
         "censusRestAPI_layername": 'metropolitan statistical areas',
-        "geoidfq_format": "{SUMLEVEL}{VARIANT}{COMPONENT}US{CBSA}"
+        "geoidfq_format": "{SUMLEVEL:3}{VARIANT:2}{GEOCOMP:2}US{CBSA:5}"
     },
     '330': {
         "singular":"combined statistical area",
@@ -474,7 +528,7 @@ SUMLEVEL_DESCRIPTIONS = {
         "nameField":"CSA",
         "censusQueryName": "combined statistical area",
         "censusRestAPI_layername": 'combined statistical areas',
-        "geoidfq_format": "{SUMLEVEL}{VARIANT}{COMPONENT}US{CSA}"
+        "geoidfq_format": "{SUMLEVEL:3}{VARIANT:2}{GEOCOMP:2}US{CSA:3}"
     },
     '400': {
         "singular":"urban area",
@@ -485,7 +539,7 @@ SUMLEVEL_DESCRIPTIONS = {
         "nameField":"URBANAREA",
         "censusQueryName": "urban area",
         "censusRestAPI_layername": 'urban areas',
-        "geoidfq_format": "{SUMLEVEL}{VARIANT}{COMPONENT}US{UA}"
+        "geoidfq_format": "{SUMLEVEL:3}{VARIANT:2}{GEOCOMP:2}US{UA:5}"
     },
     '500': {
         "singular":"congressional district",
@@ -496,7 +550,7 @@ SUMLEVEL_DESCRIPTIONS = {
         "nameField":"CONGRESS",
         "censusQueryName": "congressional district",
         "censusRestAPI_layername": 'congressional districts',
-        "geoidfq_format": "{SUMLEVEL}{VARIANT}{COMPONENT}US{STATE}{CD}"
+        "geoidfq_format": "{SUMLEVEL:3}{VARIANT:2}{GEOCOMP:2}US{STATE:2}{CD:2}"
     },
     '610': {
         "singular":"state senate district",
@@ -507,7 +561,7 @@ SUMLEVEL_DESCRIPTIONS = {
         "nameField":None,
         "censusQueryName": "state legislative district (upper chamber)",
         "censusRestAPI_layername": 'state legislative districts - upper',
-        "geoidfq_format": "{SUMLEVEL}{VARIANT}{COMPONENT}US{STATE}{SLDU}"
+        "geoidfq_format": "{SUMLEVEL:3}{VARIANT:2}{GEOCOMP:2}US{STATE:2}{SLDU:3}"
     },
     '620': {
         "singular":"state house district",
@@ -518,7 +572,7 @@ SUMLEVEL_DESCRIPTIONS = {
         "nameField":None,
         "censusQueryName": "state legislative district (lower chamber)",
         "censusRestAPI_layername": 'state legislative districts - lower',
-        "geoidfq_format": "{SUMLEVEL}{VARIANT}{COMPONENT}US{STATE}{SLDL}"
+        "geoidfq_format": "{SUMLEVEL:3}{VARIANT:2}{GEOCOMP:2}US{STATE:2}{SLDL:3}"
     },
     '795': {
         "singular":"public use microdata area",
@@ -529,7 +583,7 @@ SUMLEVEL_DESCRIPTIONS = {
         "nameField":"PUMA",
         "censusQueryName": "public use microdata area",
         "censusRestAPI_layername": 'public use microdata areas',
-        "geoidfq_format": "{SUMLEVEL}{VARIANT}{COMPONENT}US{STATE}{PUMA}"
+        "geoidfq_format": "{SUMLEVEL:3}{VARIANT:2}{GEOCOMP:2}US{STATE:2}{PUMA:5}"
     },
     ### Jordan removed 2025-12 due to not finding support by Census
     # '850': {
@@ -550,8 +604,8 @@ SUMLEVEL_DESCRIPTIONS = {
         "idField":"ZCTA5CE",
         "nameField":None,
         "censusQueryName": "zip code tabulation area",
-        "censusRestAPI_layername": '2020 zip code tabulation areas',
-        "geoidfq_format": "{SUMLEVEL}{VARIANT}{COMPONENT}US{ZCTA}"
+        "censusRestAPI_layername": 'zip code tabulation areas',
+        "geoidfq_format": "{SUMLEVEL:3}{VARIANT:2}{GEOCOMP:2}US{ZCTA:5}"
     },
     '861': {
         'singular': 'zip code',
@@ -562,18 +616,7 @@ SUMLEVEL_DESCRIPTIONS = {
         'nameField': None,
         'censusQueryName': None,
         'censusRestAPI_layername': None,
-        "geoidfq_format": "{SUMLEVEL}{VARIANT}{COMPONENT}US{ZIPCODE}"
-    },
-    '930': {
-        "singular":"MPO region",
-        "plural":"MPO regions",
-        "hierarchy_string":"CENSUSMPOREGION",
-        "authority":"census",
-        "idField":"MPOREGIONID",
-        "nameField":"MPOREGION",
-        "censusQueryName": None,
-        "censusRestAPI_layername": None,
-        "geoidfq_format": None
+        "geoidfq_format": "{SUMLEVEL:3}{VARIANT:2}{GEOCOMP:2}US{ZIPCODE:5}"
     },
     '950': {
         "singular":"elementary school district",
@@ -584,7 +627,7 @@ SUMLEVEL_DESCRIPTIONS = {
         "nameField":"SCHOOLDELEM",
         "censusQueryName": "school district (elementry)",
         "censusRestAPI_layername": 'elementary school districts',
-        "geoidfq_format": "{SUMLEVEL}{VARIANT}{COMPONENT}US{STATE}{SDELM}"
+        "geoidfq_format": "{SUMLEVEL:3}{VARIANT:2}{GEOCOMP:2}US{STATE:2}{SDELM:5}"
     },
     '960': {
         "singular":"high school district",
@@ -595,7 +638,7 @@ SUMLEVEL_DESCRIPTIONS = {
         "nameField":"SCHOOLDHIGH",
         "censusQueryName": "school district (secondary)",
         "censusRestAPI_layername": 'secondary school districts',
-        "geoidfq_format": "{SUMLEVEL}{VARIANT}{COMPONENT}US{STATE}{SDSEC}"
+        "geoidfq_format": "{SUMLEVEL:3}{VARIANT:2}{GEOCOMP:2}US{STATE:2}{SDSEC:5}"
     },
     '970': {
         "singular":"unified school district",
@@ -606,8 +649,9 @@ SUMLEVEL_DESCRIPTIONS = {
         "nameField":"SCHOOLD",
         "censusQueryName": "school district (unified)",
         "censusRestAPI_layername": 'unified school districts',
-        "geoidfq_format": "{SUMLEVEL}{VARIANT}{COMPONENT}US{STATE}{SDUNI}"
+        "geoidfq_format": "{SUMLEVEL:3}{VARIANT:2}{GEOCOMP:2}US{STATE:2}{SDUNI:5}"
     },
+    # MORPC derived geographic sumlevels
     'M01': {
         "singular":"MORPC 15-county region",
         "plural":"MORPC 15-county region",
@@ -840,38 +884,43 @@ class countyLookup():
         import requests
         import pandas as pd
 
-        # Get name, state identifier, and county identifier for all U.S. counties from the census API and convert it to a data frame
-        r = requests.get("https://api.census.gov/data/2020/dec/pl?get=NAME&for=county:*", headers={"User-Agent": "Firefox"})
-        records = r.json()
-        columns = records.pop(0)
-        df = pd.DataFrame(data=records, columns=columns)
-
-        # Eliminate the " County" suffix in the county name
-        df["COUNTY_NAME"] = df["NAME"].str.replace(" County, Ohio","")
-
-        # Construct the nationally-unique GEOID from the state and county identifiers
-        df["GEOID"] = df["state"] + df["county"]
+        df = pd.DataFrame.from_dict(CONST_COUNTY_NAME_TO_ID, columns=['NAME', 'GEOID'])
 
         # Filter the counties according to the user-specified scope
         if(scope.lower() == "ohio" or scope.lower() == "oh"):
             print("Loading data for Ohio counties only")
-            df = df.loc[df["state"] == '39'].copy()
+
         elif(scope.lower() == "us"):
             print("Loading data for all U.S. counties")
+
+            # Get name, state identifier, and county identifier for all U.S. counties from the census API and convert it to a data frame
+            r = requests.get("https://api.census.gov/data/2020/dec/pl?get=NAME&for=county:*", headers={"User-Agent": "Firefox"})
+            records = r.json()
+            columns = records.pop(0)
+            df = pd.DataFrame(data=records, columns=columns)
+
+            # Eliminate the " County" suffix in the county name
+            df["NAME"] = df["NAME"].str.replace(" County","")
+
+            # Construct the nationally-unique GEOID from the state and county identifiers
+            df["GEOID"] = df["state"] + df["county"]
+
         elif(scope.lower() == "morpc" or scope.lower() == "15-county region" or scope == "REGION15"):
             print("Loading data for MORPC 15-County region only")
             df = df.loc[df["GEOID"].isin([CONST_COUNTY_NAME_TO_ID[name] for name in CONST_REGIONS["15-County Region"]])].copy()
+
         elif(scope in CONST_REGIONS.keys()):
             print("Loading data for region {} only".format(scope))
             df = df.loc[df["GEOID"].isin([CONST_COUNTY_NAME_TO_ID[name] for name in CONST_REGIONS[scope]])].copy()
+
         else:
             print("Scope specified by user is not defined: {}".format(scope))
             raise RuntimeError
 
         # Sort records alphabetically by county name and eliminate extraneous columns
         df = df \
-            .sort_values("COUNTY_NAME") \
-            .filter(items=["GEOID","COUNTY_NAME"], axis="columns")
+            .sort_values("NAME") \
+            .filter(items=["GEOID","NAME"], axis="columns")
 
         self.scope = scope
         self.df = df
@@ -889,16 +938,12 @@ class countyLookup():
         return df.at[name, "GEOID"]
 
     # Given the ID of a county, return its name
-    # NOTE: As of January 2024, this is not supported for scope="us"
     def get_name(self, geoid):
         """
         TODO: add docstring
         """
-        if(self.scope == "us"):
-            print("ERROR: countyLookup.get_name is not supported for scope='us'")
-            raise RuntimeError
         df = self.df.copy().set_index("GEOID")
-        return df.at[geoid, "COUNTY_NAME"]
+        return df.at[geoid, "NAME"]
 
     # List the IDs of all counties in the user-specified scope
     def list_ids(self):
@@ -908,15 +953,11 @@ class countyLookup():
         return self.df["GEOID"].to_list()
 
     # List the names of all counties in the user-specified scope
-    # NOTE: As of January 2024, this is not supported for scope="us"       
     def list_names(self):
         """
         TODO: add docstring
         """
-        if(self.scope == "us"):
-            print("ERROR: countyLookup.list_names is not supported for scope='us'")
-            raise RuntimeError
-        return self.df["COUNTY_NAME"].to_list()      
+        return self.df["NAME"].to_list()      
 
 # Standard variable lookup class
 # Reads the list of "standard" variables from a lookup table.  Provides dataframe access to the list of variables, as
