@@ -1,6 +1,7 @@
 import logging
 from time import sleep
 from httpx import head
+from pydantic import FilePath
 from requests import HTTPError, Session
 
 logger = logging.getLogger(__name__)
@@ -104,3 +105,17 @@ def delete_safely(url, params=None, headers=None):
     else:
         logger.debug(f"Delete successful.")
     r.close()
+
+def get_file(url, archive_dir = './input_data', filename = None, return_filepath=False, headers=default_headers, chunk_size=1024):
+    
+    import requests
+    import os
+
+    r = requests.get(url, headers=headers, stream=True)
+    path = os.path.join(archive_dir, filename)
+    with open(path, 'wb') as file:
+        for chunk in r.iter_content(chunk_size=chunk_size):
+            file.write(chunk)
+    
+    if return_filepath:
+        return path
