@@ -585,11 +585,11 @@ def fetch_geos_from_geoids(geoidfqs, year:int|None=None, survey:Literal['current
                 logger.error(f"Sumlevel {sumlevel} does not have a layer in TigerWeb REST API.")
                 raise NotImplementedError
 
-            url = get_layer_url(year, layer_name=layerName, survey=survey)
+            url = get_layer_url(year=year, layer_name=layerName, survey=survey)
             logger.info(f"Fetching geometries for {layerName} ({sumlevel}) from {url}")
 
             # Construct a list of geoids from data to us to query API
-            geoids = ",".join([f"'{x.split('US')[-1]}" for x in geoidfqs if x.startswith(sumlevel)])
+            geoids = ",".join([f"'{x.split('US')[-1]}'" for x in geoidfqs if x.startswith(sumlevel)])
 
             logger.info(f"There are {len(geoids)} geographies in {layerName}")
             logger.debug(f"{', '.join(geoidfqs)}")
