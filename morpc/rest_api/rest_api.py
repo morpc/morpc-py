@@ -155,7 +155,7 @@ def gdf_from_resource(resource, out_fields: List[str] | None = None, CRS = 'epsg
         params = metadata['params']
         if not isinstance(out_fields, NoneType):
             params.update({'outFields': ",".join(out_fields)})
-        params.update({'resultRecordCounty': metadata['max_record_count']})
+        params.update({'resultRecordCount': metadata['max_record_count']})
         params.update({'resultOffset': offset})
         url = f"{resource.path}/query?" + urllib.parse.urlencode(params, safe=",()")
         urls.append(url)
@@ -166,6 +166,7 @@ def gdf_from_resource(resource, out_fields: List[str] | None = None, CRS = 'epsg
         with enlighten.Manager() as manager: # Load progress bar
             with manager.counter(total=len(urls), desc='Downloading:', unit='requests') as pb:
                 for url in urls:
+                    logger.debug(f"Fetching {url}")
                     r = session.get(url)
                     while r.status_code != 200:
                         logger.warning(f"Status Code {r.status_code}, trying again. URL: {r.url}")
