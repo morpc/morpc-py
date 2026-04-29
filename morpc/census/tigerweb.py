@@ -1,4 +1,5 @@
 import logging
+from os import PathLike
 from typing import Literal
 
 logger = logging.getLogger(__name__)
@@ -202,3 +203,45 @@ def get_layer_url(layer_name, year:int|None=None, survey:Literal['current', 'ACS
     
     # Return the constructed URL
     return mapserver_url
+
+def outfields_from_scale(scale):
+    import re
+    from morpc import SUMLEVEL_DESCRIPTIONS, SUMLEVEL_FROM_CENSUSQUERY
+
+    sumlevel = SUMLEVEL_FROM_CENSUSQUERY[scale]
+    template = SUMLEVEL_DESCRIPTIONS[sumlevel]['geoidfq_format']
+
+    fields = [[y[0].lower(), y[1]] for y in [x.split(':') for x in re.findall(r'\{(.+?)\}', template)] if y[0] not in ['SUMLEVEL', 'VARIANT', 'GEOCOMP']]
+
+    return ",".join(['GEOID','NAME'] + [x[0].upper() for x in fields])
+
+def where_from_scope(scope):
+    from morpc.census.geos import SCOPES
+    if scope == 'us':
+        where = '1=1'
+    else:
+        scope_params = SCOPES[scope] 
+        wheres = []
+        for param in scope_params:
+            geo, ids = scope_params[param].split(':')
+            wheres.append(f"{geo.upper()} in ({",".join([f"'{str(x)}'" for x in ids.split(',')])})")
+        where = " and ".join(wheres)
+    return where
+
+
+def resource_from_scope_scale(scope, scale, archive:PathLike|None=None):
+    from morpc.rest_api import resource
+    from morpc import SUMLEVEL_DESCRIPTIONS, SUMLEVEL_FROM_CENSUSQUERY
+
+    sumlevel = SUMLEVEL_FROM_CENSUSQUERY[scale]
+    url = get_layer_url(SUMLEVEL_DESCRIPTIONS[sumlevel]['censusRestAPI_layername'])
+
+    where = where_from_scope(scope)
+    outfields = outfields_from_scale(scale)
+
+    tigerweb_resource = resource(name=f"{scope}-{scale}", url=url, where=where, outfields=outfields, max_record_count=20)
+
+    if archive != None:
+        tigerweb_resource.to_yaml(archive)
+
+    return tigerweb_resource
