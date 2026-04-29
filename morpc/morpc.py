@@ -460,9 +460,9 @@ SUMLEVEL_DESCRIPTIONS = {
         "authority":"census",
         "idField":"BLOCKCE",
         "nameField":None,
-        "censusQueryName": None,
+        "censusQueryName": 'block',
         "censusRestAPI_layername": 'blocks',
-        "geoidfq_format": "{SUMLEVEL:3}{VARIANT:2}{GEOCOMP:2}US{STATE:2}{TRACT:6}{BLKGRP:1}{BLOCK:4}"
+        "geoidfq_format": "{SUMLEVEL:3}{VARIANT:2}{GEOCOMP:2}US{STATE:2}{TRACT:6}{BLKGRP:1}{BLOCK:3}"
     },
     '140': {
         "singular":"tract",
@@ -605,7 +605,7 @@ SUMLEVEL_DESCRIPTIONS = {
         "nameField":None,
         "censusQueryName": "zip code tabulation area",
         "censusRestAPI_layername": 'zip code tabulation areas',
-        "geoidfq_format": "{SUMLEVEL:3}{VARIANT:2}{GEOCOMP:2}US{ZCTA:5}"
+        "geoidfq_format": "{SUMLEVEL:3}{VARIANT:2}{GEOCOMP:2}US{ZCTA5:5}"
     },
     '861': {
         'singular': 'zip code',
