@@ -229,9 +229,9 @@ def where_from_scope(scope):
     return where
 
 
-def resource_from_scope_scale(scope, scale, archive:PathLike|None=None):
+def resource_from_scope_scale(scope, scale, archive:PathLike|None=None, max_record_count=20):
     from morpc.rest_api import resource
-    from morpc import SUMLEVEL_DESCRIPTIONS, SUMLEVEL_FROM_CENSUSQUERY
+    from morpc import SUMLEVEL_DESCRIPTIONS, SUMLEVEL_FROM_CENSUSQUERY, HIERARCHY_STRING_FROM_CENSUSNAME
 
     sumlevel = SUMLEVEL_FROM_CENSUSQUERY[scale]
     url = get_layer_url(SUMLEVEL_DESCRIPTIONS[sumlevel]['censusRestAPI_layername'])
@@ -239,7 +239,31 @@ def resource_from_scope_scale(scope, scale, archive:PathLike|None=None):
     where = where_from_scope(scope)
     outfields = outfields_from_scale(scale)
 
-    tigerweb_resource = resource(name=f"{scope}-{scale}", url=url, where=where, outfields=outfields, max_record_count=20)
+    tigerweb_resource = resource(name=f"censustigerweb-{scope}-{HIERARCHY_STRING_FROM_CENSUSNAME[scale].lower()}", url=url, where=where, outfields=outfields, max_record_count=max_record_count)
+
+    if archive != None:
+        tigerweb_resource.to_yaml(archive)
+
+    return tigerweb_resource
+
+def resource_from_geometry_scale(geo, scopename, scale, archive:PathLike|None=None, max_record_count=20):
+    from morpc.rest_api import resource
+    from morpc import SUMLEVEL_DESCRIPTIONS, SUMLEVEL_FROM_CENSUSQUERY, HIERARCHY_STRING_FROM_CENSUSNAME
+
+    sumlevel = SUMLEVEL_FROM_CENSUSQUERY[scale]
+    url = get_layer_url(SUMLEVEL_DESCRIPTIONS[sumlevel]['censusRestAPI_layername'])
+
+    outfields = outfields_from_scale(scale)
+
+    params = {
+        'geometry': ",".join([str(x) for x in geo.total_bounds]),
+        'geometryType': 'esriGeometryEnvelope',
+        'inSR': geo.crs.to_epsg(),
+        'spatialRel': 'esriSpatialRelContains',
+        'returnGeometry': 'true',
+        'f': 'geojson'
+    }
+    tigerweb_resource = resource(name=f"censustigerweb-{scopename}-{HIERARCHY_STRING_FROM_CENSUSNAME[scale].lower()}", url=url, outfields=outfields, max_record_count=max_record_count, **params)
 
     if archive != None:
         tigerweb_resource.to_yaml(archive)

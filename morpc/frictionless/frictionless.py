@@ -159,22 +159,18 @@ def cast_field_types(df, schema, forceInteger=False, forceInt64=False, forceNumb
         for nullValue in schema.missing_values:
             outDF = outDF.replace(nullValue, None)
 
+        if(handleMissingFields == "ignore"):
+            logger.info(f"Ignoring missing fields")
+        elif(handleMissingFields == "add"):
+            logger.info("Adding missing fields which is not present in dataframe")
+            outDF = add_missing_fields(df, schema)
+        else:
+            logger.error("Fields in schema is not present in dataframe. To handle missing fields, see argument handleMissingFields.")
+            raise RuntimeError
+    
     for field in schema.fields:
-      
         fieldName = field.name
-        fieldType = field.type 
-        if(not fieldName in df.columns):
-            if(handleMissingFields == "ignore"):
-                logger.info("Skipping field {} which is not present in dataframe".format(fieldName))
-                continue
-            elif(handleMissingFields == "add"):
-                logger.info("Adding field {} which is not present in dataframe".format(fieldName))
-                add_missing_fields(df, schema, fieldNames=fieldName)
-                continue
-            else:
-                logger.error("Field {} is not present in dataframe. To handle missing fields, see argument handleMissingFields.".format(fieldName))
-                raise RuntimeError
-   
+        fieldType = field.type
         logger.debug("Casting field {} as type {}.".format(fieldName, fieldType))
         # The following section is necessary because the pandas "int" type does not support null values.  If null values are present,
         # the field must be cast as "Int64" instead.
@@ -201,7 +197,8 @@ def cast_field_types(df, schema, forceInteger=False, forceInt64=False, forceNumb
                     else:
                         # If the user has not allow coercion of the values to integers, then throw an error.
                         logger.error("Unable to coerce value to Int64 type.  Ensure that fractional part of values is zero, or set forceInteger=True")
-                        raise RuntimeError           
+                        raise RuntimeError     
+                          
         elif(fieldType == "number"):
             try:
                 outDF[fieldName] = outDF[fieldName].astype("float")
@@ -212,6 +209,7 @@ def cast_field_types(df, schema, forceInteger=False, forceInt64=False, forceNumb
                 else:
                     logger.error(f"Unable to set {fieldName} to number. Set forceNumber as True to coerce. {e}")
                     raise ValueError
+                
         elif(fieldType == "date" or fieldType == "datetime"):
             try:
                 outDF[fieldName] = [morpc.utils.datetime_from_string(x) for x in outDF[fieldName]]
@@ -222,14 +220,17 @@ def cast_field_types(df, schema, forceInteger=False, forceInt64=False, forceNumb
 
         elif(fieldType == "year"):
             outDF[fieldName] = [pd.to_datetime(x, format='%Y').year if re.match(r'[0-9]{4}',str(x)) else None for x in outDF[fieldName]]
+
         elif(fieldType == "geojson"):
-            try:
-                logger.info(f"Fieldname {fieldName} as geojson. Attempting to convert to geometry.")
-                outDF[fieldName] = [shapely.geometry.shape(json.loads(x)) for x in outDF[fieldName]]
-            except RuntimeError as r:
-                logger.error(f"Unable to convert to geometry. {r}")
-            finally:
-                logger.info(f"Field {fieldName} cast as geometry.")
+            if not str(outDF[fieldName].dtype) == 'geometry':
+                try:
+                    logger.info(f"Fieldname {fieldName} as geojson. Attempting to convert to geometry.")
+                    outDF[fieldName] = [shapely.geometry.shape(json.loads(x)) for x in outDF[fieldName]]
+                except RuntimeError as r:
+                    logger.error(f"Unable to convert to geometry. {r}")
+                finally:
+                    logger.info(f"Field {fieldName} cast as geometry.")
+
         elif(fieldType == "boolean"): 
             if(outDF[fieldName].dtype == "bool"):
                 logger.warning("Field {} already cast as boolean type. Skipping casting for this field.".format(fieldName))
@@ -289,6 +290,7 @@ def cast_field_types(df, schema, forceInteger=False, forceInt64=False, forceNumb
             else:
                 logger.error("Field {} is a type that is not currently supported for casting to boolean. Convert it to boolean, numeric, or string types first.".format(fieldName))
                 raise RuntimeError
+            
         elif(fieldType == 'any'):
             logger.info(f"Field {fieldName} as type 'any' in schema. This may be due to the schema being produced automatically frictionless.Schema.describe(). Converting to string. ")
             outDF[fieldName] = outDF[fieldName].astype('string')
@@ -331,7 +333,7 @@ def add_missing_fields(df, schema, fieldNames=None):
                         
             if((fieldType == "int") or (fieldType == "integer")):
                 logger.warning("Field {0} specified as type {1} (pandas type 'int'), which does not support null values in pandas. Casting field as pandas type 'Int64' instead.".format(fieldName, fieldType))
-                df[fieldName] = df[fieldName].astype("Int64")
+                outDF[fieldName] = outDF[fieldName].astype("Int64")
             elif(fieldType == "number"):
                 outDF[fieldName] = outDF[fieldName].astype("float")
             else:

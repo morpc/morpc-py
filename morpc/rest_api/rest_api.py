@@ -20,7 +20,7 @@ from morpc.req import get_json_safely
 
 logger = logging.getLogger(__name__)
 
-def resource(name, url, where='1=1', outfields='*', max_record_count=None):
+def resource(name, url, where='1=1', outfields='*', max_record_count=None, **kwargs):
     """Creates a frictionless Resource object from an ArcGIS REST API service URL.
 
     Parameters:
@@ -61,11 +61,15 @@ def resource(name, url, where='1=1', outfields='*', max_record_count=None):
         'f': 'geojson'
     }
 
-    logger.info(f"Query Params: where = {where}, outFields = {outfields}")
+    if len(kwargs):
+        for k, v in kwargs.items():
+            query.update({k: v})
+
+    logger.info(f"Query Params: {[f"{k}={v}" for k,v in query.items()]}")
 
     # Get the total record count
     try:
-        total_record_count = totalRecordCount(url, where=where, outfields=outfields)
+        total_record_count = totalRecordCount(url, **query)
     except HTTPError as e:
         logger.error(f"Failed to get total record count, HTTPError: {e}")
 
@@ -148,15 +152,23 @@ def gdf_from_resource(resource, out_fields: List[str] | None = None, CRS = 'epsg
 
     offsets = [x for x in range(0, metadata['total_records'], metadata['max_record_count'])]
 
-    # Construct URLS for each request based on offests
+    # Construct URLS for each request based on offsets
     urls = []
-    for offset in offsets:
+    if len(offsets) > 1:
+        for offset in offsets:
+            url = resource.path
+            params = metadata['params']
+            if not isinstance(out_fields, NoneType):
+                params.update({'outFields': ",".join(out_fields)})
+            params.update({'resultRecordCount': metadata['max_record_count']})
+            params.update({'resultOffset': offset})
+            url = f"{resource.path}/query?" + urllib.parse.urlencode(params, safe=",()")
+            urls.append(url)
+    else:
         url = resource.path
         params = metadata['params']
         if not isinstance(out_fields, NoneType):
             params.update({'outFields': ",".join(out_fields)})
-        params.update({'resultRecordCount': metadata['max_record_count']})
-        params.update({'resultOffset': offset})
         url = f"{resource.path}/query?" + urllib.parse.urlencode(params, safe=",()")
         urls.append(url)
 
@@ -264,7 +276,7 @@ def schema(url, outfields=None):
 
     return schema
 
-def totalRecordCount(url, where, outfields='*'):
+def totalRecordCount(url, **kwargs):
     """Fetches the total number of records from an ArcGIS REST API service.
     Parameters:
     -----------
@@ -284,11 +296,10 @@ def totalRecordCount(url, where, outfields='*'):
 
     # Create query for total record count
     url= f"{url}/query/"
-    params = {
-        "outfields": "*",
-        "where": where,
-        "f": "geojson",
-        "returnCountOnly": "true"} ## Inlcude in paramters to return only the total records
+    params={}
+    for k, v in kwargs.items():
+        params.update({k: v})
+    params.update({"returnCountOnly": "true"}) ## Inlcude in paramters to return only the total records
     
     # Try to fetch it as a geojson
     try:
