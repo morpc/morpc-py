@@ -1342,23 +1342,16 @@ def load_spatial_data(sourcePath, layerName=None, driverName=None, archiveDir=No
     import geopandas as gpd
     import os
     import shutil
+    import logging
 
+    logger  = logging.getLogger(__name__)  
+    
     if(verbose):
-        print("morpc.load_spatial_data | INFO | Loading spatial data from location: {}".format(sourcePath))
-
-    # Due to changes at the Census gpd.read_file() and requests.get() are blocked. Using wget as work around.
-    if sourcePath.find('www2.census.gov') > -1:
-        if(verbose):
-            print("morpc.load_spatial_data | INFO | Attempting to load data from Census FTP site. Using wget to archive file.")
-            print("morpc.load_spatial_data | WARNING | Data from Census FTP must be temp saved. Using ./temp_data.")
-        tempDir = './temp_data'
-        wget(url = sourcePath, archive_dir = tempDir)
-        driverName = 'Census Shapefile'
-        tempFileName = os.path.normpath(f"./{tempDir}/{os.path.split(sourcePath)[-1]}")
+        logger.info("Loading spatial data from location: {}".format(sourcePath))
 
     if(driverName == None):
         if(verbose):
-            print("morpc.load_spatial_data | INFO | Driver name is unspecified.  Will attempt to infer driver from file extension in source path.")
+            logger.info("Driver name is unspecified.  Will attempt to infer driver from file extension in source path.")
         fileExt = os.path.splitext(sourcePath)[1]
         if(fileExt == ".gpkg"):
             driverName = "GPKG"
@@ -1367,31 +1360,25 @@ def load_spatial_data(sourcePath, layerName=None, driverName=None, archiveDir=No
         elif(fileExt == ".gdb"):
             driverName = "OpenFileGDB"
         else:
-            print("morpc.load_spatial_data | ERROR | File extension is unsupported: {}.  It is possible to load zipped spatial data, but you must specify the driver name.".format(fileExt))
+            logger.error("File extension is unsupported: {}.  It is possible to load zipped spatial data, but you must specify the driver name.".format(fileExt))
             raise RuntimeError
         if(verbose):
-            print("morpc.load_spatial_data | INFO | Selecting driver {} based on file extension {}".format(driverName, fileExt))
+            logger.info("Selecting driver {} based on file extension {}".format(driverName, fileExt))
     else:
         if(verbose):
-            print("morpc.load_spatial_data | INFO | Using driver {} as specified by user.".format(driverName))
+            logger.info("Using driver {} as specified by user.".format(driverName))
 
     if(layerName) == None:
         if(driverName == "GPKG" or driverName == "OpenFileGDB"):
-            print("morpc.load_spatial_data | ERROR | Must specify layerName when using driver {}".format(driverName))
+            logger.error("Must specify layerName when using driver {}".format(driverName))
             raise RuntimeError
 
     if(verbose):
-        print("morpc.load_spatial_data | INFO | Reading spatial data...")
+        logger.info("Reading spatial data...")
     # Geopandas will throw an error if we attempt to specify a layer name when reading a Shapefile
     if(driverName == "ESRI Shapefile"):
-        gdf = gpd.read_file(sourcePath, layer=None, driver=driverName, engine="pyogrio", fid_as_index=True)
-
-    # When reading a shapefile from Census FTP site, read the data from temp zip
-    elif(driverName == 'Census Shapefile'):
-        gdf = gpd.read_file(tempFileName, layer=None, driver='ESRI Shapefile', engine='pyogrio', fid_as_index=True)
-        if os.path.exists(tempFileName):
-            os.unlink(tempFileName)
-
+        # Do not specify driver when reading Shapefiles as this is apparently unneeded and results in a RuntimeWarning
+        gdf = gpd.read_file(sourcePath, layer=None, engine="pyogrio", fid_as_index=True)
     # Everything else
     else:
         gdf = gpd.read_file(sourcePath, layer=layerName, driver=driverName, engine="pyogrio", fid_as_index=True)
@@ -1405,7 +1392,7 @@ def load_spatial_data(sourcePath, layerName=None, driverName=None, archiveDir=No
             # Windows file paths and suggests that a query string is present.
             if(sourcePath.find("?") > -1):
                 if(verbose):
-                    print("morpc.load_spatial_data | INFO | File name is unspecified and source path appears to be an API query. Will assign an alternate file name.")
+                    logger.info("File name is unspecified and source path appears to be an API query. Will assign an alternate file name.")
                 # If the layer name is specified, use that as the file name. Otherwise use a generic file name.
                 if(layerName != None):
                     archiveFileName = layerName
@@ -1415,10 +1402,10 @@ def load_spatial_data(sourcePath, layerName=None, driverName=None, archiveDir=No
             # If the source path doesn't look like an API query, then attempt to extract the file name from the path
             else:
                 if(verbose):
-                    print("morpc.load_spatial_data | INFO | File name is unspecified.  Will infer file name from source path.")
+                    logger.info("File name is unspecified.  Will infer file name from source path.")
                 archiveFileName = os.path.splitext(os.path.split(sourcePath)[-1])[0]
                 if(verbose):
-                    print("morpc.load_spatial_data | INFO | Using automatically-selected file name: {}".format(archiveFileName)) 
+                    logger.info("Using automatically-selected file name: {}".format(archiveFileName)) 
 
         archivePath = os.path.join(archiveDir, "{}.gpkg".format(archiveFileName))
 
@@ -1428,10 +1415,10 @@ def load_spatial_data(sourcePath, layerName=None, driverName=None, archiveDir=No
         else:
             archiveLayer = archiveFileName
             if(verbose):
-                print("morpc.load_spatial_data | INFO | Layer name is unspecified. Using automatically-selected layer name: {}".format(archiveLayer))
+                logger.info("Layer name is unspecified. Using automatically-selected layer name: {}".format(archiveLayer))
 
         if(verbose):
-            print("morpc.load_spatial_data | INFO | Creating archival copy of geospatial layer at {}, layer {}".format(archivePath, archiveLayer))
+            logger.info("Creating archival copy of geospatial layer at {}, layer {}".format(archivePath, archiveLayer))
         gdf.to_file(archivePath, layer=layerName, driver="GPKG")
 
     return gdf
