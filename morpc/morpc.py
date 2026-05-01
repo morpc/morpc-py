@@ -1377,11 +1377,10 @@ def load_spatial_data(sourcePath, layerName=None, driverName=None, archiveDir=No
         logger.info("Reading spatial data...")
     # Geopandas will throw an error if we attempt to specify a layer name when reading a Shapefile
     if(driverName == "ESRI Shapefile"):
-        # Do not specify driver when reading Shapefiles as this is apparently unneeded and results in a RuntimeWarning
         gdf = gpd.read_file(sourcePath, layer=None, engine="pyogrio", fid_as_index=True)
     # Everything else
     else:
-        gdf = gpd.read_file(sourcePath, layer=layerName, driver=driverName, engine="pyogrio", fid_as_index=True)
+        gdf = gpd.read_file(sourcePath, layer=layerName, engine="pyogrio", fid_as_index=True)
 
     # If the user has specified an archive directory, create an archival copy of the data as a layer in a GeoPackage
     if(archiveDir != None):
