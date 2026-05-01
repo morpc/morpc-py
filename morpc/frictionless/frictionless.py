@@ -100,7 +100,7 @@ def name_to_desc_map(schema):
     return {schema.fields[i].name:schema.fields[i].description for i in range(len(schema.fields))}
 
   
-def cast_field_types(df, schema, forceInteger=False, forceInt64=False, forceNumber=False, nullBoolValue=False, handleMissingFields="error", handleMissingValues=True):
+def cast_field_types(df, schema, forceInteger=False, forceInt64=False, forceNumber=False, nullBoolValue=False, handleMissingFields:Literal['error','add']="error", handleMissingValues=True):
     """
     Given a dataframe and the Frictionless Schema object (see load_schema), recast each of the fields in the 
     dataframe to the data type specified in the schema. s
