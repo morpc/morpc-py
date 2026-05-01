@@ -1,85 +1,108 @@
 import datetime
 from os import PathLike
+from numpy import isin
 import pandas as pd
 import logging
 
 from pandas import DataFrame
 from geopandas import GeoDataFrame
-from typing import List
+from typing import List, Literal
 logger = logging.getLogger(__name__)
 
-def datetime_from_string(datestring) -> datetime.datetime:
+test_dates = [
+    '2016-12-31T23:59:59+12:30',
+    '2021-05-10T09:05:12.000Z',
+    '3015-01-01T23:00+02:00',
+    '1001-01-31T23:59:59Z',
+    '2023-12-20T20:20',
+    'June 3, 2026',
+    '10/2/2020',
+    '20210310',
+    1372377600000000000,
+    1372809600000,
+    1373241600
+]
 
+def datetime_from_string(date, errors: Literal['coerce', 'error']='coerce') -> datetime.datetime:
     import datetime
     import pandas as pd
     import dateutil
     import re
     
     try:
-        # Catch and convert negative numbers
-        if isinstance(datestring, float):
-            if datestring < 0:
-                datestring = abs(datestring)
-
-        # If already a date or time class, use that
-        if isinstance(datestring, pd.api.typing.NaTType):
-            dt = datestring
-        elif isinstance(datestring, datetime.datetime):
-            dt = datestring
-
-        # Otherwise try some stuff
+        if isinstance(date, int):
+            if re.match(r'[0-9]{19}', str(date)):
+                dt = pd.to_datetime(date, unit='ns')
+            elif re.match(r'[0-9]{13}', str(date)):
+                dt = pd.to_datetime(date, unit='ms')
+            elif re.match(r'[0-9]{10}', str(date)):
+                dt = pd.to_datetime(date, unit='s')
         else:
-            # Try to convert from unix timestamp
             try:
-                dt = datetime.datetime.fromtimestamp(int(datestring))
-            except:
-                # and timestamp in milliseconds
+                dt = pd.to_datetime(date)
+            except OverflowError as e:
+                logger.error(f"{date} is out of bounds")
+                raise OverflowError
+    except:
+        try:
+            # If already a date or time class, use that
+            if isinstance(date, pd.api.typing.NaTType):
+                dt = date
+            elif isinstance(date, datetime.date):
+                dt = date
+        except:
+            if not pd.api.types.is_string_dtype(date):
                 try:
-                    dt = datetime.datetime.fromtimestamp(int(datestring)/1000)
+                    date = str(date)
                 except:
-                    # If that still doesn't work, convert to a string so we can use regex
-                    if not isinstance(datestring, str):
-                        try:
-                            datestring = str(round(datestring))
-                        except:
-                            datestring = str(datestring)
+                    try:
+                        date = f"{date}"
+                    except Exception as e:
+                        logger.error(f"Failed to convert {date} to string.")
 
-                        if (datestring.startswith('-')):
-                            datestring = datestring.strip('-')
-                    # Try to match patterns that make sense
+            if re.match(r'^\d{4}-(?:0[1-9]|1[0-2])-(?:[0-2][1-9]|[1-3]0|3[01])T(?:[0-1][0-9]|2[0-3])(?::[0-6]\d)(?::[0-6]\d)?(?:\.\d{3})?(?:[+-][0-2]\d:[0-5]\d|Z)?$', date):
+                try:
+                    dt = pd.to_datetime(date, format='ISO8601')
+                except:
+                    logger.error(f"Maybe found ISO format in {date} but couldn't convert.")
 
-                    # Timestamps with some other characters maybe?
-                    if re.match(r'[0-9]{10:14}', datestring):
-                        datestring = re.sub(r'[^0-9]', "", datestring)
-                        try:
-                            dt = datetime.datetime.fromtimestamp(int(datestring))
-                        except:
-                            try:
-                                dt = datetime.datetime.fromtimestamp(int(datestring)/1000)
-                            except Exception as e:
-                                logger.error(f"Maybe found timestamp ({datestring}) but couldn't convert. {e}")
+            elif re.match(r'[0-9]+[/\-\.][0-9]+[/\-\.][0-9]+', date):
+                try:
+                    dt = dateutil.parser.parse(date)
+                except Exception as e:
+                    logger.error(f"Maybe found date with separators in {date} but couldn't convert. {e}")
+                
+            elif re.match(r'[0-9]{6}', date):
+                try:
+                    dt = dateutil.parser.parse(date)
+                except Exception as e:
+                    logger.error(f"Maybe found a date as digits in ({date}) but couldn't convert. {e}")
 
-                    # Just the date as digits?           
-                    elif re.match(r'[0-9]{6}', datestring):
-                        try:
-                            dt = dateutil.parser.parse(datestring)
-                        except Exception as e:
-                            logger.error(f"Maybe found a date as digits in ({datestring}) but couldn't convert. {e}")
+            elif (date == 'nan') | (date == 'None') | (date == 'NaT'):
+                dt = pd.NaT
 
-                    elif re.match(r'[0-9]+[/\-\.][0-9]+[/\-\.][0-9]+', datestring):
-                        try:
-                            dt = dateutil.parser.parse(datestring)
-                        except Exception as e:
-                            logger.error(f"Maybe found date with separators in {datestring} but couldn't convert. {e}")
-                    elif (datestring == 'nan') | (datestring == 'None') | (datestring == 'NaT'):
-                        dt = pd.NaT
-                    else:
-                        logger.error(f"Unable to parse {datestring}")
-                        raise ValueError
-    except Exception as e:
-        raise ValueError
+        try:
+            dt = dateutil.parser.parse(date)
+        except Exception as e:
+            logger.error(f"Last ditch effort to convert ({date}) but couldn't convert. {e}")
+        
+        if not isinstance(dt, datetime.date):
+            raise ValueError
+            
+    if not isinstance(dt, datetime.date):
+        logger.error(f"Failed to convert {date} to datetime.")
     
+    try:
+        dt = pd.to_datetime(dt).to_pydatetime()
+    except pd.errors.OutOfBoundsDatetime as e:
+        if errors == 'coerce':
+            dt = pd.NaT
+        else:
+            logger.error(f"Date time is out of bounds.")
+            raise OverflowError
+
     return dt
+
 
 class DataFrameSummary:
     def __init__(self, df: DataFrame | GeoDataFrame, columns: List[str] | None = None, title: str | None = None):

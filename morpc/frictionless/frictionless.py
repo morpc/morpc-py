@@ -201,21 +201,26 @@ def cast_field_types(df, schema, forceInteger=False, forceInt64=False, forceNumb
                     else:
                         # If the user has not allow coercion of the values to integers, then throw an error.
                         logger.error("Unable to coerce value to Int64 type.  Ensure that fractional part of values is zero, or set forceInteger=True")
-                        raise RuntimeError           
+                        raise RuntimeError   
+        # If number convert to float          
         elif(fieldType == "number"):
             try:
                 outDF[fieldName] = outDF[fieldName].astype("float")
             except Exception as e:
+                # If conversion fails either force the conversion 
                 if forceNumber == True:
                     logger.debug(f"forceNumber is set to True, Coercing {fieldName} to numeric.")
                     outDF[fieldName] = pd.to_numeric(outDF[fieldName], errors='coerce').astype("float")
+                # Or error.
                 else:
                     logger.error(f"Unable to set {fieldName} to number. Set forceNumber as True to coerce. {e}")
                     raise ValueError
+        # If date or datetime convert to datetime
         elif(fieldType == "date" or fieldType == "datetime"):
             try:
+                # outDF[fieldName] = outDF[fieldName].astype('datetime64[ms]')
                 outDF[fieldName] = [morpc.utils.datetime_from_string(x) for x in outDF[fieldName]]
-                outDF[fieldName] = pd.to_datetime(outDF[fieldName], errors='coerce')
+                # outDF[fieldName] = pd.to_datetime(outDF[fieldName], errors='coerce')
             except Exception as e:
                 logger.error(f"Unable to parse date. {e}")
                 raise ValueError
