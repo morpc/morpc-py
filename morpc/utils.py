@@ -25,81 +25,100 @@ test_dates = [
 
 def datetime_from_string(date, errors: Literal['coerce', 'error']='coerce') -> datetime.datetime:
     import datetime
+    import math
     import pandas as pd
-    import dateutil
+    import dateutil.parser
     import re
-    
+
+    dt = pd.NaT
+
     try:
-        if isinstance(date, int):
-            if re.match(r'[0-9]{19}', str(date)):
-                dt = pd.to_datetime(date, unit='ns')
-            elif re.match(r'[0-9]{13}', str(date)):
-                dt = pd.to_datetime(date, unit='ms')
-            elif re.match(r'[0-9]{10}', str(date)):
-                dt = pd.to_datetime(date, unit='s')
+        if isinstance(date, pd.api.typing.NaTType):
+            dt = pd.NaT
+
+        elif date is None:
+            dt = pd.NaT
+
+        elif isinstance(date, float):
+            if math.isnan(date):
+                dt = pd.NaT
+            else:
+                dt = pd.to_datetime(int(date), unit='s').to_pydatetime()
+
+        # datetime.datetime must be checked before datetime.date (it's a subclass)
+        elif isinstance(date, datetime.datetime):
+            dt = date
+
+        elif isinstance(date, datetime.date):
+            dt = datetime.datetime.combine(date, datetime.time.min)
+
+        elif isinstance(date, int):
+            if re.fullmatch(r'\d{19}', str(date)):
+                dt = pd.to_datetime(date, unit='ns').to_pydatetime()
+            elif re.fullmatch(r'\d{13}', str(date)):
+                dt = pd.to_datetime(date, unit='ms').to_pydatetime()
+            elif re.fullmatch(r'\d{10}', str(date)):
+                dt = pd.to_datetime(date, unit='s').to_pydatetime()
+            else:
+                raise ValueError(f"Integer {date} does not match a recognized epoch length (10, 13, or 19 digits).")
+
         else:
-            try:
-                dt = pd.to_datetime(date)
-            except OverflowError as e:
-                logger.error(f"{date} is out of bounds")
-                raise OverflowError
-    except:
-        try:
-            # If already a date or time class, use that
-            if isinstance(date, pd.api.typing.NaTType):
-                dt = date
-            elif isinstance(date, datetime.date):
-                dt = date
-        except:
-            if not pd.api.types.is_string_dtype(date):
+            if not isinstance(date, str):
                 try:
                     date = str(date)
-                except:
-                    try:
-                        date = f"{date}"
-                    except Exception as e:
-                        logger.error(f"Failed to convert {date} to string.")
-
-            if re.match(r'^\d{4}-(?:0[1-9]|1[0-2])-(?:[0-2][1-9]|[1-3]0|3[01])T(?:[0-1][0-9]|2[0-3])(?::[0-6]\d)(?::[0-6]\d)?(?:\.\d{3})?(?:[+-][0-2]\d:[0-5]\d|Z)?$', date):
-                try:
-                    dt = pd.to_datetime(date, format='ISO8601')
-                except:
-                    logger.error(f"Maybe found ISO format in {date} but couldn't convert.")
-
-            elif re.match(r'[0-9]+[/\-\.][0-9]+[/\-\.][0-9]+', date):
-                try:
-                    dt = dateutil.parser.parse(date)
                 except Exception as e:
-                    logger.error(f"Maybe found date with separators in {date} but couldn't convert. {e}")
-                
-            elif re.match(r'[0-9]{6}', date):
-                try:
-                    dt = dateutil.parser.parse(date)
-                except Exception as e:
-                    logger.error(f"Maybe found a date as digits in ({date}) but couldn't convert. {e}")
+                    logger.error(f"Failed to convert {date!r} to string.")
+                    raise e
 
-            elif (date == 'nan') | (date == 'None') | (date == 'NaT'):
+            if date in ('nan', 'None', 'NaT', ''):
                 dt = pd.NaT
 
-        try:
-            dt = dateutil.parser.parse(date)
-        except Exception as e:
-            logger.error(f"Last ditch effort to convert ({date}) but couldn't convert. {e}")
-        
-        if not isinstance(dt, datetime.date):
-            raise ValueError
-            
-    if not isinstance(dt, datetime.date):
-        logger.error(f"Failed to convert {date} to datetime.")
-    
-    try:
-        dt = pd.to_datetime(dt).to_pydatetime()
-    except pd.errors.OutOfBoundsDatetime as e:
-        if errors == 'coerce':
-            dt = pd.NaT
+            elif re.match(
+                r'^\d{4}-(?:0[1-9]|1[0-2])-(?:[0-2][1-9]|[1-3]0|3[01])'
+                r'T(?:[0-1][0-9]|2[0-3])(?::[0-6]\d)(?::[0-6]\d)?'
+                r'(?:\.\d{3})?(?:[+-][0-2]\d:[0-5]\d|Z)?$',
+                date
+            ):
+                try:
+                    dt = pd.to_datetime(date, format='ISO8601').to_pydatetime()
+                except Exception as e:
+                    logger.error(f"Maybe found ISO format in {date!r} but couldn't convert.")
+                    raise e
+
+            elif re.fullmatch(r'\d+[/\-\.]\d+[/\-\.]\d+', date):
+                try:
+                    dt = dateutil.parser.parse(date)
+                except Exception as e:
+                    logger.error(f"Maybe found date with separators in {date!r} but couldn't convert. {e}")
+                    raise e
+
+            elif re.fullmatch(r'\d{8}', date):
+                try:
+                    dt = datetime.datetime.strptime(date, '%Y%m%d')
+                except Exception as e:
+                    logger.error(f"Maybe found YYYYMMDD in {date!r} but couldn't convert. {e}")
+                    raise e
+
+            elif re.fullmatch(r'\d{6}', date):
+                try:
+                    dt = datetime.datetime.strptime(date, '%Y%m')
+                except Exception as e:
+                    logger.error(f"Maybe found YYYYMM in {date!r} but couldn't convert. {e}")
+                    raise e
+
+            else:
+                try:
+                    dt = dateutil.parser.parse(date)
+                except Exception as e:
+                    logger.error(f"Last ditch effort to convert {date!r} failed. {e}")
+                    raise e
+
+    except Exception as e:
+        if errors == 'error':
+            logger.error(f"Failed to convert to datetime: {e}")
+            raise e
         else:
-            logger.error(f"Date time is out of bounds.")
-            raise OverflowError
+            dt = pd.NaT
 
     return dt
 
