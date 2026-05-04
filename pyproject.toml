@@ -30,6 +30,11 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools.dynamic]
 version = {attr = "morpc.__version__"}
 
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+]
+
 [tool.setuptools.packages.find]
 exclude = ["demo"] 
 namespaces = false

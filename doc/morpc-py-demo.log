@@ -1,0 +1,14 @@
+2026-05-04 13:15:44,742 | INFO | morpc.logs.config_logs: Set up logging save to file "morpc-py-demo.log", log level "info"
+2026-05-04 13:15:46,808 | ERROR | morpc.utils.datetime_from_string: Maybe found ISO format in 3015-01-01T23:00+02:00 but couldn't convert.
+2026-05-04 13:19:11,619 | ERROR | morpc.utils.datetime_from_string: Maybe found ISO format in 3015-01-01T23:00+02:00 but couldn't convert.
+2026-05-04 13:19:11,620 | ERROR | morpc.utils.datetime_from_string: Date (3015-01-01T23:00+02:00) is out of range.
+2026-05-04 13:19:42,913 | ERROR | morpc.utils.datetime_from_string: Maybe found ISO format in 3015-01-01T23:00+02:00 but couldn't convert.
+2026-05-04 13:19:42,914 | ERROR | morpc.utils.datetime_from_string: Date (3015-01-01T23:00+02:00) is out of range.
+2026-05-04 13:20:17,057 | ERROR | morpc.utils.datetime_from_string: Maybe found ISO format in 3015-01-01T23:00+02:00 but couldn't convert.
+2026-05-04 13:20:17,059 | ERROR | morpc.utils.datetime_from_string: Maybe found ISO format in 1001-01-31T23:59:59Z but couldn't convert.
+2026-05-04 13:20:47,335 | ERROR | morpc.utils.datetime_from_string: Maybe found ISO format in 3015-01-01T23:00+02:00 but couldn't convert.
+2026-05-04 13:20:47,337 | ERROR | morpc.utils.datetime_from_string: Maybe found ISO format in 1001-01-31T23:59:59Z but couldn't convert.
+2026-05-04 13:21:36,144 | ERROR | morpc.utils.datetime_from_string: Maybe found ISO format in 3015-01-01T23:00+02:00 but couldn't convert.
+2026-05-04 13:21:36,146 | ERROR | morpc.utils.datetime_from_string: Maybe found ISO format in 1001-01-31T23:59:59Z but couldn't convert.
+2026-05-04 13:22:03,446 | ERROR | morpc.utils.datetime_from_string: Maybe found ISO format in 3015-01-01T23:00+02:00 but couldn't convert.
+2026-05-04 13:22:03,448 | ERROR | morpc.utils.datetime_from_string: Maybe found ISO format in 1001-01-31T23:59:59Z but couldn't convert.

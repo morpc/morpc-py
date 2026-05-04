@@ -102,10 +102,10 @@ def name_to_desc_map(schema: frictionless.Schema) -> dict:
     return {schema.fields[i].name:schema.fields[i].description for i in range(len(schema.fields))}
 
   
-def cast_field_types(df: pandas.DataFrame, schema: frictionless.Schema, forceInteger:bool=False, forceInt64:bool=False, forceNumber:bool=False, nullBoolValue:bool=False, handleMissingFields:Literal['error','add']="error", handleMissingValues:bool=True) -> pandas.DataFrame:
+def cast_field_types(df, schema, forceInteger:bool=False, forceInt64:bool=False, forceNumber:bool=False, forceDateTime:Literal['coerce','error']='coerce', nullBoolValue=False, handleMissingFields="error", handleMissingValues=True, logLevel=None):
     """
     Given a dataframe and the Frictionless Schema object (see load_schema), recast each of the fields in the 
-    dataframe to the data type specified in the schema. s
+    dataframe to the data type specified in the schema.
 
     Parameters:
     ----------
@@ -139,6 +139,10 @@ def cast_field_types(df: pandas.DataFrame, schema: frictionless.Schema, forceInt
     handleMissingValues : boolean
         Optional. Specifies how to handle missing values as defined in the schema. 
         If True, convert all values in missing values to np.nan.
+        
+    logLevel : str or int as defined by logging package. See https://docs.python.org/3/library/logging.html#levels
+        Optional. Temporarily override the default log level with the specified log level. Typically you would specify "WARNING" to suppress less critical 
+        output when the function is called iteratively many times. 
 
     Returns:
     -------
@@ -155,6 +159,13 @@ def cast_field_types(df: pandas.DataFrame, schema: frictionless.Schema, forceInt
     import re
     import math
     outDF = df.copy()
+
+    # If the user has specified an override for the logging level, tell the logger to use that level.
+    # Preserve the original log level so we can restore it later.
+    originalLogLevel = None
+    if logLevel != None:
+        originalLogLevel = logger.level
+        logger.setLevel(logLevel)
 
     if handleMissingValues:
         logger.info(f"handleMissingValues set to True, converting {schema.missing_values} to np.nan")
@@ -199,23 +210,26 @@ def cast_field_types(df: pandas.DataFrame, schema: frictionless.Schema, forceInt
                     else:
                         # If the user has not allow coercion of the values to integers, then throw an error.
                         logger.error("Unable to coerce value to Int64 type.  Ensure that fractional part of values is zero, or set forceInteger=True")
-                        raise RuntimeError     
-                          
+                        raise RuntimeError   
+        # If number convert to float          
         elif(fieldType == "number"):
             try:
                 outDF[fieldName] = outDF[fieldName].astype("float")
             except Exception as e:
+                # If conversion fails either force the conversion 
                 if forceNumber == True:
                     logger.debug(f"forceNumber is set to True, Coercing {fieldName} to numeric.")
                     outDF[fieldName] = pd.to_numeric(outDF[fieldName], errors='coerce').astype("float")
+                # Or error.
                 else:
                     logger.error(f"Unable to set {fieldName} to number. Set forceNumber as True to coerce. {e}")
                     raise ValueError
-                
+        # If date or datetime convert to datetime
         elif(fieldType == "date" or fieldType == "datetime"):
             try:
-                outDF[fieldName] = [morpc.utils.datetime_from_string(x) for x in outDF[fieldName]]
-                outDF[fieldName] = pd.to_datetime(outDF[fieldName], errors='coerce')
+                # outDF[fieldName] = outDF[fieldName].astype('datetime64[ms]')
+                outDF[fieldName] = [morpc.utils.datetime_from_string(x, errors=forceDateTime) for x in outDF[fieldName]]
+                # outDF[fieldName] = pd.to_datetime(outDF[fieldName], errors='coerce')
             except Exception as e:
                 logger.error(f"Unable to parse date. {e}")
                 raise ValueError
@@ -298,6 +312,10 @@ def cast_field_types(df: pandas.DataFrame, schema: frictionless.Schema, forceInt
             outDF[fieldName] = outDF[fieldName].astype('string')
         else:
             outDF[fieldName] = outDF[fieldName].astype(fieldType)
+
+    # Restore the original log level, if necessary
+    if(originalLogLevel != None):
+        logger.setLevel(originalLogLevel)
             
     return outDF
 
