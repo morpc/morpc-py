@@ -8,9 +8,11 @@ from math import e
 from os import chdir, PathLike, getcwd
 from typing import Literal, List
 import datetime
-from frictionless import Resource
+from frictionless import Resource, Schema
+import frictionless
 from numpy import NaN
 from pandas import NaT
+import pandas
 from semantic_version import Version
 import contextlib
 import dateutil
@@ -28,7 +30,7 @@ def tempWorkingDirectory(dir):
         chdir(cwd)
 
 
-def load_schema(path):
+def load_schema(path: str | PathLike) -> frictionless.Schema:
     """Given the path to a Frictionless schema file in JSON or YAML format, load the file into memory as a Frictionless Schema object.
     Parameters:
     -----------
@@ -40,7 +42,7 @@ def load_schema(path):
     return frictionless.Schema(path)
 
 
-def load_resource(path):
+def load_resource(path: str | PathLike) -> frictionless.Resource:
     """
     Given the path to a Frictionless Resource file in JSON or YAML format, load the file into memory as a Frictionless
     Resource object.
@@ -56,7 +58,7 @@ def load_resource(path):
     return frictionless.Resource(path)
 
 
-def get_field_names(schema):
+def get_field_names(schema: frictionless.Schema) -> list[str]:
     """
     Given a Frictionless TableSchema object, return a list containing the names of the fields defined in the schema.
     NOTE: This is implemented natively using the TableSchema.field_names() method. Functional implementation is just to provide
@@ -72,7 +74,7 @@ def get_field_names(schema):
     return schema.field_names
 
 
-def name_to_dtype_map(schema):
+def name_to_dtype_map(schema: frictionless.Schema) -> dict:
     """
     Given a Frictionless TableSchema object, return a dictionary mapping each field name to the corresponding data type
     specified in the schema.  The resulting dictionary is suitable for use by the pandas.DataFrame.astype() method (for example)
@@ -86,7 +88,7 @@ def name_to_dtype_map(schema):
     return {schema.fields[i].name:schema.fields[i].type for i in range(len(schema.fields))}    
 
 
-def name_to_desc_map(schema):
+def name_to_desc_map(schema: frictionless.Schema) -> dict:
     """
     Given a Frictionless TableSchema object, return a dictionary mapping each field name to the corresponding description
     specified in the schema.
@@ -100,7 +102,7 @@ def name_to_desc_map(schema):
     return {schema.fields[i].name:schema.fields[i].description for i in range(len(schema.fields))}
 
   
-def cast_field_types(df, schema, forceInteger=False, forceInt64=False, forceNumber=False, nullBoolValue=False, handleMissingFields:Literal['error','add']="error", handleMissingValues=True):
+def cast_field_types(df: pandas.DataFrame, schema: frictionless.Schema, forceInteger:bool=False, forceInt64:bool=False, forceNumber:bool=False, nullBoolValue:bool=False, handleMissingFields:Literal['error','add']="error", handleMissingValues:bool=True) -> pandas.DataFrame:
     """
     Given a dataframe and the Frictionless Schema object (see load_schema), recast each of the fields in the 
     dataframe to the data type specified in the schema. s
@@ -302,7 +304,7 @@ def cast_field_types(df, schema, forceInteger=False, forceInt64=False, forceNumb
 # Given a dataframe and the Frictionless Schema object (see load_schema), add any fields in the schema that
 # are missing in the dataframe.  If fieldNames == None, any fields missing from the schema will be added to the dataframe
 # with the correct type and null values.  If fieldNames is a string or list of strings, only those fields will be added.
-def add_missing_fields(df, schema, fieldNames=None):
+def add_missing_fields(df: pandas.DataFrame, schema: frictionless.Schema, fieldNames:List[str]|None=None):
     import frictionless
     outDF = df.copy()
     
@@ -345,7 +347,7 @@ def add_missing_fields(df, schema, fieldNames=None):
 
     return outDF
         
-def convert_lineend(path, target: Literal['dos', 'unix']):
+def convert_lineend(path: str | PathLike, target: Literal['dos', 'unix']) -> None:
     import re
     import os
 
