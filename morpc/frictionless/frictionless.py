@@ -219,7 +219,7 @@ def cast_field_types(df, schema, forceInteger=False, forceInt64=False, forceNumb
         elif(fieldType == "date" or fieldType == "datetime"):
             try:
                 # outDF[fieldName] = outDF[fieldName].astype('datetime64[ms]')
-                outDF[fieldName] = [morpc.utils.datetime_from_string(x) for x in outDF[fieldName]]
+                outDF[fieldName] = [morpc.utils.datetime_from_string(x, errors='coerce') for x in outDF[fieldName]]
                 # outDF[fieldName] = pd.to_datetime(outDF[fieldName], errors='coerce')
             except Exception as e:
                 logger.error(f"Unable to parse date. {e}")
