@@ -100,10 +100,10 @@ def name_to_desc_map(schema):
     return {schema.fields[i].name:schema.fields[i].description for i in range(len(schema.fields))}
 
   
-def cast_field_types(df, schema, forceInteger=False, forceInt64=False, forceNumber=False, nullBoolValue=False, handleMissingFields="error", handleMissingValues=True):
+def cast_field_types(df, schema, forceInteger=False, forceInt64=False, forceNumber=False, nullBoolValue=False, handleMissingFields="error", handleMissingValues=True, logLevel=None):
     """
     Given a dataframe and the Frictionless Schema object (see load_schema), recast each of the fields in the 
-    dataframe to the data type specified in the schema. s
+    dataframe to the data type specified in the schema.
 
     Parameters:
     ----------
@@ -137,6 +137,10 @@ def cast_field_types(df, schema, forceInteger=False, forceInt64=False, forceNumb
     handleMissingValues : boolean
         Optional. Specifies how to handle missing values as defined in the schema. 
         If True, convert all values in missing values to np.nan.
+        
+    logLevel : str or int as defined by logging package. See https://docs.python.org/3/library/logging.html#levels
+        Optional. Temporarily override the default log level with the specified log level. Typically you would specify "WARNING" to suppress less critical 
+        output when the function is called iteratively many times. 
 
     Returns:
     -------
@@ -153,6 +157,13 @@ def cast_field_types(df, schema, forceInteger=False, forceInt64=False, forceNumb
     import re
     import math
     outDF = df.copy()
+
+    # If the user has specified an override for the logging level, tell the logger to use that level.
+    # Preserve the original log level so we can restore it later.
+    originalLogLevel = None
+    if logLevel != None:
+        originalLogLevel = logger.level
+        logger.setLevel(logLevel)
 
     if handleMissingValues:
         logger.info(f"handleMissingValues set to True, converting {schema.missing_values} to np.nan")
@@ -299,6 +310,10 @@ def cast_field_types(df, schema, forceInteger=False, forceInt64=False, forceNumb
             outDF[fieldName] = outDF[fieldName].astype('string')
         else:
             outDF[fieldName] = outDF[fieldName].astype(fieldType)
+
+    # Restore the original log level, if necessary
+    if(originalLogLevel != None):
+        logger.setLevel(originalLogLevel)
             
     return outDF
 
