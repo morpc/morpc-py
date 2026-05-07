@@ -469,8 +469,7 @@ SUMLEVEL_DESCRIPTIONS = {
         "nameField":None,
         "censusQueryName": 'block',
         "censusRestAPI_layername": 'blocks',
-        "geoidfq_format": "{SUMLEVEL:3}{VARIANT:2}{GEOCOMP:2}US{STATE:2}{TRACT:6}{BLKGRP:1}{BLOCK:3}",
-        "current_variant": '00'
+        "geoidfq_format": "{SUMLEVEL:3}{VARIANT:2}{GEOCOMP:2}US{STATE:2}{COUNTY:3}{TRACT:6}{BLKGRP:1}{BLOCK:3}"
     },
     '140': {
         "singular":"tract",
@@ -481,8 +480,7 @@ SUMLEVEL_DESCRIPTIONS = {
         "nameField":None,
         "censusQueryName": "tract",
         "censusRestAPI_layername": 'tracts',
-        "geoidfq_format": "{SUMLEVEL:3}{VARIANT:2}{GEOCOMP:2}US{STATE:2}{TRACT:6}",
-        "current_variant": '00'
+        "geoidfq_format": "{SUMLEVEL:3}{VARIANT:2}{GEOCOMP:2}US{STATE:2}{COUNTY:3}{TRACT:6}"
     },
     '150': {
         "singular":"block group",
@@ -493,8 +491,7 @@ SUMLEVEL_DESCRIPTIONS = {
         "nameField":None,
         "censusQueryName": "block group",
         "censusRestAPI_layername": 'block groups',
-        "geoidfq_format": "{SUMLEVEL:3}{VARIANT:2}{GEOCOMP:2}US{STATE:2}{TRACT:6}{BLKGRP:1}",
-        "current_variant": '00'
+        "geoidfq_format": "{SUMLEVEL:3}{VARIANT:2}{GEOCOMP:2}US{STATE:2}{COUNTY:3}{TRACT:6}{BLKGRP:1}"
     },
     '155': {
         "singular":"place county part",
