@@ -8,9 +8,11 @@ from math import e
 from os import chdir, PathLike, getcwd
 from typing import Literal, List
 import datetime
-from frictionless import Resource
+from frictionless import Resource, Schema
+import frictionless
 from numpy import NaN
 from pandas import NaT
+import pandas
 from semantic_version import Version
 import contextlib
 import dateutil
@@ -28,7 +30,7 @@ def tempWorkingDirectory(dir):
         chdir(cwd)
 
 
-def load_schema(path):
+def load_schema(path: str | PathLike) -> frictionless.Schema:
     """Given the path to a Frictionless schema file in JSON or YAML format, load the file into memory as a Frictionless Schema object.
     Parameters:
     -----------
@@ -40,7 +42,7 @@ def load_schema(path):
     return frictionless.Schema(path)
 
 
-def load_resource(path):
+def load_resource(path: str | PathLike) -> frictionless.Resource:
     """
     Given the path to a Frictionless Resource file in JSON or YAML format, load the file into memory as a Frictionless
     Resource object.
@@ -56,7 +58,7 @@ def load_resource(path):
     return frictionless.Resource(path)
 
 
-def get_field_names(schema):
+def get_field_names(schema: frictionless.Schema) -> list[str]:
     """
     Given a Frictionless TableSchema object, return a list containing the names of the fields defined in the schema.
     NOTE: This is implemented natively using the TableSchema.field_names() method. Functional implementation is just to provide
@@ -72,7 +74,7 @@ def get_field_names(schema):
     return schema.field_names
 
 
-def name_to_dtype_map(schema):
+def name_to_dtype_map(schema: frictionless.Schema) -> dict:
     """
     Given a Frictionless TableSchema object, return a dictionary mapping each field name to the corresponding data type
     specified in the schema.  The resulting dictionary is suitable for use by the pandas.DataFrame.astype() method (for example)
@@ -86,7 +88,7 @@ def name_to_dtype_map(schema):
     return {schema.fields[i].name:schema.fields[i].type for i in range(len(schema.fields))}    
 
 
-def name_to_desc_map(schema):
+def name_to_desc_map(schema: frictionless.Schema) -> dict:
     """
     Given a Frictionless TableSchema object, return a dictionary mapping each field name to the corresponding description
     specified in the schema.
@@ -170,22 +172,18 @@ def cast_field_types(df, schema, forceInteger:bool=False, forceInt64:bool=False,
         for nullValue in schema.missing_values:
             outDF = outDF.replace(nullValue, None)
 
+        if(handleMissingFields == "ignore"):
+            logger.info(f"Ignoring missing fields")
+        elif(handleMissingFields == "add"):
+            logger.info("Adding missing fields which is not present in dataframe")
+            outDF = add_missing_fields(df, schema)
+        else:
+            logger.error("Fields in schema is not present in dataframe. To handle missing fields, see argument handleMissingFields.")
+            raise RuntimeError
+    
     for field in schema.fields:
-      
         fieldName = field.name
-        fieldType = field.type 
-        if(not fieldName in df.columns):
-            if(handleMissingFields == "ignore"):
-                logger.info("Skipping field {} which is not present in dataframe".format(fieldName))
-                continue
-            elif(handleMissingFields == "add"):
-                logger.info("Adding field {} which is not present in dataframe".format(fieldName))
-                add_missing_fields(df, schema, fieldNames=fieldName)
-                continue
-            else:
-                logger.error("Field {} is not present in dataframe. To handle missing fields, see argument handleMissingFields.".format(fieldName))
-                raise RuntimeError
-   
+        fieldType = field.type
         logger.debug("Casting field {} as type {}.".format(fieldName, fieldType))
         # The following section is necessary because the pandas "int" type does not support null values.  If null values are present,
         # the field must be cast as "Int64" instead.
@@ -238,14 +236,17 @@ def cast_field_types(df, schema, forceInteger:bool=False, forceInt64:bool=False,
 
         elif(fieldType == "year"):
             outDF[fieldName] = [pd.to_datetime(x, format='%Y').year if re.match(r'[0-9]{4}',str(x)) else None for x in outDF[fieldName]]
+
         elif(fieldType == "geojson"):
-            try:
-                logger.info(f"Fieldname {fieldName} as geojson. Attempting to convert to geometry.")
-                outDF[fieldName] = [shapely.geometry.shape(json.loads(x)) for x in outDF[fieldName]]
-            except RuntimeError as r:
-                logger.error(f"Unable to convert to geometry. {r}")
-            finally:
-                logger.info(f"Field {fieldName} cast as geometry.")
+            if not str(outDF[fieldName].dtype) == 'geometry':
+                try:
+                    logger.info(f"Fieldname {fieldName} as geojson. Attempting to convert to geometry.")
+                    outDF[fieldName] = [shapely.geometry.shape(json.loads(x)) for x in outDF[fieldName]]
+                except RuntimeError as r:
+                    logger.error(f"Unable to convert to geometry. {r}")
+                finally:
+                    logger.info(f"Field {fieldName} cast as geometry.")
+
         elif(fieldType == "boolean"): 
             if(outDF[fieldName].dtype == "bool"):
                 logger.warning("Field {} already cast as boolean type. Skipping casting for this field.".format(fieldName))
@@ -305,6 +306,7 @@ def cast_field_types(df, schema, forceInteger:bool=False, forceInt64:bool=False,
             else:
                 logger.error("Field {} is a type that is not currently supported for casting to boolean. Convert it to boolean, numeric, or string types first.".format(fieldName))
                 raise RuntimeError
+            
         elif(fieldType == 'any'):
             logger.info(f"Field {fieldName} as type 'any' in schema. This may be due to the schema being produced automatically frictionless.Schema.describe(). Converting to string. ")
             outDF[fieldName] = outDF[fieldName].astype('string')
@@ -320,7 +322,7 @@ def cast_field_types(df, schema, forceInteger:bool=False, forceInt64:bool=False,
 # Given a dataframe and the Frictionless Schema object (see load_schema), add any fields in the schema that
 # are missing in the dataframe.  If fieldNames == None, any fields missing from the schema will be added to the dataframe
 # with the correct type and null values.  If fieldNames is a string or list of strings, only those fields will be added.
-def add_missing_fields(df, schema, fieldNames=None):
+def add_missing_fields(df: pandas.DataFrame, schema: frictionless.Schema, fieldNames:List[str]|None=None):
     import frictionless
     outDF = df.copy()
     
@@ -351,7 +353,7 @@ def add_missing_fields(df, schema, fieldNames=None):
                         
             if((fieldType == "int") or (fieldType == "integer")):
                 logger.warning("Field {0} specified as type {1} (pandas type 'int'), which does not support null values in pandas. Casting field as pandas type 'Int64' instead.".format(fieldName, fieldType))
-                df[fieldName] = df[fieldName].astype("Int64")
+                outDF[fieldName] = outDF[fieldName].astype("Int64")
             elif(fieldType == "number"):
                 outDF[fieldName] = outDF[fieldName].astype("float")
             else:
@@ -363,7 +365,7 @@ def add_missing_fields(df, schema, fieldNames=None):
 
     return outDF
         
-def convert_lineend(path, target: Literal['dos', 'unix']):
+def convert_lineend(path: str | PathLike, target: Literal['dos', 'unix']) -> None:
     import re
     import os
 
