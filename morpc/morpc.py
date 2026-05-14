@@ -178,7 +178,7 @@ CONST_REGIONS["REGIONCEDS"] = CONST_REGIONS["REGION10"] + ["Logan"]
 CONST_REGIONS["CEDS Region"] = CONST_REGIONS["REGIONCEDS"]
 CONST_REGIONS["CBSA"] = CONST_REGIONS["REGION7"] + ["Hocking","Morrow","Perry"]
 CONST_REGIONS['Mobility Region'] = CONST_REGIONS['REGION7'] + ['Logan', 'Fayette']
-CONST_REGIONS['MPO Region'] = ['Delaware', 'Franklin']
+CONST_REGIONS['FRADEL'] = ['Delaware', 'Franklin']
 
 # Region identifiers
 # Note that the Columbus MSA already has a GEOID that is defined by the Census Bureau.  See CONST_COLUMBUS_MSA_ID above.
@@ -196,7 +196,7 @@ CONST_REGIONS_GEOID["CBSA"] = CONST_COLUMBUS_CBSA_ID
 
 # The following regions are comprised of collections of whole counties. Not all region definitions are county-based,
 # for example the MPO region.
-CONST_REGIONS_COUNTYBASED = ["REGION15","REGION10","REGION7","REGIONCEDS","REGIONCORPO","REGIONONECBUS","CBSA"]
+CONST_REGIONS_COUNTYBASED = ["REGION15","REGION10","REGION7","REGIONCEDS","REGIONCORPO","REGIONONECBUS","CBSA","FRADEL"]
 
 # County name abbreviations
 ## CONST_COUNTY_ABBREV maps the full county name to its three-letter abbreviation
