@@ -1116,6 +1116,7 @@ def morpc_geoid_to_census(geoidSeries, validateTranslation=True, gitRootPath="..
 
 def geoidfq_to_columns(geoidfqs: Series | DataFrame):
     import pandas as pd
+    import geopandas as gpd
     import re
 
     if isinstance(geoidfqs, pd.Series):
@@ -1156,8 +1157,39 @@ def geoidfq_to_columns(geoidfqs: Series | DataFrame):
         logger.warning(f"Columns overlap: using columns from new columns {overlap}")
         df = df.drop(columns = overlap)
     df = df.join(sumlevel_dfs)
-    geo_col = df.pop('geometry')
-    df.insert(len(df.columns),'geometry', geo_col)
+    if 'geometry' in df.columns:
+        geo_col = df.pop('geometry')
+        df.insert(len(df.columns),'geometry', geo_col)
+        df = gpd.GeoDataFrame(df, crs='epsg:4326')
 
+    return df
 
+def columns_to_geoidfq(df:DataFrame) -> DataFrame:
+    import re   
+    df = df.reset_index().drop(columns='index')
+
+    if 'sumlevel' not in df.columns:
+        logger.error(f"Dataframe must contain sumlevel column")
+        raise ValueError
+
+    sumlevels = [x for x in df['sumlevel'].unique()]
+    logger.debug(f"Sumlevels ({",".join(sumlevels)}) in data")
+
+    for sumlevel in sumlevels:
+        template = morpc.SUMLEVEL_DESCRIPTIONS[sumlevel]['geoidfq_format']
+        columns = [y[0].lower() for y in [x.split(':') for x in re.findall(r'\{(.+?)\}', template)] if y[0] not in ['SUMLEVEL', 'VARIANT', 'GEOCOMP']]
+
+        temp = df.loc[df['sumlevel']==sumlevel]
+
+        drop_cols = [x for x in df.columns if x not in columns]
+        temp = temp.drop(columns=drop_cols)
+
+        prefix = str(sumlevel) + morpc.SUMLEVEL_DESCRIPTIONS[sumlevel]['current_variant'] + '00' + 'US'
+        temp['prefix'] = prefix
+        temp = temp.astype(str)
+
+        temp['geoidfq'] = temp['prefix'].str.cat(temp[columns], sep="")
+
+        df.update(temp.drop(columns='prefix'))
+    
     return df

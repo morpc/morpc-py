@@ -241,15 +241,15 @@ def find_replace_variable_map(labels, variables, map):
 
 CENSUS_DATA_BASE_URL = 'https://api.census.gov/data'
 
-ALL_AVAIL_ENDPOINTS = {}
-for x in get_json_safely(CENSUS_DATA_BASE_URL)['dataset']:
-    if 'c_vintage' in x:
-        endpoint = "/".join(x['c_dataset'])
-        if endpoint not in ALL_AVAIL_ENDPOINTS:
-            ALL_AVAIL_ENDPOINTS.update({endpoint: [x['c_vintage']]})
-        else:
-            ALL_AVAIL_ENDPOINTS[endpoint].append(x['c_vintage'])
-ALL_AVAIL_ENDPOINTS = dict(sorted(ALL_AVAIL_ENDPOINTS.items()))
+# ALL_AVAIL_ENDPOINTS = {}
+# for x in get_json_safely(CENSUS_DATA_BASE_URL)['dataset']:
+#     if 'c_vintage' in x:
+#         endpoint = "/".join(x['c_dataset'])
+#         if endpoint not in ALL_AVAIL_ENDPOINTS:
+#             ALL_AVAIL_ENDPOINTS.update({endpoint: [x['c_vintage']]})
+#         else:
+#             ALL_AVAIL_ENDPOINTS[endpoint].append(x['c_vintage'])
+# ALL_AVAIL_ENDPOINTS = dict(sorted(ALL_AVAIL_ENDPOINTS.items()))
 
 IMPLEMENTED_ENDPOINTS = [
     'acs/acs1',
