@@ -172,18 +172,21 @@ def cast_field_types(df, schema, forceInteger:bool=False, forceInt64:bool=False,
         for nullValue in schema.missing_values:
             outDF = outDF.replace(nullValue, None)
 
-        if(handleMissingFields == "ignore"):
-            logger.info(f"Ignoring missing fields")
-        elif(handleMissingFields == "add"):
-            logger.info("Adding missing fields which is not present in dataframe")
-            outDF = add_missing_fields(df, schema)
-        else:
-            logger.error("Fields in schema is not present in dataframe. To handle missing fields, see argument handleMissingFields.")
-            raise RuntimeError
-    
     for field in schema.fields:
         fieldName = field.name
-        fieldType = field.type
+        fieldType = field.type 
+        if(not fieldName in df.columns):
+            if(handleMissingFields == "ignore"):
+                logger.info("Skipping field {} which is not present in dataframe".format(fieldName))
+                continue
+            elif(handleMissingFields == "add"):
+                logger.info("Adding field {} which is not present in dataframe".format(fieldName))
+                add_missing_fields(df, schema, fieldNames=fieldName, verbose=False)
+                continue
+            else:
+                logger.error("Field {} is not present in dataframe. To handle missing fields, see argument handleMissingFields.".format(fieldName))
+                raise RuntimeError
+   
         logger.debug("Casting field {} as type {}.".format(fieldName, fieldType))
         # The following section is necessary because the pandas "int" type does not support null values.  If null values are present,
         # the field must be cast as "Int64" instead.
