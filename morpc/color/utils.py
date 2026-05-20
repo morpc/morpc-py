@@ -213,7 +213,7 @@ def rgb_scale_from_hue(hue, sats, greys=None):
 
 def overlay_color(rgb_hex_colors, light="white", dark="black", level='AA', reverse=False):
     """
-    Check if a list of color is light or dark and return appropriate text colors. It is largely implemented in ploting to get text colors for data labels. See morpc.plot.excel and morpc.census.api.DimensionTable.plot_bar
+    Check if a list of color is light or dark and return appropriate text colors. It is largely implemented in ploting to get text colors for data labels. See morpc.plot.excel
 
     Parameters
     ----------

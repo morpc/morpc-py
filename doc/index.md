@@ -8,7 +8,6 @@ This package is still in development but will contain the following modules:
 
   - morpc - Main library.  Includes contents which are broadly applicable for MORPC's work, including MORPC branding, region definitions and utilities, and general purpose data manipulation functions.
   - morpc.frictionless -  Functions and classes for working with metadata, including schemas, resources, and data packages. These are for internal processes that us the [frictionless-py](https://github.com/frictionlessdata/frictionless-py/tree/main) package. Frictionless was implemented roughly 2025 to manage all metadata and to develop workflow documentation.
-  - morpc.census - Constants and functions that are relevant when working with Census data, including decennial census, ACS, and PEP.
   - morpc.rest_apt - Tools for working with ArcGIS Online REST API, including scripts for creating local copies as frictionless resources.
   - morpc.plot - Tools for standard plots which leverage MORPC branding and data visualization best practices.
   - morpc.color - Various tools for working with colors, largely implemented through morpc.plot.
