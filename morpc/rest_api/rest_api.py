@@ -65,7 +65,7 @@ def resource(name, url, where='1=1', outfields='*', max_record_count=None, **kwa
         for k, v in kwargs.items():
             query.update({k: v})
 
-    logger.info(f"Query Params: {[f"{k}={v}" for k,v in query.items()]}")
+    logger.info(f"Query Params: {[f'{k}={v}' for k,v in query.items()]}")
 
     # Get the total record count
     try:

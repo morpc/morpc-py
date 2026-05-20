@@ -163,7 +163,7 @@ class DataFrameSummary:
                     data_summary += f"{df[column].describe().to_markdown()}\n"
                     data_summary += f"**Missing**:     {(sum(df[column].isna())/len(df[column]))*100:.2f}%  \n"
                     data_summary += f"**Unique**:      {(len([x for x in df[column].unique()])/len(df[column]))*100:.2f}%  \n"
-                    data_summary += f"**Sample**:      {", ".join(df[column].sample(10, ).fillna('<NA>').to_list())}  \n"
+                    data_summary += f"**Sample**:      {', '.join(df[column].sample(10, ).fillna('<NA>').to_list())}  \n"
 
                 if type in ['Int64', 'int', 'float64', 'datetime64[ns]']:
                     data_summary += f"{df[column].describe().to_markdown()}\n"
