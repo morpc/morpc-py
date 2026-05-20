@@ -10,7 +10,6 @@ from typing import Literal, List
 import datetime
 from frictionless import Resource, Schema
 import frictionless
-from numpy import NaN
 from pandas import NaT
 import pandas
 from semantic_version import Version
