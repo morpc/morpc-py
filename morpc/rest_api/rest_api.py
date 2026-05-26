@@ -10,7 +10,9 @@ import re
 import urllib.parse
 from json import JSONDecodeError
 
+import attrs
 import frictionless
+from frictionless.dialect import Control
 from requests import HTTPError
 
 from morpc.req import get_json_safely
@@ -68,12 +70,35 @@ class ArcGISSchema(frictionless.Schema):
         return cls({'fields': fields})
 
 
+@attrs.define(kw_only=True, repr=False)
+class ArcGISControl(Control):
+    """Control for ArcGIS REST API query parameters and service pagination metadata."""
+
+    type = "arcgis"
+
+    total_records: int = 0
+    max_record_count: int = 500
+    query: dict = attrs.Factory(dict)
+
+    metadata_profile_patch = {
+        "properties": {
+            "totalRecords": {"type": "integer"},
+            "maxRecordCount": {"type": "integer"},
+            "query": {"type": "object"},
+        }
+    }
+
+
 class ArcGISPlugin(frictionless.Plugin):
-    """Frictionless plugin that registers ArcGISResource as the handler for type='arcgis'."""
+    """Frictionless plugin that registers ArcGIS classes for type='arcgis'."""
 
     def select_resource_class(self, type=None, *, datatype=None):
         if type == "arcgis":
             return ArcGISResource
+
+    def select_control_class(self, type=None):
+        if type == "arcgis":
+            return ArcGISControl
 
 
 frictionless.system.register("arcgis", ArcGISPlugin())
@@ -135,6 +160,17 @@ class ArcGISResource(frictionless.Resource):
                 max_record_count = min(total_record_count, 500)
             logger.info(f"Fetching {max_record_count} at a time.")
 
+        control = ArcGISControl(
+            total_records=total_record_count,
+            max_record_count=max_record_count,
+            query={
+                'where': where,
+                'outFields': outfields,
+                **kwargs,
+            },
+        )
+        dialect = frictionless.Dialect(controls=[control])
+
         descriptor = {
             "name": re.sub(r'[:/_ ]', '-', name).lower(),
             "type": "arcgis",
@@ -142,12 +178,7 @@ class ArcGISResource(frictionless.Resource):
             "path": url,
             "schema": ArcGISSchema.from_url(url, outfields=outfields).to_descriptor(),
             "mediatype": "application/geo+json",
-            "_metadata": {
-                "type": "arcgis_service",
-                "params": query,
-                "total_records": total_record_count,
-                "max_record_count": max_record_count,
-            },
+            "dialect": dialect.to_descriptor(),
         }
 
         return cls(descriptor)
@@ -176,15 +207,19 @@ class ArcGISResource(frictionless.Resource):
                     logger.error(f"field {field} not in resource fields: {self.schema.field_names}")
                     raise ValueError(f"field {field} not in resource fields")
 
-        metadata = self.to_dict()['_metadata']
+        control = ArcGISControl.from_dialect(self.dialect)
 
         urls = []
-        for offset in range(0, metadata['total_records'], metadata['max_record_count']):
-            params = dict(metadata['params'])
+        for offset in range(0, control.total_records, control.max_record_count):
+            params = {
+                **control.query,
+                'returnGeometry': 'true',
+                'f': 'geojson',
+                'resultRecordCount': control.max_record_count,
+                'resultOffset': offset,
+            }
             if out_fields is not None:
                 params['outFields'] = ",".join(out_fields)
-            params['resultRecordCount'] = metadata['max_record_count']
-            params['resultOffset'] = offset
             urls.append(f"{self.path}/query?" + urllib.parse.urlencode(params, safe="=(),"))
 
         gdfs = []
@@ -220,8 +255,8 @@ class ArcGISResource(frictionless.Resource):
                         pb.update()
 
         gdf = pd.concat(gdfs)
-        if len(gdf) != metadata['total_records']:
-            logger.error(f"Record count mismatch. Expected {metadata['total_records']}, got {len(gdf)}")
+        if len(gdf) != control.total_records:
+            logger.error(f"Record count mismatch. Expected {control.total_records}, got {len(gdf)}")
 
         return gdf.set_crs(CRS)
 
