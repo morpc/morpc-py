@@ -68,6 +68,17 @@ class ArcGISSchema(frictionless.Schema):
         return cls({'fields': fields})
 
 
+class ArcGISPlugin(frictionless.Plugin):
+    """Frictionless plugin that registers ArcGISResource as the handler for type='arcgis'."""
+
+    def select_resource_class(self, type=None, *, datatype=None):
+        if type == "arcgis":
+            return ArcGISResource
+
+
+frictionless.system.register("arcgis", ArcGISPlugin())
+
+
 class ArcGISResource(frictionless.Resource):
     """A frictionless Resource representing an ArcGIS REST API service.
 
@@ -75,6 +86,8 @@ class ArcGISResource(frictionless.Resource):
     frictionless.Resource interface, or use from_url() to fetch metadata from
     a live ArcGIS REST service.
     """
+
+    type = "arcgis"
 
     @classmethod
     def from_url(cls, name, url, where='1=1', outfields='*', max_record_count=None, **kwargs):
@@ -124,6 +137,7 @@ class ArcGISResource(frictionless.Resource):
 
         descriptor = {
             "name": re.sub(r'[:/_ ]', '-', name).lower(),
+            "type": "arcgis",
             "format": "json",
             "path": url,
             "schema": ArcGISSchema.from_url(url, outfields=outfields).to_descriptor(),
