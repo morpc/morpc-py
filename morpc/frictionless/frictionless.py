@@ -180,7 +180,7 @@ def cast_field_types(df, schema, forceInteger:bool=False, forceInt64:bool=False,
                 continue
             elif(handleMissingFields == "add"):
                 logger.info("Adding field {} which is not present in dataframe".format(fieldName))
-                add_missing_fields(df, schema, fieldNames=fieldName, verbose=False)
+                add_missing_fields(df, schema, fieldNames=fieldName)
                 continue
             else:
                 logger.error("Field {} is not present in dataframe. To handle missing fields, see argument handleMissingFields.".format(fieldName))
@@ -350,7 +350,7 @@ def add_missing_fields(df: pandas.DataFrame, schema: frictionless.Schema, fieldN
         # If the requested field is actually missing then add it. Otherwise notify the user that it is already present and skip it.
         if(not fieldName in df.columns):
             # If the field is missing, add it.
-            logger.info("add_missing_fields | INFO | Adding missing field {0}, type {1}, filled with null values.".format(fieldName, fieldType))
+            logger.info("Adding missing field {0}, type {1}, filled with null values.".format(fieldName, fieldType))
             outDF[fieldName] = None
                         
             if((fieldType == "int") or (fieldType == "integer")):
