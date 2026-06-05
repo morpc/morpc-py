@@ -183,7 +183,7 @@ class ArcGISResource(frictionless.Resource):
 
         return cls(descriptor)
 
-    def to_geodataframe(self, out_fields: list[str] | None = None, CRS='epsg:4326'):
+    def to_geodataframe(self, out_fields: list[str] | None = None, CRS='epsg:4326', show_progress: bool = True):
         """Fetch all features from the ArcGIS service as a GeoDataFrame.
 
         Parameters
@@ -225,33 +225,34 @@ class ArcGISResource(frictionless.Resource):
         gdfs = []
         with Session() as session:
             with enlighten.Manager() as manager:
-                with manager.counter(total=len(urls), desc='Downloading:', unit='requests') as pb:
-                    for url in urls:
-                        logger.debug(f"Fetching {url}")
-                        r = session.get(url)
-                        while r.status_code != 200:
-                            logger.warning(f"Status Code {r.status_code}, trying again. URL: {r.url}")
-                            if r.status_code == 400 and "Output format not supported" in r.text:
-                                url = url.replace('geojson', 'json').replace('&returnGeometry=true', '')
-                                logger.warning(f"Output format not supported, trying json. {url}")
-                            sleep(1)
-                            r = session.get(url, headers=headers)
+                pb = manager.counter(total=len(urls), desc='Downloading:', unit='requests') if show_progress else None
+                for url in urls:
+                    logger.debug(f"Fetching {url}")
+                    r = session.get(url)
+                    while r.status_code != 200:
+                        logger.warning(f"Status Code {r.status_code}, trying again. URL: {r.url}")
+                        if r.status_code == 400 and "Output format not supported" in r.text:
+                            url = url.replace('geojson', 'json').replace('&returnGeometry=true', '')
+                            logger.warning(f"Output format not supported, trying json. {url}")
+                        sleep(1)
+                        r = session.get(url, headers=headers)
 
-                        try:
-                            json_data = r.json()
-                        except JSONDecodeError:
-                            logger.error(f"Failed to decode json. {r.content}")
-                            raise
+                    try:
+                        json_data = r.json()
+                    except JSONDecodeError:
+                        logger.error(f"Failed to decode json. {r.content}")
+                        raise
 
-                        try:
-                            gdf = gpd.GeoDataFrame.from_features(json_data)
-                        except Exception as e:
-                            logger.error(f"Failed to create GeoDataFrame. {e}")
-                            logger.error(f"{r.url}")
-                            logger.error(f"{json_data}")
-                            raise RuntimeError(f"Failed to create GeoDataFrame: {e}")
+                    try:
+                        gdf = gpd.GeoDataFrame.from_features(json_data)
+                    except Exception as e:
+                        logger.error(f"Failed to create GeoDataFrame. {e}")
+                        logger.error(f"{r.url}")
+                        logger.error(f"{json_data}")
+                        raise RuntimeError(f"Failed to create GeoDataFrame: {e}")
 
-                        gdfs.append(gdf)
+                    gdfs.append(gdf)
+                    if pb is not None:
                         pb.update()
 
         gdf = pd.concat(gdfs)
