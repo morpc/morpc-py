@@ -697,22 +697,19 @@ def write_resource(resource, resourcePath):
 def validate_resource(resourcePath):
     import os
     import frictionless
-    cwd = os.getcwd()
 
-    try:
-        os.chdir(os.path.dirname(os.path.abspath(resourcePath)))
-      
-        logger.info("Validating resource on disk including data and schema (if applicable). This may take some time.")
-        resourceOnDisk = frictionless.Resource(os.path.basename(resourcePath))
-
-        results = resourceOnDisk.validate()
-
-    except Exception as e:
-        os.chdir(cwd)
-        logger.error("An unhandled error occurred while trying to validate the Frictionless resource: {}".format(e))
-        raise RuntimeError
+    with tempWorkingDirectory(os.path.dirname(os.path.abspath(resourcePath))):
+        try:
         
-    os.chdir(cwd)
+            logger.info("Validating resource on disk including data and schema (if applicable). This may take some time.")
+            resourceOnDisk = frictionless.Resource(os.path.basename(resourcePath))
+
+            results = resourceOnDisk.validate()
+
+        except Exception as e:
+            logger.error("An unhandled error occurred while trying to validate the Frictionless resource: {}".format(e))
+            raise RuntimeError
+        
     
     if(results.valid == True):
         logger.info("Resource is valid")
@@ -721,7 +718,7 @@ def validate_resource(resourcePath):
         logger.error(f"Resource is NOT valid. Errors follow. {results}")
         return False
 
-def load_data(resourcePath, archiveDir=None, validate=False, forceInteger=False, forceInt64=False, useSchema="default", sheetName=None, layerName=None, driverName=None, lineEnds: Literal['\n', '\b\n'] = '\b\n'):
+def load_data(resourcePath, archiveDir=None, validate=False, forceInteger=False, forceInt64=False, useSchema="default", sheetName=None, layerName=None, tableName=None, driverName=None, lineEnds: Literal['\n', '\b\n'] = '\b\n'):
     """Often we want to make a copy of some input data and work with the copy, for example to protect 
     the original data or to create an archival copy of it so that we can replicate the process later.  
     The `load_data()` function simplifies the process of reading the data and 
@@ -754,6 +751,9 @@ def load_data(resourcePath, archiveDir=None, validate=False, forceInteger=False,
     layerName : str
         The name of the desired layer in the spatial data file. Required when reading as spatial data file that contains multiple layers, such
         as a GeoPackage.
+    tableName : str
+        The name of the desired table in a SQLite database. Required when reading a SQLite file unless the table name is specified in the
+        resource's SQL control (e.g. one created by create_resource with a frictionless.formats.SqlControl).
     driverName : str
         The driver to use to load spatial data. Typically the driver can be inferred from the file extension, but must be specified
         in some situations including when the data is zipped. See morpc.load_spatial_data for more details.
@@ -860,6 +860,22 @@ def load_data(resourcePath, archiveDir=None, validate=False, forceInteger=False,
         data = pd.read_excel(targetData, sheet_name=sheetName)
     elif(dataFileExtension in [".gpkg",".shp",".geojson",".gdb"]):
         data = morpc.load_spatial_data(targetData, layerName=layerName, driverName=driverName)
+    elif(dataFileExtension == ".sqlite"):
+        import sqlite3
+        if(tableName == None):
+            # Fall back to the table name stored in the resource's SQL control, if present.
+            sqlControl = resource.dialect.get_control("sql") if resource.dialect.has_control("sql") else None
+            if(sqlControl != None and sqlControl.table != None):
+                tableName = sqlControl.table
+                logger.info("Table name not specified. Using table name from resource SQL control: {}".format(tableName))
+            else:
+                logger.error("No table name available. Specify tableName or include a SQL control with a table name in the resource.")
+                raise RuntimeError
+        con = sqlite3.connect(targetData)
+        try:
+            data = pd.read_sql_query('SELECT * FROM "{}"'.format(tableName), con)
+        finally:
+            con.close()
     else:
         logger.error("Unknown data file extension: {}".format(dataFileExtension))
         raise RuntimeError
