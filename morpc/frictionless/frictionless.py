@@ -757,7 +757,7 @@ def load_data(resourcePath, archiveDir=None, validate=False, forceInteger=False,
     driverName : str
         The driver to use to load spatial data. Typically the driver can be inferred from the file extension, but must be specified
         in some situations including when the data is zipped. See morpc.load_spatial_data for more details.
-    lineEnds : ['unix', 'dos']
+    lineEnds : ['\n', '\b\n']
         The type of line end separator to use for the data. If does not match, try to convert. Defaults to '\b\n'
 
     Returns
@@ -873,7 +873,24 @@ def load_data(resourcePath, archiveDir=None, validate=False, forceInteger=False,
                 raise RuntimeError
         con = sqlite3.connect(targetData)
         try:
-            data = pd.read_sql_query('SELECT * FROM "{}"'.format(tableName), con)
+            if(schema == None):
+                data = pd.read_sql_query('SELECT * FROM "{}"'.format(tableName), con)
+            else:
+                # SQLite stores column names in lowercase while Frictionless schemas often use camelCase.
+                # Select only the fields described by the schema (matching column names case-insensitively)
+                # and restore each column to the casing used in the schema.
+                actualColumns = pd.read_sql_query('SELECT * FROM "{}" LIMIT 0'.format(tableName), con).columns
+                lowerToActual = {column.lower(): column for column in actualColumns}
+                renameMap = {}
+                for field in schema.fields:
+                    actualColumn = lowerToActual.get(field.name.lower())
+                    if(actualColumn == None):
+                        logger.error("Schema field '{}' not found in SQLite table '{}'.".format(field.name, tableName))
+                        raise RuntimeError
+                    renameMap[actualColumn] = field.name
+                columnList = ", ".join('"{}"'.format(column) for column in renameMap)
+                data = pd.read_sql_query('SELECT {} FROM "{}"'.format(columnList, tableName), con)
+                data = data.rename(columns=renameMap)
         finally:
             con.close()
     else:
