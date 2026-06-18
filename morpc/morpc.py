@@ -1366,7 +1366,7 @@ def curl(url, archive_dir = './input_data', filename = None, return_filepath=Fal
 
 
 # Load spatial data
-def load_spatial_data(sourcePath, layerName=None, driverName=None, archiveDir=None, archiveFileName=None, verbose=True):
+def load_spatial_data(sourcePath, layerName=None, driverName=None, archiveDir=None, archiveFileName=None, geometryColumn="geom", targetCRS=None, verbose=True):
     """Often we want to make a copy of some input data and work with the copy, for example to protect 
     the original data or to create an archival copy of it so that we can replicate the process later.  
     With tabular data this is simple, but with spatial data it can be tricky.  Shapefiles actually consist 
@@ -1383,9 +1383,9 @@ def load_spatial_data(sourcePath, layerName=None, driverName=None, archiveDir=No
         point to the .shp file or a zipped file that contains all of the Shapefile components. You can point to 
         other zipped contents as well, but see caveats below.
     layerName : str
-        Required for GPKG and GDB, optional for SHP. The name of the layer that you wish to extract from a 
-        GeoPackage or File Geodatabase.  Not required for Shapefiles, but may be specified for use in the 
-        archival copy (see below)
+        Required for GPKG, GDB, and SQLite, optional for SHP. The name of the layer that you wish to extract from a
+        GeoPackage or File Geodatabase, or the name of the table for a SQLite database.  Not required for Shapefiles,
+        but may be specified for use in the archival copy (see below)
     driverName : str
         Required for zipped data or data with non-standard file extension. Which GDAL driver
         (https://gdal.org/drivers/vector/index.html) to use to read the file. Script will attempt to infer 
@@ -1396,9 +1396,15 @@ def load_spatial_data(sourcePath, layerName=None, driverName=None, archiveDir=No
         the data will be archived in this location as a GeoPackage.  The function will determine the file name 
         and layer name from the specified parameters, using generic values if necessary.
     archiveFileName : str
-        Optional. If `archiveDir` is specified, you may use this to specify the name of the archival GeoPackage.  
-        Omit the extension.  If this is unspecified, the function will assign the file name automatically using a 
+        Optional. If `archiveDir` is specified, you may use this to specify the name of the archival GeoPackage.
+        Omit the extension.  If this is unspecified, the function will assign the file name automatically using a
         generic value if necessary.
+    geometryColumn : str
+        Optional. The name of the geometry column. Used when reading a SQLite database. Defaults to "geom".
+    targetCRS : str
+        Optional. The coordinate reference system to reproject the geometry to, applied to all file types via
+        to_crs(). If None (the default), the data's native CRS is returned without reprojection. SQLite WKB geometry
+        carries no CRS information, so it is assumed to be "epsg:4326" on read.
     verbose : bool
         Set verbose to False to reduce the text output from the function.
 
@@ -1429,6 +1435,8 @@ def load_spatial_data(sourcePath, layerName=None, driverName=None, archiveDir=No
             driverName = "ESRI Shapefile"
         elif(fileExt == ".gdb"):
             driverName = "OpenFileGDB"
+        elif(fileExt == ".sqlite"):
+            driverName = "SQLite"
         else:
             logger.error("File extension is unsupported: {}.  It is possible to load zipped spatial data, but you must specify the driver name.".format(fileExt))
             raise RuntimeError
@@ -1439,7 +1447,7 @@ def load_spatial_data(sourcePath, layerName=None, driverName=None, archiveDir=No
             logger.info("Using driver {} as specified by user.".format(driverName))
 
     if(layerName) == None:
-        if(driverName == "GPKG" or driverName == "OpenFileGDB"):
+        if(driverName == "GPKG" or driverName == "OpenFileGDB" or driverName == "SQLite"):
             logger.error("Must specify layerName when using driver {}".format(driverName))
             raise RuntimeError
 
@@ -1448,9 +1456,22 @@ def load_spatial_data(sourcePath, layerName=None, driverName=None, archiveDir=No
     # Geopandas will throw an error if we attempt to specify a layer name when reading a Shapefile
     if(driverName == "ESRI Shapefile"):
         gdf = gpd.read_file(sourcePath, layer=None, engine="pyogrio", fid_as_index=True)
+    # SQLite databases are read via read_postgis, treating layerName as the table name and geometryColumn as the geometry column.
+    # WKB geometry carries no CRS, so assume epsg:4326 on read.
+    elif(driverName == "SQLite"):
+        import sqlite3
+        con = sqlite3.connect(sourcePath)
+        try:
+            gdf = gpd.read_postgis('SELECT * FROM "{}"'.format(layerName), con, geom_col=geometryColumn, crs="epsg:4326")
+        finally:
+            con.close()
     # Everything else
     else:
         gdf = gpd.read_file(sourcePath, layer=layerName, engine="pyogrio", fid_as_index=True)
+
+    # Reproject to the target CRS if one was specified; otherwise return the native CRS
+    if(targetCRS != None):
+        gdf = gdf.to_crs(targetCRS)
 
     # If the user has specified an archive directory, create an archival copy of the data as a layer in a GeoPackage
     if(archiveDir != None):
