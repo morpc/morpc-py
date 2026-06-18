@@ -1317,6 +1317,52 @@ def wget(url, archive_dir = './input_data', filename = None, return_filepath=Fal
     if return_filepath:
         return os.path.normpath(f'./{archive_dir}/{filename}')
 
+def curl(url, archive_dir = './input_data', filename = None, return_filepath=False, shell=False, verbose=True):
+    """
+    This function uses curl within a subprocess call to retrieve a file from an ftp site. This is used as a means of retrieving Census TigerLine shapefiles.
+
+    Parameters
+    ----------
+    url : string
+        The url for the location of the file.
+
+    archive_dir : string, path like
+        The location to save the file.
+
+    filename : string
+        Optional: filename for archived file
+
+    return_filepath : boolean
+        If True, returns the filepath of the saved file.
+
+    shell : boolean
+        If True, runs the subprocess command through the shell. Defaults to False.
+
+    """
+    import subprocess
+    import os
+
+    if not filename:
+        filename = os.path.basename(url)
+
+    cmd = ['curl', url]
+    cmd.extend(['-o', os.path.normpath(f'./{archive_dir}/{filename}')])
+
+    if not os.path.exists(archive_dir):
+        os.mkdir(archive_dir)
+
+    try:
+        results = subprocess.run(cmd, check=True, capture_output=True, text=True, shell=shell)
+        if verbose:
+            print(results.stdout)
+    except subprocess.CalledProcessError as e:
+        print(f"Failed to download file: {e}")
+        print(f"Stdout: {e.stdout}")
+        print(f"Stderr: {e.stderr}")
+
+    if return_filepath:
+        return os.path.normpath(f'./{archive_dir}/{filename}')
+
 
 
 # Load spatial data
