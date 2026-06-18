@@ -99,3 +99,53 @@ def test_curl_no_return_by_default(monkeypatch, tmp_path):
 
     result = morpc.curl("https://example.com/file.zip", archive_dir=str(tmp_path / "d"), verbose=False)
     assert result is None
+
+
+# --- load_spatial_data: SQLite support ---
+
+def _build_spatial_sqlite(dirpath, table="parcels", geom_column="geom"):
+    """Create a SQLite database with a WKB geometry column. Returns the file path."""
+    import sqlite3
+    from shapely.geometry import Point
+
+    dataPath = dirpath / "data.sqlite"
+    con = sqlite3.connect(dataPath)
+    con.execute(f'CREATE TABLE "{table}" (id INTEGER, "{geom_column}" BLOB)')
+    con.executemany(
+        f'INSERT INTO "{table}" (id, "{geom_column}") VALUES (?, ?)',
+        [(1, Point(0, 0).wkb), (2, Point(1, 1).wkb)],
+    )
+    con.commit()
+    con.close()
+    return dataPath
+
+
+def test_load_spatial_data_sqlite(tmp_path):
+    import geopandas as gpd
+
+    dataPath = _build_spatial_sqlite(tmp_path, table="parcels")
+    gdf = morpc.load_spatial_data(str(dataPath), layerName="parcels", verbose=False)
+    assert isinstance(gdf, gpd.GeoDataFrame)
+    assert gdf["id"].tolist() == [1, 2]
+    assert list(gdf.geometry.geom_type) == ["Point", "Point"]
+    assert (gdf.geometry.x.tolist(), gdf.geometry.y.tolist()) == ([0.0, 1.0], [0.0, 1.0])
+    # CRS defaults to epsg:4326
+    assert gdf.crs == "epsg:4326"
+
+
+def test_load_spatial_data_sqlite_requires_layer_name(tmp_path):
+    dataPath = _build_spatial_sqlite(tmp_path, table="parcels")
+    with pytest.raises(RuntimeError):
+        morpc.load_spatial_data(str(dataPath), verbose=False)
+
+
+def test_load_spatial_data_sqlite_custom_geometry_column(tmp_path):
+    dataPath = _build_spatial_sqlite(tmp_path, table="parcels", geom_column="shape")
+    gdf = morpc.load_spatial_data(str(dataPath), layerName="parcels", geometryColumn="shape", verbose=False)
+    assert list(gdf.geometry.geom_type) == ["Point", "Point"]
+
+
+def test_load_spatial_data_sqlite_custom_target_crs(tmp_path):
+    dataPath = _build_spatial_sqlite(tmp_path, table="parcels")
+    gdf = morpc.load_spatial_data(str(dataPath), layerName="parcels", targetCRS="epsg:3735", verbose=False)
+    assert gdf.crs == "epsg:3735"
