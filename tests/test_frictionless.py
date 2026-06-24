@@ -164,6 +164,9 @@ def test_load_data_spatial_sqlite_detects_geometry(tmp_path):
     resourcePath = _build_spatial_sqlite_resource(tmp_path, table="parcels")
     data, resource, schema = load_data(str(resourcePath))
     assert isinstance(data, gpd.GeoDataFrame)
+    # The geometry column is renamed to "geometry" and remains the active geometry.
+    assert list(data.columns) == ["id", "geometry"]
+    assert data.geometry.name == "geometry"
     assert data["id"].tolist() == [1, 2]
     assert list(data.geometry.geom_type) == ["Point", "Point"]
     assert pd.api.types.is_integer_dtype(data["id"])
@@ -174,10 +177,49 @@ def test_load_data_spatial_sqlite_detects_geometry(tmp_path):
 def test_load_data_spatial_sqlite_custom_geometry_column(tmp_path):
     import geopandas as gpd
 
+    # A non-default geometry column name is still detected and corrected to "geometry".
     resourcePath = _build_spatial_sqlite_resource(tmp_path, table="parcels", geom_column="shape")
     data, resource, schema = load_data(str(resourcePath), tableName="parcels")
     assert isinstance(data, gpd.GeoDataFrame)
+    assert "shape" not in data.columns
+    assert data.geometry.name == "geometry"
     assert list(data.geometry.geom_type) == ["Point", "Point"]
+
+
+def test_load_data_spatial_sqlite_restores_schema_case_and_selects_fields(tmp_path):
+    import geopandas as gpd
+    from shapely.geometry import Point
+
+    # Spatial SQLite with lowercase columns plus an extra non-schema column, paired with a camelCase schema.
+    dataPath = tmp_path / "data.sqlite"
+    con = sqlite3.connect(dataPath)
+    con.execute('CREATE TABLE "parcels" (personid INTEGER, fullname TEXT, extra TEXT, geom BLOB)')
+    con.executemany(
+        'INSERT INTO "parcels" (personid, fullname, extra, geom) VALUES (?, ?, ?, ?)',
+        [(1, "alice", "x", Point(0, 0).wkb), (2, "bob", "y", Point(1, 1).wkb)],
+    )
+    con.commit()
+    con.close()
+
+    (tmp_path / "data.schema.yaml").write_text(CAMEL_SCHEMA_YAML)
+    resourcePath = tmp_path / "data.resource.yaml"
+    resourcePath.write_text("\n".join([
+        "name: parcels",
+        "type: table",
+        "path: data.sqlite",
+        "format: sqlite",
+        "schema: data.schema.yaml",
+        "dialect:", "  sql:", "    table: parcels",
+    ]) + "\n")
+
+    data, resource, schema = load_data(str(resourcePath))
+    assert isinstance(data, gpd.GeoDataFrame)
+    # Schema fields restored to camelCase, extra column dropped, geometry retained as "geometry".
+    assert list(data.columns) == ["personId", "fullName", "geometry"]
+    assert "extra" not in data.columns
+    assert data["personId"].tolist() == [1, 2]
+    assert data.geometry.name == "geometry"
+    assert pd.api.types.is_integer_dtype(data["personId"])
 
 
 def test_load_data_spatial_sqlite_target_crs(tmp_path):
