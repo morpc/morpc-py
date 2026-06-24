@@ -718,7 +718,34 @@ def validate_resource(resourcePath):
         logger.error(f"Resource is NOT valid. Errors follow. {results}")
         return False
 
-def load_data(resourcePath, archiveDir=None, validate=False, forceInteger=False, forceInt64=False, useSchema="default", sheetName=None, layerName=None, tableName=None, driverName=None, lineEnds: Literal['\n', '\b\n'] = '\b\n'):
+def _detect_sqlite_geometry_column(con, tableName):
+    """Return the name of the geometry column in a SQLite table, or None if there is none.
+
+    Spatial SQLite tables produced for MORPC workflows store geometry as raw WKB in a BLOB column with no
+    accompanying metadata to distinguish it from an ordinary BLOB. We identify the geometry column by sampling
+    each column's first non-null value and checking whether it parses as WKB.
+    """
+    import pandas as pd
+    import shapely.wkb
+
+    columns = pd.read_sql_query('SELECT * FROM "{}" LIMIT 0'.format(tableName), con).columns
+    cursor = con.cursor()
+    for column in columns:
+        row = cursor.execute('SELECT "{}" FROM "{}" WHERE "{}" IS NOT NULL LIMIT 1'.format(column, tableName, column)).fetchone()
+        if(row == None):
+            continue
+        value = row[0]
+        if(not isinstance(value, (bytes, bytearray))):
+            continue
+        try:
+            shapely.wkb.loads(bytes(value))
+            return column
+        except Exception:
+            continue
+    return None
+
+
+def load_data(resourcePath, archiveDir=None, validate=False, forceInteger=False, forceInt64=False, useSchema="default", sheetName=None, layerName=None, tableName=None, driverName=None, targetCRS=None, lineEnds: Literal['\n', '\b\n'] = '\b\n'):
     """Often we want to make a copy of some input data and work with the copy, for example to protect 
     the original data or to create an archival copy of it so that we can replicate the process later.  
     The `load_data()` function simplifies the process of reading the data and 
@@ -757,6 +784,10 @@ def load_data(resourcePath, archiveDir=None, validate=False, forceInteger=False,
     driverName : str
         The driver to use to load spatial data. Typically the driver can be inferred from the file extension, but must be specified
         in some situations including when the data is zipped. See morpc.load_spatial_data for more details.
+    targetCRS : str
+        Optional. The coordinate reference system to reproject the geometry to when loading a spatial SQLite database. Only used
+        when a geometry column is detected in a SQLite file. SQLite WKB geometry carries no CRS information, so it is assumed to be
+        "epsg:4326" on read. If None (the default), the data's native CRS is returned without reprojection. See morpc.load_spatial_data.
     lineEnds : ['\n', '\b\n']
         The type of line end separator to use for the data. If does not match, try to convert. Defaults to '\b\n'
 
@@ -873,26 +904,39 @@ def load_data(resourcePath, archiveDir=None, validate=False, forceInteger=False,
                 raise RuntimeError
         con = sqlite3.connect(targetData)
         try:
-            if(schema == None):
-                data = pd.read_sql_query('SELECT * FROM "{}"'.format(tableName), con)
-            else:
-                # SQLite stores column names in lowercase while Frictionless schemas often use camelCase.
-                # Select only the fields described by the schema (matching column names case-insensitively)
-                # and restore each column to the casing used in the schema.
-                actualColumns = pd.read_sql_query('SELECT * FROM "{}" LIMIT 0'.format(tableName), con).columns
-                lowerToActual = {column.lower(): column for column in actualColumns}
-                renameMap = {}
-                for field in schema.fields:
-                    actualColumn = lowerToActual.get(field.name.lower())
-                    if(actualColumn == None):
-                        logger.error("Schema field '{}' not found in SQLite table '{}'.".format(field.name, tableName))
-                        raise RuntimeError
-                    renameMap[actualColumn] = field.name
-                columnList = ", ".join('"{}"'.format(column) for column in renameMap)
-                data = pd.read_sql_query('SELECT {} FROM "{}"'.format(columnList, tableName), con)
-                data = data.rename(columns=renameMap)
+            # A spatial SQLite database stores geometry as raw WKB in a BLOB column with no metadata to
+            # distinguish it. Detect such a column by parsing a sample value as WKB. If one is found, defer
+            # to morpc.load_spatial_data() which reads the table as a GeoDataFrame.
+            geometryColumn = _detect_sqlite_geometry_column(con, tableName)
         finally:
             con.close()
+
+        if(geometryColumn != None):
+            logger.info("Detected geometry column '{}' in SQLite table '{}'. Loading as spatial data.".format(geometryColumn, tableName))
+            data = morpc.load_spatial_data(targetData, layerName=tableName, driverName="SQLite", geometryColumn=geometryColumn, targetCRS=targetCRS)
+        else:
+            con = sqlite3.connect(targetData)
+            try:
+                if(schema == None):
+                    data = pd.read_sql_query('SELECT * FROM "{}"'.format(tableName), con)
+                else:
+                    # SQLite stores column names in lowercase while Frictionless schemas often use camelCase.
+                    # Select only the fields described by the schema (matching column names case-insensitively)
+                    # and restore each column to the casing used in the schema.
+                    actualColumns = pd.read_sql_query('SELECT * FROM "{}" LIMIT 0'.format(tableName), con).columns
+                    lowerToActual = {column.lower(): column for column in actualColumns}
+                    renameMap = {}
+                    for field in schema.fields:
+                        actualColumn = lowerToActual.get(field.name.lower())
+                        if(actualColumn == None):
+                            logger.error("Schema field '{}' not found in SQLite table '{}'.".format(field.name, tableName))
+                            raise RuntimeError
+                        renameMap[actualColumn] = field.name
+                    columnList = ", ".join('"{}"'.format(column) for column in renameMap)
+                    data = pd.read_sql_query('SELECT {} FROM "{}"'.format(columnList, tableName), con)
+                    data = data.rename(columns=renameMap)
+            finally:
+                con.close()
     else:
         logger.error("Unknown data file extension: {}".format(dataFileExtension))
         raise RuntimeError
