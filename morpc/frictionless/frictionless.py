@@ -917,26 +917,31 @@ def load_data(resourcePath, archiveDir=None, validate=False, forceInteger=False,
         else:
             con = sqlite3.connect(targetData)
             try:
-                if(schema == None):
-                    data = pd.read_sql_query('SELECT * FROM "{}"'.format(tableName), con)
-                else:
-                    # SQLite stores column names in lowercase while Frictionless schemas often use camelCase.
-                    # Select only the fields described by the schema (matching column names case-insensitively)
-                    # and restore each column to the casing used in the schema.
-                    actualColumns = pd.read_sql_query('SELECT * FROM "{}" LIMIT 0'.format(tableName), con).columns
-                    lowerToActual = {column.lower(): column for column in actualColumns}
-                    renameMap = {}
-                    for field in schema.fields:
-                        actualColumn = lowerToActual.get(field.name.lower())
-                        if(actualColumn == None):
-                            logger.error("Schema field '{}' not found in SQLite table '{}'.".format(field.name, tableName))
-                            raise RuntimeError
-                        renameMap[actualColumn] = field.name
-                    columnList = ", ".join('"{}"'.format(column) for column in renameMap)
-                    data = pd.read_sql_query('SELECT {} FROM "{}"'.format(columnList, tableName), con)
-                    data = data.rename(columns=renameMap)
+                data = pd.read_sql_query('SELECT * FROM "{}"'.format(tableName), con)
             finally:
                 con.close()
+
+        # SQLite stores column names in lowercase while Frictionless schemas often use camelCase. Now that
+        # the data is loaded (whether as a tabular DataFrame or a spatial GeoDataFrame), select only the
+        # fields described by the schema (matching column names case-insensitively) and restore each column
+        # to the casing used in the schema. For spatial data, the geometry column is retained and renamed
+        # to "geometry".
+        if(schema != None):
+            lowerToActual = {column.lower(): column for column in data.columns}
+            renameMap = {}
+            for field in schema.fields:
+                actualColumn = lowerToActual.get(field.name.lower())
+                if(actualColumn == None):
+                    logger.error("Schema field '{}' not found in SQLite table '{}'.".format(field.name, tableName))
+                    raise RuntimeError
+                renameMap[actualColumn] = field.name
+            keepColumns = list(renameMap.keys())
+            if(geometryColumn != None):
+                renameMap[geometryColumn] = "geometry"
+                keepColumns.append(geometryColumn)
+            data = data[keepColumns].rename(columns=renameMap)
+            if(geometryColumn != None):
+                data = data.set_geometry("geometry")
     else:
         logger.error("Unknown data file extension: {}".format(dataFileExtension))
         raise RuntimeError
