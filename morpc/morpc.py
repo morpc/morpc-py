@@ -178,7 +178,7 @@ CONST_REGIONS["REGIONCEDS"] = CONST_REGIONS["REGION10"] + ["Logan"]
 CONST_REGIONS["CEDS Region"] = CONST_REGIONS["REGIONCEDS"]
 CONST_REGIONS["CBSA"] = CONST_REGIONS["REGION7"] + ["Hocking","Morrow","Perry"]
 CONST_REGIONS['Mobility Region'] = CONST_REGIONS['REGION7'] + ['Logan', 'Fayette']
-CONST_REGIONS['FRADEL'] = ['Delaware', 'Franklin']
+CONST_REGIONS['REGIONFRADEL'] = ['Delaware', 'Franklin']
 
 # Region identifiers
 # Note that the Columbus MSA already has a GEOID that is defined by the Census Bureau.  See CONST_COLUMBUS_MSA_ID above.
@@ -193,10 +193,11 @@ CONST_REGIONS_GEOID["REGIONONECBUS"] = "001"
 CONST_REGIONS_GEOID["REGIONMPO"] = "001"
 CONST_REGIONS_GEOID["REGIONTDM"] = "001"
 CONST_REGIONS_GEOID["CBSA"] = CONST_COLUMBUS_CBSA_ID
+CONST_REGIONS_GEOID["REGIONFRADEL"] = "001"
 
 # The following regions are comprised of collections of whole counties. Not all region definitions are county-based,
 # for example the MPO region.
-CONST_REGIONS_COUNTYBASED = ["REGION15","REGION10","REGION7","REGIONCEDS","REGIONCORPO","REGIONONECBUS","CBSA","FRADEL"]
+CONST_REGIONS_COUNTYBASED = ["REGION15","REGION10","REGION7","REGIONCEDS","REGIONCORPO","REGIONONECBUS","CBSA","REGIONFRADEL"]
 
 # County name abbreviations
 ## CONST_COUNTY_ABBREV maps the full county name to its three-letter abbreviation
@@ -752,6 +753,16 @@ SUMLEVEL_DESCRIPTIONS = {
         "idField":"REGIONONECBUSID",
         "nameField":"REGIONONECBUS",
         "censusQueryName": 'regiononecbus',
+        "censusRestAPI_layername": None
+    },
+    'M09': {
+        "singular":"Franklin/Delaware county region",
+        "plural":"Franklin/Delaware county region",
+        "hierarchy_string":"REGIONFRADEL",
+        "authority":"morpc",
+        "idField":"REGIONFRADELID",
+        "nameField":"REGIONFRADEL",
+        "censusQueryName": 'regionfradel',
         "censusRestAPI_layername": None
     },
     'M10': {
