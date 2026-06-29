@@ -519,8 +519,8 @@ SUMLEVEL_DESCRIPTIONS = {
         "current_variant": '00'
     },
     '310': {
-        "singular":"core-based statistical area",
-        "plural":"core-based statistical areas",
+        "singular":"Core-based statistical area",
+        "plural":"Core-based statistical areas",
         "hierarchy_string":"CBSA",
         "authority":"census",
         "idField":"CBAFP",
