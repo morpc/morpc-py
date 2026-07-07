@@ -25,7 +25,8 @@ dependencies = [
     "shapely",
     "IPython",
     "xlsxwriter",
-    "plotnine"
+    "plotnine",
+    "dateparser"
 ]
 
 [build-system]

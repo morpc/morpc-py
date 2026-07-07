@@ -24,26 +24,81 @@ test_dates = [
 ]
 
 def datetime_from_string(date, errors: Literal['coerce', 'error']='coerce') -> datetime.datetime:
+    """
+    Best-effort conversion of a wide range of date/datetime representations to a
+    timezone-naive ``datetime.datetime``.
+
+    Handled inputs, in order of preference:
+
+    - ``pandas.NaT`` / ``None`` / empty-ish strings (``''``, ``'nan'``, ``'None'``,
+      ``'NaT'``) -> ``pandas.NaT``
+    - existing ``datetime.datetime`` / ``datetime.date`` objects
+    - numeric epochs, dispatched by digit count: 19 -> ns, 13 -> ms, 10 -> s
+      (works for ``int`` *and* ``float``)
+    - compact numeric dates: 8 digits -> ``YYYYMMDD``, 6 digits -> ``YYYYMM``
+      (``int``, ``float``, or ``str``)
+    - ISO 8601 strings (validated/parsed by pandas)
+    - general date strings parsed month-first / US order (via ``dateutil``)
+    - natural-language, relative, and localized strings (via ``dateparser``, if
+      installed; otherwise this final fallback is skipped)
+
+    Ambiguous numeric dates such as ``'10/2/2020'`` are interpreted month-first
+    (US): October 2, 2020.
+
+    Timezone-aware inputs (e.g. ISO strings with an offset, or aware ``datetime``
+    objects) are returned tz-naive, preserving the written wall-clock time, so
+    results never mix aware and naive values.
+
+    Parameters
+    ----------
+    date : Any
+        The value to convert.
+    errors : {'coerce', 'error'}, default 'coerce'
+        ``'coerce'`` returns ``pandas.NaT`` on failure; ``'error'`` re-raises.
+
+    Returns
+    -------
+    datetime.datetime or pandas.NaT
+    """
     import datetime
     import math
+    import re
     import pandas as pd
     import dateutil.parser
-    import re
+
+    def _from_number(value):
+        """Interpret a number as an epoch (by digit count) or compact YYYYMMDD/YYYYMM date."""
+        n = int(value)
+        digits = len(str(abs(n)))
+        if digits == 19:
+            return pd.to_datetime(n, unit='ns').to_pydatetime()
+        if digits == 13:
+            return pd.to_datetime(n, unit='ms').to_pydatetime()
+        if digits == 10:
+            return pd.to_datetime(n, unit='s').to_pydatetime()
+        if digits == 8:
+            return datetime.datetime.strptime(str(n), '%Y%m%d')
+        if digits == 6:
+            return datetime.datetime.strptime(str(n), '%Y%m')
+        raise ValueError(
+            f"Numeric value {value!r} does not match a recognized epoch length "
+            f"(10, 13, or 19 digits) or compact date (8=YYYYMMDD, 6=YYYYMM)."
+        )
+
+    def _make_naive(value):
+        """Drop tzinfo (preserving wall-clock) so outputs are consistently tz-naive."""
+        if isinstance(value, datetime.datetime) and value.tzinfo is not None:
+            return value.replace(tzinfo=None)
+        return value
 
     dt = pd.NaT
 
     try:
-        if isinstance(date, pd.api.typing.NaTType):
-            dt = pd.NaT
-
-        elif date is None:
+        if isinstance(date, pd.api.typing.NaTType) or date is None:
             dt = pd.NaT
 
         elif isinstance(date, float):
-            if math.isnan(date):
-                dt = pd.NaT
-            else:
-                dt = pd.to_datetime(int(date), unit='s').to_pydatetime()
+            dt = pd.NaT if math.isnan(date) else _from_number(date)
 
         # datetime.datetime must be checked before datetime.date (it's a subclass)
         elif isinstance(date, datetime.datetime):
@@ -53,14 +108,7 @@ def datetime_from_string(date, errors: Literal['coerce', 'error']='coerce') -> d
             dt = datetime.datetime.combine(date, datetime.time.min)
 
         elif isinstance(date, int):
-            if re.fullmatch(r'\d{19}', str(date)):
-                dt = pd.to_datetime(date, unit='ns').to_pydatetime()
-            elif re.fullmatch(r'\d{13}', str(date)):
-                dt = pd.to_datetime(date, unit='ms').to_pydatetime()
-            elif re.fullmatch(r'\d{10}', str(date)):
-                dt = pd.to_datetime(date, unit='s').to_pydatetime()
-            else:
-                raise ValueError(f"Integer {date} does not match a recognized epoch length (10, 13, or 19 digits).")
+            dt = _from_number(date)
 
         else:
             if not isinstance(date, str):
@@ -70,48 +118,47 @@ def datetime_from_string(date, errors: Literal['coerce', 'error']='coerce') -> d
                     logger.error(f"Failed to convert {date!r} to string.")
                     raise e
 
+            date = date.strip()
+
             if date in ('nan', 'None', 'NaT', ''):
                 dt = pd.NaT
 
-            elif re.match(
-                r'^\d{4}-(?:0[1-9]|1[0-2])-(?:[0-2][1-9]|[1-3]0|3[01])'
-                r'T(?:[0-1][0-9]|2[0-3])(?::[0-6]\d)(?::[0-6]\d)?'
-                r'(?:\.\d{3})?(?:[+-][0-2]\d:[0-5]\d|Z)?$',
-                date
-            ):
-                try:
-                    dt = pd.to_datetime(date, format='ISO8601').to_pydatetime()
-                except Exception as e:
-                    logger.error(f"Maybe found ISO format in {date!r} but couldn't convert.")
-                    raise e
-
-            elif re.fullmatch(r'\d+[/\-\.]\d+[/\-\.]\d+', date):
-                try:
-                    dt = dateutil.parser.parse(date)
-                except Exception as e:
-                    logger.error(f"Maybe found date with separators in {date!r} but couldn't convert. {e}")
-                    raise e
-
-            elif re.fullmatch(r'\d{8}', date):
-                try:
-                    dt = datetime.datetime.strptime(date, '%Y%m%d')
-                except Exception as e:
-                    logger.error(f"Maybe found YYYYMMDD in {date!r} but couldn't convert. {e}")
-                    raise e
-
-            elif re.fullmatch(r'\d{6}', date):
-                try:
-                    dt = datetime.datetime.strptime(date, '%Y%m')
-                except Exception as e:
-                    logger.error(f"Maybe found YYYYMM in {date!r} but couldn't convert. {e}")
-                    raise e
+            # Pure-digit strings share the numeric epoch / compact-date logic so that,
+            # e.g., '20210310' and 20210310 resolve identically.
+            elif re.fullmatch(r'\d{6}|\d{8}|\d{10}|\d{13}|\d{19}', date):
+                dt = _from_number(int(date))
 
             else:
+                dt = None
+
+                # 1) ISO 8601 (pandas validates and raises if the string isn't ISO).
                 try:
-                    dt = dateutil.parser.parse(date)
-                except Exception as e:
-                    logger.error(f"Last ditch effort to convert {date!r} failed. {e}")
-                    raise e
+                    dt = pd.to_datetime(date, format='ISO8601').to_pydatetime()
+                except Exception:
+                    dt = None
+
+                # 2) General date strings, US month-first ordering.
+                if dt is None:
+                    try:
+                        dt = dateutil.parser.parse(date, dayfirst=False)
+                    except Exception:
+                        dt = None
+
+                # 3) Natural-language / relative / localized strings. dateparser is an
+                #    optional catch-all; if it isn't installed we simply skip it.
+                if dt is None:
+                    try:
+                        import dateparser
+                        dt = dateparser.parse(date, settings={'DATE_ORDER': 'MDY'})
+                    except ImportError:
+                        dt = None
+                    except Exception:
+                        dt = None
+
+                if dt is None:
+                    raise ValueError(f"Could not parse {date!r} as a date/datetime.")
+
+        dt = _make_naive(dt)
 
     except Exception as e:
         if errors == 'error':
