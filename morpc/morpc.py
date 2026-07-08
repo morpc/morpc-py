@@ -166,18 +166,18 @@ CONST_STATE_ABBR_TO_ID = {value: CONST_STATE_NAME_TO_ID[key] for key, value in C
 CONST_REGIONS = {}
 CONST_REGIONS["REGION7"] = ["Delaware", "Fairfield", "Franklin", "Licking", "Madison", "Pickaway", "Union"]
 CONST_REGIONS["7-County Region"] = CONST_REGIONS["REGION7"]
-CONST_REGIONS["REGION10"] = CONST_REGIONS["REGION7"] + ["Knox", "Marion", "Morrow"]
+CONST_REGIONS["REGION10"] = sorted(CONST_REGIONS["REGION7"] + ["Knox", "Marion", "Morrow"])
 CONST_REGIONS["10-County Region"] = CONST_REGIONS["REGION10"]
-CONST_REGIONS["REGION15"] = CONST_REGIONS["REGION10"] + ["Fayette", "Hocking", "Logan", "Perry", "Ross"]
+CONST_REGIONS["REGION15"] = sorted(CONST_REGIONS["REGION10"] + ["Fayette", "Hocking", "Logan", "Perry", "Ross"])
 CONST_REGIONS["15-County Region"] = CONST_REGIONS["REGION15"]
 CONST_REGIONS["REGIONCORPO"] = ["Fairfield", "Knox", "Madison", "Marion", "Morrow", "Pickaway", "Union"]
 CONST_REGIONS["CORPO Region"] = CONST_REGIONS["REGIONCORPO"]
-CONST_REGIONS["REGIONONECBUS"] = CONST_REGIONS["REGION10"] + ["Logan"]
+CONST_REGIONS["REGIONONECBUS"] = sorted(CONST_REGIONS["REGION10"] + ["Logan"])
 CONST_REGIONS["OneColumbus Region"] = CONST_REGIONS["REGIONONECBUS"]
-CONST_REGIONS["REGIONCEDS"] = CONST_REGIONS["REGION10"] + ["Logan"]
+CONST_REGIONS["REGIONCEDS"] = sorted(CONST_REGIONS["REGION10"] + ["Logan"])
 CONST_REGIONS["CEDS Region"] = CONST_REGIONS["REGIONCEDS"]
-CONST_REGIONS["CBSA"] = CONST_REGIONS["REGION7"] + ["Hocking","Morrow","Perry"]
-CONST_REGIONS['Mobility Region'] = CONST_REGIONS['REGION7'] + ['Logan', 'Fayette']
+CONST_REGIONS["CBSA"] = sorted(CONST_REGIONS["REGION7"] + ["Hocking","Morrow","Perry"])
+CONST_REGIONS['Mobility Region'] = sorted(CONST_REGIONS['REGION7'] + ['Logan', 'Fayette'])
 CONST_REGIONS['REGIONFRADEL'] = ['Delaware', 'Franklin']
 
 # Region identifiers
@@ -519,8 +519,8 @@ SUMLEVEL_DESCRIPTIONS = {
         "current_variant": '00'
     },
     '310': {
-        "singular":"core-based statistical area",
-        "plural":"core-based statistical areas",
+        "singular":"Core-based statistical area",
+        "plural":"Core-based statistical areas",
         "hierarchy_string":"CBSA",
         "authority":"census",
         "idField":"CBAFP",
