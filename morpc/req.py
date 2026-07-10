@@ -1,4 +1,5 @@
 import logging
+from os import PathLike
 from time import sleep
 from httpx import head
 from pydantic import FilePath
@@ -74,6 +75,26 @@ def get_json_safely(url, params=None, headers=default_headers, session: Session 
         return json, r.url
     else:
         return json
+
+def get_file_safely(url, output_dir: str | PathLike, chunk_size:int=4096, params=None, headers=default_headers, session: Session | None = None, returnPath: bool = False):
+    from requests import Session
+    import os
+
+    if not isinstance(session, Session):
+        session = Session()
+
+    filename = os.path.basename(url)
+    filepath = os.path.join(output_dir, filename)
+
+    logger.debug(f"Getting file from {url} with parameters {params}.")
+    with session.get(url, params=params, headers=headers, stream=True) as r:
+        r.raise_for_status()
+        with open(filepath) as file:
+            for chunk in r.iter_content(chunk_size=chunk_size):
+                file.write(chunk)
+
+    if returnPath:
+        return filepath
 
 def post_safely(url, params=None, headers=None):
     import requests
