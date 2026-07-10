@@ -89,7 +89,7 @@ def get_file_safely(url, output_dir: str | PathLike, chunk_size:int=4096, params
     logger.debug(f"Getting file from {url} with parameters {params}.")
     with session.get(url, params=params, headers=headers, stream=True) as r:
         r.raise_for_status()
-        with open(filepath) as file:
+        with open(filepath, "wb") as file:
             for chunk in r.iter_content(chunk_size=chunk_size):
                 file.write(chunk)
 
