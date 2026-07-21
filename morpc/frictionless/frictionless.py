@@ -825,6 +825,12 @@ def load_data(resourcePath, archiveDir=None, validate=False, forceInteger=False,
         schemaFilename = None
         schemaSourcePath = None
         schema = None
+    elif(useSchema == 'inline'):
+        logger.info('Using schema as present in resource file.')
+        try:
+            schema = frictionless.Schema(resource.schema)
+        except Exception as e:
+            logger.error(f"Unable to load inline schema in resource file. \n{e}")
     elif(useSchema == "default"):
         logger.info("Using schema path specified in resource file.")
         try:
