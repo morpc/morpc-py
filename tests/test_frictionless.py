@@ -236,3 +236,29 @@ def test_load_data_nonspatial_sqlite_returns_plain_dataframe(tmp_path):
     data, resource, schema = load_data(str(resourcePath))
     assert not isinstance(data, gpd.GeoDataFrame)
     assert data["name"].tolist() == ["alice", "bob"]
+
+
+# --- create_package ---
+
+def test_create_package_writes_created_as_an_iso8601_string(tmp_path):
+    import datetime
+
+    import yaml
+
+    from morpc.frictionless import create_package, create_resource
+
+    (tmp_path / "data.csv").write_bytes(b"id,name\r\n1,alice\r\n")
+    create_resource(
+        "data.csv",
+        resourcePath=str(tmp_path / "data.resource.yaml"),
+        ignoreSchema=True,
+        name="parcels",
+        writeResource=True,
+    )
+    create_package(dir=str(tmp_path), resources=["data.resource.yaml"], name="bundle", version="2026.7.30")
+
+    descriptor = yaml.safe_load((tmp_path / "bundle.package.yaml").read_text())
+    # Frictionless passes the value through unchanged, so a datetime would land in the descriptor as
+    # one and the Data Package spec requires a string. See #165.
+    assert isinstance(descriptor["created"], str)
+    datetime.datetime.fromisoformat(descriptor["created"])

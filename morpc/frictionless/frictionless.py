@@ -1173,7 +1173,9 @@ def create_package(dir: PathLike, resources: List[str], name: str, version: str 
         package = frictionless.Package(
             name=name,
             resources=resources,
-            created=datetime.datetime.now(),
+            # Emitted as an ISO 8601 string rather than a datetime. Frictionless passes the value
+            # through to the descriptor unchanged, and the Data Package spec requires a string here.
+            created=datetime.datetime.now().isoformat(),
             version=str(version),
             keywords=keywords
         )
