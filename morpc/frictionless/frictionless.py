@@ -409,9 +409,65 @@ def convert_lineend(path: str | PathLike, target: Literal['dos', 'unix']) -> Non
                 logger.error(f"Error changing line endings: {e}") 
                 raise RuntimeError
 
-def create_resource(dataPath, title=None, name=None, description=None, sources=None, resourcePath=None, schemaPath=None, resFormat=None, 
+def _is_url(path):
+    """Return True if a resource path is a URL rather than a local path."""
+    return str(path).startswith(("http://", "https://"))
+
+
+def _compute_hash(path, algorithm='md5'):
+    """Compute the hash of a file in the form that is emitted in a resource descriptor.
+
+    md5 is emitted as a bare hex digest, which is the Data Package v1 form and what MORPC resources have
+    always carried. sha256 is emitted in the self-describing v2 form "sha256:<hex>".
+    """
+    import morpc
+
+    if(algorithm == 'md5'):
+        return morpc.md5(path)
+    elif(algorithm == 'sha256'):
+        return "sha256:{}".format(morpc.sha256(path))
+    else:
+        logger.error("Unsupported hash algorithm: {}. Use 'md5' or 'sha256'.".format(algorithm))
+        raise RuntimeError
+
+
+def _verify_hash(path, expected):
+    """Raise if the file at path does not match the hash recorded in a resource descriptor.
+
+    Accepts both the bare hex digest that MORPC resources have historically carried, which is assumed to
+    be md5, and the self-describing "<algorithm>:<hex>" form.
+    """
+    import morpc
+
+    if(expected == None):
+        logger.warning("Resource carries no hash, so the integrity of {} cannot be verified.".format(path))
+        return
+
+    if(":" in expected):
+        (algorithm, _, digest) = expected.partition(":")
+        algorithm = algorithm.lower()
+    else:
+        (algorithm, digest) = ('md5', expected)
+
+    if(algorithm == 'md5'):
+        actual = morpc.md5(path)
+    elif(algorithm == 'sha256'):
+        actual = morpc.sha256(path)
+    else:
+        logger.error("Resource hash uses unsupported algorithm '{}'. Unable to verify {}.".format(algorithm, path))
+        raise RuntimeError
+
+    if(actual != digest):
+        logger.error("Hash mismatch for {}. The resource records {} but the file computes {}. The data does not match the resource that describes it.".format(path, digest, actual))
+        raise RuntimeError
+
+    logger.info("Verified {} against the {} hash recorded in the resource.".format(path, algorithm))
+
+
+def create_resource(dataPath, title=None, name=None, description=None, sources=None, resourcePath=None, schemaPath=None, resFormat=None,
                                  resProfile=None, resMediaType=None, computeHash=True, computeBytes=True, ignoreSchema=False, 
-                                 writeResource=False, validate=False, control=None, lineEnds: Literal['dos', 'unix'] = 'dos'):
+                                 writeResource=False, validate=False, control=None, lineEnds: Literal['dos', 'unix'] = 'dos',
+                                 cache=None, hashAlgorithm: Literal['md5', 'sha256'] = 'md5'):
     """Create a Frictionless resource object using sane default values for some attributes.  Optionally, write the 
     resource file to disk and validate the resource file, schema, and data. 
 
@@ -471,6 +527,15 @@ def create_resource(dataPath, title=None, name=None, description=None, sources=N
         Optional. For formats that are not standard tables, add a control from frictionless.formats
     lineEnds : ['\r\n', '\n']
         Convert all line endings in text files to DOS or UNIX stile endings. Defaults to '\r\n', DOS endings.
+    cache : str
+        Optional. The path to the local working copy of the data, RELATIVE TO THE LOCATION OF THE RESOURCE FILE.  Emitted in
+        the resource as the custom "_cache" property.  Specify this when dataPath is a URL, such as a GitHub release asset:
+        the authoritative copy lives at the URL, but the hash and size must be computed from the local file, and consumers
+        who already have the file on disk can read it without downloading.  See morpc.frictionless.publish_paths().
+    hashAlgorithm : ['md5', 'sha256']
+        Optional. The algorithm used to compute the hash attribute.  Defaults to 'md5', which is emitted as a bare hex digest
+        for backward compatibility (Data Package v1 style).  'sha256' is emitted in the self-describing Data Package v2 form
+        "sha256:<hex>".
 
     Returns
     -------
@@ -506,16 +571,24 @@ def create_resource(dataPath, title=None, name=None, description=None, sources=N
         ".sqlite": {
             "format": "sqlite",
             "mediatype": "application/vnd.sqlite3"
+        },
+        ".zip": {
+            "format": "zip",
+            "mediatype": "application/zip"
         }
     }
-    
-    dataFilePath = os.path.normpath(dataPath)
+
+    # A URL must not be passed through normpath, which would collapse the "//" in the scheme.
+    if _is_url(dataPath):
+        dataFilePath = dataPath
+    else:
+        dataFilePath = os.path.normpath(dataPath)
     dataFileName = os.path.splitext(os.path.basename(dataFilePath))[0]
     dataFileExtension = os.path.splitext(os.path.basename(dataFilePath))[1]
 
-    if(os.path.basename(dataFilePath) != os.path.normpath(dataFilePath)):
+    if(not _is_url(dataFilePath) and os.path.basename(dataFilePath) != os.path.normpath(dataFilePath)):
         # If dataFilePath is not simply a filename
-        logger.warning("You seem to have specified a data path that is not simply a file name.  This implies that the data is located in a different directory than the resource file.  Typically the data is located in the same directory as the resource file and the path is simply the filename.")   
+        logger.warning("You seem to have specified a data path that is not simply a file name.  This implies that the data is located in a different directory than the resource file.  Typically the data is located in the same directory as the resource file and the path is simply the filename.")
 
     resourceFilePath = None
     if(resourcePath != None):
@@ -524,7 +597,7 @@ def create_resource(dataPath, title=None, name=None, description=None, sources=N
             logger.warning("You specified a path for the resource file, however writeResource is not set to True. Resource file will not be written to disk.")   
 
         # If the user has specified a path to the resource file, we'll use it without modification. Warn the user if the choice is unusual.
-        if(os.path.basename(dataFilePath) != os.path.normpath(dataFilePath)):
+        if(not _is_url(dataFilePath) and os.path.basename(dataFilePath) != os.path.normpath(dataFilePath)):
             # If dataFilePath is not simply a filename
             if(os.path.dirname(os.path.abspath(resourcePath)) != os.path.dirname(os.path.abspath(dataFilePath))):
                 # If the absolute path to the resource file and the absolute path to the data put them in different directories
@@ -545,7 +618,7 @@ def create_resource(dataPath, title=None, name=None, description=None, sources=N
         # If ignoreSchema is False, determine the schema file path
         if(schemaPath != None):
             # If the user has specified a path to the resource file, we'll use it without modification. Warn the user if the choice is unusual.
-            if(os.path.basename(dataFilePath) != os.path.normpath(dataFilePath)):
+            if(not _is_url(dataFilePath) and os.path.basename(dataFilePath) != os.path.normpath(dataFilePath)):
                 # If dataFilePath is not simply a filename
                 if(os.path.dirname(os.path.abspath(schemaPath)) != os.path.dirname(os.path.abspath(dataFilePath))):
                     # If the absolute path to the schema file and the absolute path to the data put them in different directories
@@ -611,41 +684,47 @@ def create_resource(dataPath, title=None, name=None, description=None, sources=N
     if(not ignoreSchema):
         resource.schema = schemaFilePath
 
-    unlocatedDataWarningIssued = False
+    if(cache != None):
+        resource.custom["_cache"] = cache
 
-    if dataFileExtension == ".csv":
+    # The hash and size describe the bytes of the data.  When the path is a URL those bytes are not locally
+    # addressable, so resolve them from the cache, which is the local working copy of the same data.
+    if(cache != None):
+        localDataPath = cache
+    else:
+        localDataPath = dataFilePath
+
+    if(resourceFilePath != None):
+        localDataPath = os.path.join(os.path.dirname(resourceFilePath), localDataPath)
+    elif(computeHash or computeBytes):
+        logger.warning("Data path is specified relative to resource file, however no resource file path was specified. Assuming data path is relative to current working directory.")
+
+    if(dataFileExtension == ".csv" and not _is_url(dataFilePath)):
         if os.linesep == '\n':
             logger.info(f'Changing line endings.')
             if resourceFilePath == None:
                 logger.error(f"Unable to find resource as {resourceFilePath}")
                 raise RuntimeError
             else:
-                convert_lineend(os.path.join(os.path.dirname(resourceFilePath), dataFilePath), lineEnds)
+                convert_lineend(localDataPath, lineEnds)
+
+    if((computeHash or computeBytes) and _is_url(localDataPath)):
+        logger.error("Unable to compute hash or file size because the data path is a URL. Specify cache to point at the local working copy of the data.")
+        raise RuntimeError
 
     if(computeHash):
-        if(resourceFilePath != None):
-            resource.hash = morpc.md5(os.path.join(os.path.dirname(resourceFilePath), dataFilePath))
-        else:
-            try:
-                logger.warning("Data path is specified relative to resource file, however no resource file path was specified. Assuming data path is relative to current working directory.")
-                unlocatedDataWarningIssued = True
-                resource.hash = morpc.md5(dataFilePath)
-            except:
-                logger.error("Unable to compute MD5 hash.  Data file could not be located.")
-                raise RuntimeError            
+        try:
+            resource.hash = _compute_hash(localDataPath, hashAlgorithm)
+        except FileNotFoundError:
+            logger.error("Unable to compute hash.  Data file could not be located at {}.".format(localDataPath))
+            raise RuntimeError
 
     if(computeBytes):
-        # If the data path is relative, we need to know the resource file path
-        if(resourceFilePath != None):
-            resource.bytes = os.path.getsize(os.path.join(os.path.dirname(resourceFilePath), dataFilePath))
-        else:
-            try:
-                if(not unlocatedDataWarningIssued):
-                    logger.warning("Data path is specified relative to resource file, however no resource file path was specified. Assuming data path is relative to current working directory.")
-                resource.hash = morpc.md5(dataFilePath)
-            except:
-                logger.error("Unable to compute file size (bytes).  Data file could not be located.")
-                raise RuntimeError
+        try:
+            resource.bytes = os.path.getsize(localDataPath)
+        except FileNotFoundError:
+            logger.error("Unable to compute file size (bytes).  Data file could not be located at {}.".format(localDataPath))
+            raise RuntimeError
 
     if(writeResource):
         if(resourceFilePath != None):
@@ -745,6 +824,77 @@ def _detect_sqlite_geometry_column(con, tableName):
     return None
 
 
+def resolve_data_path(resource, sourceDir, download=True):
+    """Return the path to the local data file described by a resource, downloading it if necessary.
+
+    A resource may describe its data in two places. The path attribute is authoritative and may be a URL,
+    typically a GitHub release asset. The custom _cache attribute, when present, names the local working
+    copy relative to the resource file. This function resolves the two to a single local path:
+
+      1. If _cache is present and that file exists, use it.
+      2. Otherwise, if path is a URL and download is True, download it to the _cache location, or to a
+         temporary directory if no cache is specified.
+      3. Otherwise, join path to sourceDir, which is the behavior for an ordinary local resource.
+
+    In cases 1 and 2 the file is verified against the hash recorded in the resource. A mismatch raises
+    rather than warns, because a descriptor that disagrees with its own data cannot be reasoned about.
+
+    Parameters
+    ----------
+    resource : frictionless.Resource
+        The resource that describes the data.
+    sourceDir : str
+        The directory containing the resource file. Both path and _cache are interpreted relative to it.
+    download : bool
+        Optional. If False, a URL path raises rather than being downloaded. Defaults to True.
+
+    Returns
+    -------
+    str
+        The path to the local data file.
+    """
+    import os
+    import shutil
+    import tempfile
+    import morpc.req
+
+    cache = resource.custom.get("_cache") if resource.custom else None
+
+    if(cache != None):
+        cachePath = os.path.join(sourceDir, cache)
+        if(os.path.exists(cachePath)):
+            logger.info("Using local cached copy of the data at {}".format(cachePath))
+            _verify_hash(cachePath, resource.hash)
+            return cachePath
+        logger.info("Resource specifies a cache at {} but no file is present there.".format(cachePath))
+
+    if(_is_url(resource.path)):
+        if(not download):
+            logger.error("Data path is a URL and no local cache is available, but downloading is disabled.")
+            raise RuntimeError
+
+        if(cache != None):
+            targetPath = os.path.join(sourceDir, cache)
+        else:
+            logger.warning("Resource specifies a URL but no _cache, so the download cannot be reused. Downloading to a temporary directory.")
+            targetPath = os.path.join(tempfile.mkdtemp(), os.path.basename(resource.path))
+
+        targetDir = os.path.dirname(os.path.abspath(targetPath))
+        os.makedirs(targetDir, exist_ok=True)
+
+        logger.info("Downloading data from {} to {}".format(resource.path, targetPath))
+        downloadedPath = morpc.req.get_file_safely(resource.path, targetDir, returnPath=True)
+
+        # get_file_safely names the downloaded file after the URL. If the cache calls it something else, move it.
+        if(os.path.abspath(downloadedPath) != os.path.abspath(targetPath)):
+            shutil.move(downloadedPath, targetPath)
+
+        _verify_hash(targetPath, resource.hash)
+        return targetPath
+
+    return os.path.join(sourceDir, resource.path)
+
+
 def load_data(resourcePath, archiveDir=None, validate=False, forceInteger=False, forceInt64=False, useSchema="default", sheetName=None, layerName=None, tableName=None, driverName=None, targetCRS=None, lineEnds: Literal['\n', '\b\n'] = '\b\n'):
     """Often we want to make a copy of some input data and work with the copy, for example to protect 
     the original data or to create an archival copy of it so that we can replicate the process later.  
@@ -817,7 +967,12 @@ def load_data(resourcePath, archiveDir=None, validate=False, forceInteger=False,
     
     sourceDir = os.path.dirname(myResourcePath)
     resourceFilename = os.path.basename(myResourcePath)
-    dataFileExtension = os.path.splitext(resource.path)[1]
+
+    # Resolve the resource's path and _cache to a single local file, downloading it if the path is a
+    # release asset URL and no local copy is present. The extension must come from the resolved local
+    # file rather than from resource.path, which may be a URL.
+    sourceDataPath = resolve_data_path(resource, sourceDir)
+    dataFileExtension = os.path.splitext(sourceDataPath)[1]
     
     # Surely there is a more convenient way to get the schema path from the Resource object?
     if(useSchema == None):
@@ -843,7 +998,7 @@ def load_data(resourcePath, archiveDir=None, validate=False, forceInteger=False,
     if(archiveDir != None):
 
         targetResource = os.path.join(archiveDir, resourceFilename)
-        targetData = os.path.join(archiveDir, resource.path)
+        targetData = os.path.join(archiveDir, os.path.basename(sourceDataPath))
         if(schemaFilename != None):
             targetSchema = os.path.join(archiveDir, schemaFilename)
         else:
@@ -853,7 +1008,7 @@ def load_data(resourcePath, archiveDir=None, validate=False, forceInteger=False,
             logger.info("Copying data, resource file, and schema (if applicable) to directory {}".format(archiveDir))    
 
             shutil.copyfile(os.path.join(sourceDir, resourceFilename), targetResource)
-            shutil.copyfile(os.path.join(sourceDir, resource.path), targetData)
+            shutil.copyfile(sourceDataPath, targetData)
             if(targetSchema != None):
                 shutil.copyfile(schemaSourcePath, targetSchema)
         except Exception as e:
@@ -862,7 +1017,7 @@ def load_data(resourcePath, archiveDir=None, validate=False, forceInteger=False,
     
     else:           
         targetResource = os.path.join(sourceDir, resourceFilename)
-        targetData = os.path.join(sourceDir, resource.path)
+        targetData = sourceDataPath
         if(schemaFilename != None):
             targetSchema = schemaSourcePath
         else:

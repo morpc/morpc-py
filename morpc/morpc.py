@@ -2989,6 +2989,23 @@ def md5(fname):
             hash_md5.update(chunk)
     return hash_md5.hexdigest()
 
+def sha256(fname):
+    """
+    sha256() computes the SHA-256 checksum for a file.  When the original checksum is known, the current checksum can be compared to it to determine whether the file has changed.
+
+    Input parameters:
+      - fname is a string representing the path to the file for which the checksum is to be computed
+
+     Returns:
+       - SHA-256 checksum for the file
+    """
+    import hashlib
+    hash_sha256 = hashlib.sha256()
+    with open(fname, "rb") as f:
+        for chunk in iter(lambda: f.read(4096), b""):
+            hash_sha256.update(chunk)
+    return hash_sha256.hexdigest()
+
 def write_table(df, path, format=None, index=None):
     """Write a pandas dataframe to a tabular data file applying MORPC file standards
     
