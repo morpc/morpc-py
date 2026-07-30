@@ -3,16 +3,20 @@
 import datetime
 import os
 import shutil
+import subprocess
 
 import frictionless
 import pytest
 
 from morpc.frictionless import (
     calver,
+    create_release,
     create_resource,
+    prepare_release,
     publish_paths,
     release_asset_url,
     resolve_data_path,
+    write_resource,
 )
 
 
@@ -403,6 +407,300 @@ def test_publish_paths_without_a_path_raises():
     resource = frictionless.Resource.from_descriptor({"name": "parcels", "data": [["id"], [1]]})
     with pytest.raises(RuntimeError):
         publish_paths(resource, "morpc", "morpc-parcels-standardize", "v2026.7.22")
+
+
+# --- prepare_release ---
+
+def test_prepare_release_rewrites_descriptors_and_creates_package(tmp_path):
+    _build_data(tmp_path, name="data1.csv")
+    _build_data(tmp_path, name="data2.csv")
+    resource1Path = tmp_path / "data1.resource.yaml"
+    resource2Path = tmp_path / "data2.resource.yaml"
+    create_resource("data1.csv", resourcePath=str(resource1Path), ignoreSchema=True, name="one", writeResource=True)
+    create_resource("data2.csv", resourcePath=str(resource2Path), ignoreSchema=True, name="two", writeResource=True)
+
+    published = prepare_release(
+        [str(resource1Path), str(resource2Path)],
+        "morpc",
+        "repo",
+        "v2026.7.22",
+        packageName="bundle",
+    )
+
+    assert len(published) == 2
+    assert published[0].path.endswith("/download/v2026.7.22/data1.csv")
+    assert published[1].path.endswith("/download/v2026.7.22/data2.csv")
+
+    # Both descriptors were rewritten on disk, not just returned in memory.
+    reread1 = frictionless.Resource(str(resource1Path))
+    reread2 = frictionless.Resource(str(resource2Path))
+    assert reread1.path.endswith("/download/v2026.7.22/data1.csv")
+    assert reread1.custom["_cache"] == "data1.csv"
+    assert reread2.path.endswith("/download/v2026.7.22/data2.csv")
+    assert reread2.custom["_cache"] == "data2.csv"
+
+    # frictionless.Package.to_yaml() writes resources as bare path strings, which
+    # frictionless.Package() itself cannot re-read (a pre-existing quirk unrelated to this
+    # function), so read the version back as plain YAML instead of round-tripping through frictionless.
+    import yaml
+
+    packageDescriptor = yaml.safe_load((tmp_path / "bundle.package.yaml").read_text())
+    assert packageDescriptor["version"] == "2026.7.22"
+    assert packageDescriptor["resources"] == ["data1.resource.yaml", "data2.resource.yaml"]
+
+
+def test_prepare_release_accepts_a_bare_string_path(tmp_path):
+    _build_data(tmp_path)
+    resourcePath = tmp_path / "data.resource.yaml"
+    create_resource("data.csv", resourcePath=str(resourcePath), ignoreSchema=True, name="parcels", writeResource=True)
+
+    published = prepare_release(str(resourcePath), "morpc", "repo", "v2026.7.22")
+
+    assert len(published) == 1
+    assert published[0].path.endswith("/download/v2026.7.22/data.csv")
+
+
+# --- create_release ---
+
+class _FakeCompleted:
+    def __init__(self, returncode):
+        self.returncode = returncode
+
+
+def _build_shared_schema_resources(tmp_path):
+    """Two resources whose schema attribute both point at the same schema sidecar file."""
+    (tmp_path / "shared.schema.yaml").write_text(SCHEMA_YAML)
+    for name in ("data1.csv", "data2.csv"):
+        (tmp_path / name).write_bytes(b"id,name\r\n1,alice\r\n2,bob\r\n")
+
+    resource1Path = tmp_path / "data1.resource.yaml"
+    resource2Path = tmp_path / "data2.resource.yaml"
+    create_resource(
+        "data1.csv", resourcePath=str(resource1Path), schemaPath="shared.schema.yaml", name="one", writeResource=True
+    )
+    create_resource(
+        "data2.csv", resourcePath=str(resource2Path), schemaPath="shared.schema.yaml", name="two", writeResource=True
+    )
+    return str(resource1Path), str(resource2Path)
+
+
+def test_create_release_dedupes_a_schema_shared_by_two_resources(tmp_path, monkeypatch):
+    monkeypatch.setattr(shutil, "which", lambda name: "/usr/bin/gh")
+    resource1Path, resource2Path = _build_shared_schema_resources(tmp_path)
+
+    assets, notes = create_release([resource1Path, resource2Path], "morpc", "repo", "v2026.7.22", dryRun=True)
+
+    absAssets = [os.path.abspath(asset) for asset in assets]
+    assert len(absAssets) == len(set(absAssets))
+    assert absAssets.count(os.path.abspath(tmp_path / "shared.schema.yaml")) == 1
+    assert os.path.abspath(tmp_path / "data1.csv") in absAssets
+    assert os.path.abspath(tmp_path / "data2.csv") in absAssets
+    assert os.path.abspath(resource1Path) in absAssets
+    assert os.path.abspath(resource2Path) in absAssets
+
+
+def test_create_release_resolves_published_data_through_cache(tmp_path, monkeypatch):
+    monkeypatch.setattr(shutil, "which", lambda name: "/usr/bin/gh")
+    _build_data(tmp_path)
+    resourcePath = tmp_path / "data.resource.yaml"
+    local = create_resource("data.csv", resourcePath=str(resourcePath), ignoreSchema=True, name="parcels")
+    published = publish_paths(local, "morpc", "morpc-parcels-standardize", "v2026.7.22")
+    write_resource(published, str(resourcePath))
+
+    assets, notes = create_release([str(resourcePath)], "morpc", "repo", "v2026.7.22", dryRun=True)
+
+    absAssets = [os.path.abspath(asset) for asset in assets]
+    # The data asset resolves through _cache, not the release asset URL, which is not a local path.
+    assert os.path.abspath(tmp_path / "data.csv") in absAssets
+
+
+def test_create_release_url_path_without_cache_raises(tmp_path, monkeypatch):
+    monkeypatch.setattr(shutil, "which", lambda name: "/usr/bin/gh")
+    resourcePath = tmp_path / "data.resource.yaml"
+    resource = frictionless.Resource.from_descriptor({"name": "parcels", "path": ASSET_URL, "format": "csv"})
+    write_resource(resource, str(resourcePath))
+
+    with pytest.raises(RuntimeError):
+        create_release([str(resourcePath)], "morpc", "repo", "v2026.7.22", dryRun=True)
+
+
+def test_create_release_appends_extra_assets(tmp_path, monkeypatch):
+    monkeypatch.setattr(shutil, "which", lambda name: "/usr/bin/gh")
+    _build_data(tmp_path)
+    resourcePath = tmp_path / "data.resource.yaml"
+    create_resource("data.csv", resourcePath=str(resourcePath), ignoreSchema=True, name="parcels", writeResource=True)
+    extraPath = tmp_path / "bundle.package.yaml"
+    extraPath.write_text("name: bundle\n")
+
+    assets, notes = create_release(
+        [str(resourcePath)], "morpc", "repo", "v2026.7.22", assets=[str(extraPath)], dryRun=True
+    )
+
+    assert os.path.abspath(extraPath) in [os.path.abspath(asset) for asset in assets]
+
+
+def test_create_release_notes_include_resource_details_and_intro(tmp_path, monkeypatch):
+    monkeypatch.setattr(shutil, "which", lambda name: "/usr/bin/gh")
+    _build_data(tmp_path)
+    resourcePath = tmp_path / "data.resource.yaml"
+    create_resource(
+        "data.csv",
+        resourcePath=str(resourcePath),
+        ignoreSchema=True,
+        name="parcels",
+        title="Parcels",
+        description="County parcel data.",
+        writeResource=True,
+    )
+
+    assets, notes = create_release(
+        [str(resourcePath)], "morpc", "repo", "v2026.7.22", notes="Intro text.", dryRun=True
+    )
+
+    assert "Intro text." in notes
+    assert "Parcels" in notes
+    assert "`parcels`" in notes
+    assert "County parcel data." in notes
+    dataBytes = os.path.getsize(tmp_path / "data.csv")
+    assert "{:,} bytes".format(dataBytes) in notes
+    resource = frictionless.Resource(str(resourcePath))
+    assert resource.hash in notes
+
+
+def test_create_release_missing_asset_raises_before_any_gh_call(tmp_path, monkeypatch):
+    monkeypatch.setattr(shutil, "which", lambda name: "/usr/bin/gh")
+    _build_data(tmp_path)
+    resourcePath = tmp_path / "data.resource.yaml"
+    create_resource("data.csv", resourcePath=str(resourcePath), ignoreSchema=True, name="parcels", writeResource=True)
+    os.remove(tmp_path / "data.csv")
+
+    def _fail(*args, **kwargs):
+        raise AssertionError("gh should not be invoked when an asset is missing.")
+
+    monkeypatch.setattr(subprocess, "run", _fail)
+
+    with pytest.raises(RuntimeError):
+        create_release([str(resourcePath)], "morpc", "repo", "v2026.7.22")
+
+
+def test_create_release_existing_tag_raises(tmp_path, monkeypatch):
+    monkeypatch.setattr(shutil, "which", lambda name: "/usr/bin/gh")
+    _build_data(tmp_path)
+    resourcePath = tmp_path / "data.resource.yaml"
+    create_resource("data.csv", resourcePath=str(resourcePath), ignoreSchema=True, name="parcels", writeResource=True)
+
+    def _fake_run(args, **kwargs):
+        assert args[:3] == ["gh", "release", "view"]
+        return _FakeCompleted(0)
+
+    monkeypatch.setattr(subprocess, "run", _fake_run)
+
+    with pytest.raises(RuntimeError):
+        create_release([str(resourcePath)], "morpc", "repo", "v2026.7.22")
+
+
+def test_create_release_invokes_gh_with_the_expected_arguments(tmp_path, monkeypatch):
+    monkeypatch.setattr(shutil, "which", lambda name: "/usr/bin/gh")
+    _build_data(tmp_path)
+    resourcePath = tmp_path / "data.resource.yaml"
+    create_resource("data.csv", resourcePath=str(resourcePath), ignoreSchema=True, name="parcels", writeResource=True)
+
+    calls = []
+
+    def _fake_run(args, **kwargs):
+        calls.append(args)
+        # A non-zero return from the tag check means no such release, so the create proceeds.
+        return _FakeCompleted(1)
+
+    monkeypatch.setattr(subprocess, "run", _fake_run)
+
+    assets, notes = create_release(
+        [str(resourcePath)], "morpc", "repo", "v2026.7.22", title="2026.7.22", notes="Intro text."
+    )
+
+    view, create = calls
+    assert view == ["gh", "release", "view", "v2026.7.22", "--repo", "morpc/repo"]
+    assert create[:6] == ["gh", "release", "create", "v2026.7.22", "--repo", "morpc/repo"]
+    assert create[6:10] == ["--title", "2026.7.22", "--notes", notes]
+    # Every derived asset is passed positionally after the flags, in order.
+    assert create[10:] == assets
+
+
+def test_create_release_title_defaults_to_the_tag(tmp_path, monkeypatch):
+    monkeypatch.setattr(shutil, "which", lambda name: "/usr/bin/gh")
+    _build_data(tmp_path)
+    resourcePath = tmp_path / "data.resource.yaml"
+    create_resource("data.csv", resourcePath=str(resourcePath), ignoreSchema=True, name="parcels", writeResource=True)
+
+    calls = []
+
+    def _fake_run(args, **kwargs):
+        calls.append(args)
+        return _FakeCompleted(1)
+
+    monkeypatch.setattr(subprocess, "run", _fake_run)
+
+    create_release([str(resourcePath)], "morpc", "repo", "v2026.7.22")
+
+    create = calls[1]
+    assert create[create.index("--title") + 1] == "v2026.7.22"
+
+
+def test_create_release_missing_gh_raises(tmp_path, monkeypatch):
+    monkeypatch.setattr(shutil, "which", lambda name: None)
+    _build_data(tmp_path)
+    resourcePath = tmp_path / "data.resource.yaml"
+    create_resource("data.csv", resourcePath=str(resourcePath), ignoreSchema=True, name="parcels", writeResource=True)
+
+    with pytest.raises(RuntimeError):
+        create_release([str(resourcePath)], "morpc", "repo", "v2026.7.22")
+
+
+def test_prepare_release_bare_filename_packages_into_the_working_directory(tmp_path, monkeypatch):
+    # A descriptor named without a directory has no dirname, so the package directory falls back to ".".
+    monkeypatch.chdir(tmp_path)
+    _build_data(tmp_path)
+    create_resource("data.csv", resourcePath="data.resource.yaml", ignoreSchema=True, name="parcels", writeResource=True)
+
+    prepare_release("data.resource.yaml", "morpc", "repo", "v2026.7.22", packageName="bundle")
+
+    assert os.path.exists(tmp_path / "bundle.package.yaml")
+
+
+def test_prepare_release_descriptors_in_different_directories_raise(tmp_path):
+    first = tmp_path / "a"
+    second = tmp_path / "b"
+    first.mkdir()
+    second.mkdir()
+    _build_data(first)
+    _build_data(second)
+    create_resource("data.csv", resourcePath=str(first / "data.resource.yaml"), ignoreSchema=True, name="one", writeResource=True)
+    create_resource("data.csv", resourcePath=str(second / "data.resource.yaml"), ignoreSchema=True, name="two", writeResource=True)
+
+    with pytest.raises(RuntimeError):
+        prepare_release(
+            [str(first / "data.resource.yaml"), str(second / "data.resource.yaml")],
+            "morpc",
+            "repo",
+            "v2026.7.22",
+            packageName="bundle",
+        )
+
+
+def test_create_release_dry_run_skips_tag_check_and_create(tmp_path, monkeypatch):
+    monkeypatch.setattr(shutil, "which", lambda name: "/usr/bin/gh")
+    _build_data(tmp_path)
+    resourcePath = tmp_path / "data.resource.yaml"
+    create_resource("data.csv", resourcePath=str(resourcePath), ignoreSchema=True, name="parcels", writeResource=True)
+
+    def _fail(*args, **kwargs):
+        raise AssertionError("A dry run must not invoke gh at all.")
+
+    monkeypatch.setattr(subprocess, "run", _fail)
+
+    assets, notes = create_release([str(resourcePath)], "morpc", "repo", "v2026.7.22", dryRun=True)
+
+    assert len(assets) == 2  # the data file and the descriptor
 
 
 # --- load_data ---
