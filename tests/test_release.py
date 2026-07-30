@@ -347,6 +347,43 @@ def test_publish_paths_rewrites_path_and_records_cache(tmp_path):
     assert "_cache" not in local.custom
 
 
+def test_publish_paths_updates_the_scheme(tmp_path):
+    _build_data(tmp_path)
+    local = create_resource(
+        "data.csv",
+        resourcePath=str(tmp_path / "data.resource.yaml"),
+        ignoreSchema=True,
+        name="parcels",
+    )
+    assert local.scheme == "file"
+    published = publish_paths(local, "morpc", "morpc-parcels-standardize", "v2026.7.22")
+    # Frictionless preserves an explicit scheme rather than re-deriving it, so a stale "file" would
+    # otherwise survive onto a descriptor whose path is a URL.
+    assert published.scheme == "https"
+
+
+def test_publish_paths_preserves_dialect_and_schema(tmp_path, monkeypatch):
+    # A sqlite resource carries a dialect naming the table and a schema sidecar reference. Both must
+    # survive the rewrite, or the published descriptor cannot open the data it points at.
+    from frictionless import formats
+
+    # A resource built in memory has no basepath, so its schema reference resolves against the working
+    # directory.
+    monkeypatch.chdir(tmp_path)
+    _build_data(tmp_path)
+    local = create_resource(
+        "data.csv",
+        resourcePath=str(tmp_path / "data.resource.yaml"),
+        schemaPath="data.schema.yaml",
+        name="parcels",
+        control=formats.SqlControl(table="addresspoints"),
+    )
+    published = publish_paths(local, "morpc", "morpc-parcels-standardize", "v2026.7.22")
+    descriptor = published.to_dict()
+    assert descriptor["dialect"] == {"sql": {"table": "addresspoints"}}
+    assert descriptor["schema"] == "data.schema.yaml"
+
+
 def test_publish_paths_on_an_already_published_resource_retags(tmp_path):
     _build_data(tmp_path)
     local = create_resource(

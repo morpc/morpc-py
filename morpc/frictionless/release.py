@@ -123,4 +123,9 @@ def publish_paths(resource, owner, repo, tag):
     descriptor["path"] = release_asset_url(owner, repo, tag, filename)
     descriptor["_cache"] = localPath
 
+    # The scheme describes the path, which has just changed from a local file to a URL. Frictionless
+    # preserves an explicit scheme rather than re-deriving it, so a stale "file" would survive onto a
+    # descriptor whose path is https. Drop it and let frictionless infer the scheme from the new path.
+    descriptor.pop("scheme", None)
+
     return frictionless.Resource.from_descriptor(descriptor)
