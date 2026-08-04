@@ -168,6 +168,10 @@ ArcGIS Online REST API tools:
 - `config_logs(filename, level, mode)` — logging to file + stdout for notebook workflows
 - `get_json_safely()`, `get_text_safely()`, `get_file()` — HTTP helpers with retry logic
 - `geocode(addresses, endpoint)` — Nominatim geocoding (public or local Docker)
+- `geocode_addresspoints(addresses, resourcePath, zipcodes)` — offline geocoding against `morpc-addresspoints-standardize`; returns a GeoDataFrame reporting the match tier, candidate count and spread, and leaves genuinely ambiguous addresses unmatched rather than guessing
+- `build_geocode_index(resourcePath)` — derives the indexed, normalized database the matcher uses; rebuilt automatically when the source release or `CONST_GEOCODE_INDEX_VERSION` changes
+- `parse_address(address)` — splits a free-text address into the components the address point data publishes
+- `normalize_house_number()`, `normalize_street_name()`, `normalize_zip()` — the query side of that vocabulary, alongside `normalize_street_type()` and `normalize_directional()`. Both sides of a match must use them or addresses that should join silently fail to
 
 ## Key Conventions
 
