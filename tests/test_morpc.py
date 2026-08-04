@@ -149,3 +149,55 @@ def test_load_spatial_data_sqlite_custom_target_crs(tmp_path):
     dataPath = _build_spatial_sqlite(tmp_path, table="parcels")
     gdf = morpc.load_spatial_data(str(dataPath), layerName="parcels", targetCRS="epsg:3735", verbose=False)
     assert gdf.crs == "epsg:3735"
+
+
+# --- countyLookup ---------------------------------------------------------------------------------
+# scope="us" is not covered here: it queries the Census API, and get_id is unsupported for it anyway.
+
+
+def test_county_lookup_ohio_scope_loads_every_county():
+    lookup = morpc.countyLookup(scope="oh")
+    assert len(lookup.df) == len(morpc.CONST_COUNTY_NAME_TO_ID)
+    assert list(lookup.df.columns) == ["GEOID", "NAME"]
+
+
+def test_county_lookup_round_trips_name_and_geoid():
+    lookup = morpc.countyLookup(scope="oh")
+    assert lookup.get_id("Franklin") == "39049"
+    assert lookup.get_name("39049") == "Franklin"
+
+
+def test_county_lookup_names_are_sorted_and_ids_align():
+    lookup = morpc.countyLookup(scope="oh")
+    names = lookup.list_names()
+    assert names == sorted(names)
+    assert [lookup.get_id(name) for name in names] == lookup.list_ids()
+
+
+@pytest.mark.parametrize("scope", ["morpc", "15-County Region", "REGION15"])
+def test_county_lookup_morpc_scope_aliases(scope):
+    lookup = morpc.countyLookup(scope=scope)
+    assert sorted(lookup.list_names()) == sorted(morpc.CONST_REGIONS["15-County Region"])
+
+
+def test_county_lookup_region_scope_matches_const_regions():
+    lookup = morpc.countyLookup(scope="CORPO Region")
+    assert sorted(lookup.list_names()) == sorted(morpc.CONST_REGIONS["CORPO Region"])
+
+
+def test_county_lookup_unknown_scope_raises():
+    with pytest.raises(RuntimeError):
+        morpc.countyLookup(scope="not-a-region")
+
+
+def test_county_lookup_unknown_county_raises():
+    lookup = morpc.countyLookup(scope="oh")
+    with pytest.raises(KeyError):
+        lookup.get_id("Nowhere")
+
+
+def test_county_lookup_county_outside_scope_raises():
+    # Franklin is not in the CORPO region, so it must not resolve through a CORPO-scoped lookup.
+    lookup = morpc.countyLookup(scope="CORPO Region")
+    with pytest.raises(KeyError):
+        lookup.get_id("Franklin")

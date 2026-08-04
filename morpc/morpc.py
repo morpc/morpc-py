@@ -916,7 +916,10 @@ class countyLookup():
         import requests
         import pandas as pd
 
-        df = pd.DataFrame.from_dict(CONST_COUNTY_NAME_TO_ID, columns=['NAME', 'GEOID'])
+        # CONST_COUNTY_NAME_TO_ID maps name -> GEOID, so the two columns come from its items. Not
+        # from_dict(columns=...): pandas accepts the columns argument only for orient="index" or
+        # "tight", and rejects it for the default orient.
+        df = pd.DataFrame(CONST_COUNTY_NAME_TO_ID.items(), columns=['NAME', 'GEOID'])
 
         # Filter the counties according to the user-specified scope
         if(scope.lower() == "ohio" or scope.lower() == "oh"):
@@ -966,7 +969,7 @@ class countyLookup():
         if(self.scope == "us"):
             print("ERROR: countyLookup.get_id is not supported for scope='us'")
             raise RuntimeError
-        df = self.df.copy().set_index("COUNTY_NAME")
+        df = self.df.copy().set_index("NAME")
         return df.at[name, "GEOID"]
 
     # Given the ID of a county, return its name
