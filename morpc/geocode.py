@@ -110,10 +110,15 @@ CONST_DIRECTIONALS = frozenset(CONST_DIRECTIONAL_ABBREV.values())
 #
 # These are applied to both sides of a match: the reference data is normalized when the geocoding
 # index is built, and the query is normalized when it is parsed.
+#
+# "OH" is the highway shield form ODRC writes as "OH-104", and "C R" is what "C.R. 32" becomes once
+# normalize_street_name has turned the periods into spaces. Both are safe to map despite being short
+# because a prefix is only read at the start of a street name and only when a number follows it, so
+# the "OH" of a postal tail and a street genuinely named "C" are both left alone.
 CONST_ROUTE_PREFIX_ABBREV = {
     "STATE ROUTE": "SR", "STATE RTE": "SR", "STATE RT": "SR", "ST ROUTE": "SR", "ST RTE": "SR",
-    "ST RT": "SR", "OHIO ROUTE": "SR", "OH ROUTE": "SR", "SR": "SR", "SRT": "SR",
-    "COUNTY ROAD": "CR", "COUNTY RD": "CR", "CO ROAD": "CR", "CO RD": "CR", "CR": "CR",
+    "ST RT": "SR", "OHIO ROUTE": "SR", "OH ROUTE": "SR", "SR": "SR", "SRT": "SR", "OH": "SR",
+    "COUNTY ROAD": "CR", "COUNTY RD": "CR", "CO ROAD": "CR", "CO RD": "CR", "CR": "CR", "C R": "CR",
     "TOWNSHIP ROAD": "TR", "TOWNSHIP RD": "TR", "TWP ROAD": "TR", "TWP RD": "TR",
     "US ROUTE": "US", "US RTE": "US", "US RT": "US", "US HIGHWAY": "US", "US HWY": "US", "US": "US",
     "INTERSTATE": "I", "I": "I",
@@ -374,7 +379,7 @@ def parse_address(address):
 # before a change to the normalization functions no longer agrees with the query side. Raise this
 # whenever normalize_street_name, normalize_house_number or normalize_zip changes what they return,
 # so that a stale index is rebuilt rather than silently matching against the old vocabulary.
-CONST_GEOCODE_INDEX_VERSION = 2
+CONST_GEOCODE_INDEX_VERSION = 3
 
 
 def normalize_zip(value):

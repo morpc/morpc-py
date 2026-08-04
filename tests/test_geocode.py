@@ -341,3 +341,22 @@ def test_a_comma_alone_is_not_a_postal_tail():
 
 def test_a_street_named_for_the_state_is_not_stripped():
     assert morpc.parse_address("123 Ohio Ave")["streetname"] == "OHIO"
+
+
+def test_highway_shield_and_period_separated_route_forms():
+    # ODRC writes the shield form "OH-104" and the period-separated "C.R. 32"; the reference data
+    # publishes 18,949 "SR <n>" and 4,960 "CR <n>" and neither of the source forms.
+    assert morpc.parse_address("15802 OH-104")["streetname"] == "SR 104"
+    assert morpc.parse_address("15802 OH 104")["streetname"] == "SR 104"
+    parsed = morpc.parse_address("284 C.R. 32 South")
+    assert parsed["streetname"] == "CR 32"
+    assert parsed["suffixdir"] == "S"
+
+
+def test_short_route_prefixes_do_not_capture_ordinary_names():
+    # A prefix is only read at the start of a name and only when a number follows, so a street named
+    # for the state or for a letter is untouched.
+    assert morpc.parse_address("123 Ohio Ave")["streetname"] == "OHIO"
+    parsed = morpc.parse_address("100 C Street")
+    assert parsed["streetname"] == "C"
+    assert parsed["streettype"] == "ST"
