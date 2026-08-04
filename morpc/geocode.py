@@ -277,6 +277,29 @@ def route_number(name):
     return None
 
 
+def _strip_postal_tail(value):
+    """Remove a trailing city, state and ZIP from an otherwise single-line street address.
+
+    Some registries publish a full postal address in the field that others use for the street line
+    alone -- ODRC writes "1990 Harmon Avenue, Columbus, OH 43223" where DODD writes "1990 Harmon
+    Avenue". Without this the whole tail is read as part of the street name, and the street type is
+    lost inside it, so none of those addresses can be matched.
+
+    The tail must end in the state, optionally followed by a ZIP and by a trailing note in
+    parentheses, before anything is removed. A comma alone is not enough to act on: DODD writes
+    "1359 State Route #38, Southeast", where what follows the comma is a directional belonging to
+    the address, and "4410,4412,4416 MORSE RD", where the commas separate house numbers.
+
+    Expects and returns the output of _clean(). Ohio only, which is the region this data covers.
+    """
+    import re
+
+    # A city segment is optional so that ", OH 43223" is caught as well, but when present it is a
+    # single comma-delimited run: the state is what confirms the tail, not the comma before it.
+    return re.sub(r",\s*(?:[^,]+,\s*)?(?:OH|OHIO)\b\.?(?:\s*\d{5}(?:-\d{4})?)?\s*(?:,.*)?$",
+                  "", value).strip() or value
+
+
 def parse_address(address):
     """Split a single-line street address into the components used by the address point data.
 
@@ -290,11 +313,15 @@ def parse_address(address):
     including streetaddr when the address names no house number ("ST RT 314 NORTH"), which is not
     locatable but is reported rather than guessed at.
 
+    A trailing city, state and ZIP is removed before parsing, so that a registry publishing a full
+    postal address parses the same as one publishing the street line alone. See _strip_postal_tail.
+
     Returns None when the address is null, empty, or contains no street name.
     """
     cleaned = _clean(address)
     if cleaned is None:
         return None
+    cleaned = _strip_postal_tail(cleaned)
 
     parsed = {key: None for key in
               ("streetaddr", "streetname", "streettype", "prefixdir", "suffixdir", "unitnum", "unittype")}
