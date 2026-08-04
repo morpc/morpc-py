@@ -102,6 +102,32 @@ CONST_DIRECTIONAL_ABBREV = {
 # The canonical directionals.
 CONST_DIRECTIONALS = frozenset(CONST_DIRECTIONAL_ABBREV.values())
 
+# Numbered routes, as the counties spell them in the street name field. Franklin writes "SR 104",
+# Knox writes "ST RT 19" and Union writes "STATE ROUTE 245" for the same kind of road, so a name
+# matched literally joins within a county and fails across the region. Each spelling is folded to
+# one canonical prefix by normalize_street_name(). Longest key first when matching, or "US ROUTE 23"
+# would be read as "US" followed by a street named "ROUTE 23".
+#
+# These are applied to both sides of a match: the reference data is normalized when the geocoding
+# index is built, and the query is normalized when it is parsed.
+CONST_ROUTE_PREFIX_ABBREV = {
+    "STATE ROUTE": "SR", "STATE RTE": "SR", "STATE RT": "SR", "ST ROUTE": "SR", "ST RTE": "SR",
+    "ST RT": "SR", "OHIO ROUTE": "SR", "OH ROUTE": "SR", "SR": "SR", "SRT": "SR",
+    "COUNTY ROAD": "CR", "COUNTY RD": "CR", "CO ROAD": "CR", "CO RD": "CR", "CR": "CR",
+    "TOWNSHIP ROAD": "TR", "TOWNSHIP RD": "TR", "TWP ROAD": "TR", "TWP RD": "TR",
+    "US ROUTE": "US", "US RTE": "US", "US RT": "US", "US HIGHWAY": "US", "US HWY": "US", "US": "US",
+    "INTERSTATE": "I", "I": "I",
+}
+
+# Unit designators that introduce a secondary address unit. A facility address often carries one
+# ("1234 E MAIN ST STE 200") where the address point record holds the unit in its own field, so the
+# designator and everything after it is split off before the street address is parsed.
+CONST_UNIT_TYPES = frozenset([
+    "APT", "APARTMENT", "BLDG", "BUILDING", "BSMT", "DEPT", "FL", "FLOOR", "FRNT", "HNGR", "KEY",
+    "LBBY", "LOT", "LOWR", "OFC", "OFFICE", "PH", "PIER", "RM", "ROOM", "SLIP", "SPC", "STE",
+    "STOP", "SUITE", "TRLR", "UNIT", "UPPR",
+])
+
 
 def _clean(value):
     """Upper case a value and strip surrounding whitespace and periods, or return None if it is empty.
@@ -145,6 +171,142 @@ def normalize_directional(value):
     if cleaned is None:
         return None
     return CONST_DIRECTIONAL_ABBREV.get(cleaned)
+
+
+def normalize_house_number(value):
+    """Return a house number in a form that can be joined on.
+
+    Three defects in the published data make a literal join fail. Counties that publish the number
+    as a numeric column leave a float tail ("1013.0"). Knox zero pads to five digits ("01013"). A
+    facility address sometimes names every unit in a building ("4410,4412,4416 MORSE RD") or a range
+    ("5684-5704 DIERKER RD"), where only the first number can be located. All three are reduced here.
+
+    A number that is legitimately not an integer is preserved: Knox publishes one fractional address
+    ("407.5 SIXTH AVE"), which is distinguishable from a float tail because the fraction is not zero.
+
+    Returns None for null, non-string, empty and non-numeric input, including the LBRS "-9" sentinel
+    for "no house number".
+    """
+    import re
+
+    cleaned = _clean(value)
+    if cleaned is None:
+        return None
+
+    # Only the first number of a list or a range can be placed on the map.
+    cleaned = re.split(r"[,/]|(?<=\d)-(?=\d)", cleaned)[0].strip()
+
+    if cleaned in ("", "-9"):
+        return None
+    if not cleaned[0].isdigit():
+        return None
+
+    # A trailing ".0" is a float that was written as text; ".5" is a real fractional address.
+    if re.fullmatch(r"\d+\.0+", cleaned):
+        cleaned = cleaned.split(".")[0]
+
+    # Zero padding is a Knox convention, not part of the number. Guard the all-zero case.
+    if cleaned.isdigit():
+        cleaned = cleaned.lstrip("0") or "0"
+
+    return cleaned
+
+
+def normalize_street_name(value):
+    """Return a street name in a form that can be joined on.
+
+    Upper cases, strips punctuation that the counties are inconsistent about, collapses repeated
+    whitespace ("COUNTY  ROAD 91"), and folds the spellings of a numbered route to one canonical
+    prefix via CONST_ROUTE_PREFIX_ABBREV, so that "STATE ROUTE 33", "ST RT 33" and "SR 33" all join.
+
+    Returns None for null, non-string and empty input.
+    """
+    import re
+
+    cleaned = _clean(value)
+    if cleaned is None:
+        return None
+
+    cleaned = re.sub(r"[.,]", " ", cleaned)
+    cleaned = " ".join(cleaned.split())
+    if not cleaned:
+        return None
+
+    # A route prefix only counts when a route number follows it, so that a street genuinely named
+    # "INTERSTATE" or a place called "US BANK" is left alone. Longest spelling wins.
+    tokens = cleaned.split()
+    for length in (3, 2, 1):
+        prefix = " ".join(tokens[:length])
+        if prefix in CONST_ROUTE_PREFIX_ABBREV and len(tokens) > length and tokens[length].isdigit():
+            return " ".join([CONST_ROUTE_PREFIX_ABBREV[prefix]] + tokens[length:])
+
+    return cleaned
+
+
+def parse_address(address):
+    """Split a single-line street address into the components used by the address point data.
+
+    Returns a dict with the keys streetaddr, streetname, streettype, prefixdir, suffixdir, unitnum
+    and unittype, matching the field names in morpc-addresspoints-standardize, with each value
+    normalized exactly as that dataset normalizes its own. This is the query side of a match; the
+    reference side is normalized when the geocoding index is built. Both must use these functions or
+    addresses that should join will silently fail to.
+
+    Only streetname is required to be present. A component the address does not carry is None,
+    including streetaddr when the address names no house number ("ST RT 314 NORTH"), which is not
+    locatable but is reported rather than guessed at.
+
+    Returns None when the address is null, empty, or contains no street name.
+    """
+    cleaned = _clean(address)
+    if cleaned is None:
+        return None
+
+    parsed = {key: None for key in
+              ("streetaddr", "streetname", "streettype", "prefixdir", "suffixdir", "unitnum", "unittype")}
+
+    tokens = " ".join(cleaned.replace(",", " ").split()).split()
+
+    # A unit designator ends the street address. "#" is written both joined to the number and apart.
+    for position, token in enumerate(tokens):
+        designator = token.strip(".").upper()
+        if position > 0 and (designator in CONST_UNIT_TYPES or designator.startswith("#")):
+            parsed["unittype"] = designator if not designator.startswith("#") else "#"
+            remainder = tokens[position + 1:]
+            if designator.startswith("#") and len(designator) > 1:
+                remainder = [designator[1:]] + remainder
+            parsed["unitnum"] = " ".join(remainder) or None
+            tokens = tokens[:position]
+            break
+
+    if tokens and normalize_house_number(tokens[0]) is not None:
+        parsed["streetaddr"] = normalize_house_number(tokens[0])
+        tokens = tokens[1:]
+
+    # A trailing directional is a suffix only when a street name would remain without it, so that
+    # "5989 ASTOR" keeps its name and "920 THURBER DR WEST" gives up its W.
+    if len(tokens) > 1 and normalize_directional(tokens[-1]):
+        parsed["suffixdir"] = normalize_directional(tokens[-1])
+        tokens = tokens[:-1]
+
+    # Likewise a trailing street type, which by now is last because any suffix directional is gone.
+    if len(tokens) > 1:
+        candidate = normalize_street_type(tokens[-1])
+        if candidate in CONST_STREET_TYPES:
+            parsed["streettype"] = candidate
+            tokens = tokens[:-1]
+
+    # A leading directional is a prefix only when something other than a street type remains, so
+    # that "17 NORTH ST" is North Street rather than a street with no name.
+    if len(tokens) > 1 and normalize_directional(tokens[0]):
+        parsed["prefixdir"] = normalize_directional(tokens[0])
+        tokens = tokens[1:]
+
+    parsed["streetname"] = normalize_street_name(" ".join(tokens))
+    if parsed["streetname"] is None:
+        return None
+
+    return parsed
 
 
 def geocode(addresses: list, endpoint=None):
