@@ -1,4 +1,88 @@
+import sqlite3
+
+import pytest
+
 import morpc
+
+
+@pytest.fixture
+def index(tmp_path):
+    """A geocoding index holding a handful of points, standing in for the regional database.
+
+    Passing indexPath to geocode_addresspoints() bypasses build_geocode_index(), so these tests
+    exercise the matching without the 183 MB download the real reference data requires. Values are
+    stored already normalized, exactly as the builder writes them.
+    """
+    path = str(tmp_path / "index.sqlite")
+    connection = sqlite3.connect(path)
+    connection.execute("""create table addresspoints (
+        streetaddr text, streetname text, streettype text, prefixdir text, suffixdir text,
+        city text, zip text, county text, lon real, lat real)""")
+    connection.executemany("insert into addresspoints values (?,?,?,?,?,?,?,?,?,?)", [
+        # An ordinary address.
+        ("290", "HIGH", "ST", "W", None, "OSTRANDER", "43061", "Delaware", -83.21639, 40.26325),
+        # Two units of one building, metres apart: one place.
+        ("1150", "COLONY", "DR", None, None, "WESTERVILLE", "43081", "Franklin", -82.92000, 40.12000),
+        ("1150", "COLONY", "DR", None, None, "WESTERVILLE", "43081", "Franklin", -82.92100, 40.12050),
+        # The same house number on same-named streets in two counties: two places.
+        ("3000", "BETHEL", "RD", None, None, "COLUMBUS", "43230", "Franklin", -83.08000, 40.06000),
+        ("3000", "BETHEL", "RD", None, None, "BELLEFONTAINE", "43311", "Logan", -83.76000, 40.36000),
+    ])
+    connection.commit()
+    connection.close()
+    return path
+
+
+def test_match_reports_the_exact_tier(index):
+    result = morpc.geocode_addresspoints(["290 W High St"], "unused", zipcodes=["43061"], indexPath=index)
+    assert result.loc[0, "matched"]
+    assert result.loc[0, "matchtier"] == "exact"
+    assert result.loc[0, "geometry"].x == pytest.approx(-83.21639)
+
+
+def test_match_falls_back_when_components_disagree(index):
+    # No street type in the query, so the exact tier cannot fire, but the address is still found.
+    result = morpc.geocode_addresspoints(["290 W High"], "unused", zipcodes=["43061"], indexPath=index)
+    assert result.loc[0, "matched"]
+    assert result.loc[0, "matchtier"] == "components"
+
+
+def test_units_of_one_building_return_their_centre(index):
+    result = morpc.geocode_addresspoints(["1150 COLONY DRIVE"], "unused", zipcodes=["43081"], indexPath=index)
+    assert result.loc[0, "matched"]
+    assert result.loc[0, "matchcount"] == 2
+    assert result.loc[0, "geometry"].x == pytest.approx(-82.9205)
+
+
+def test_genuinely_ambiguous_addresses_are_not_guessed(index):
+    # The same address on two streets 60 km apart, with no ZIP to tell them apart.
+    result = morpc.geocode_addresspoints(["3000 BETHEL RD"], "unused", indexPath=index)
+    assert not result.loc[0, "matched"]
+    assert result.loc[0, "geometry"] is None
+    assert result.loc[0, "matchcount"] == 2
+    assert "apart" in result.loc[0, "matchnote"]
+
+
+def test_a_zip_code_resolves_the_ambiguity(index):
+    result = morpc.geocode_addresspoints(["3000 BETHEL RD"], "unused", zipcodes=["43311"], indexPath=index)
+    assert result.loc[0, "matched"]
+    assert result.loc[0, "geometry"].x == pytest.approx(-83.76)
+
+
+def test_unmatchable_addresses_say_why(index):
+    result = morpc.geocode_addresspoints(
+        ["ST RT 314 NORTH", "999 NOWHERE RD", ""], "unused", indexPath=index)
+    assert not result["matched"].any()
+    assert "no house number" in result.loc[0, "matchnote"]
+    assert "no address point matches" in result.loc[1, "matchnote"]
+    assert "no street name" in result.loc[2, "matchnote"]
+
+
+def test_results_are_returned_in_input_order_and_projected(index):
+    addresses = ["999 NOWHERE RD", "290 W High St", "1150 COLONY DRIVE"]
+    result = morpc.geocode_addresspoints(addresses, "unused", indexPath=index)
+    assert list(result["address"]) == addresses
+    assert result.crs == "EPSG:4326"
 
 
 def test_canonical_street_types_pass_through():
@@ -106,7 +190,14 @@ def test_route_spellings_are_folded():
     assert morpc.normalize_street_name("SR 104") == "SR 104"
     assert morpc.normalize_street_name("COUNTY  ROAD 91") == "CR 91"
     assert morpc.normalize_street_name("US HIGHWAY 23") == "US 23"
-    assert morpc.normalize_street_name("US 23 N OVERPASS I-270") == "US 23 N OVERPASS I-270"
+    assert morpc.normalize_street_name("US 23 N OVERPASS I-270") == "US 23 N OVERPASS I 270"
+
+
+def test_hyphenated_names_are_split():
+    # The hyphen is inconsistent in both directions between the registries and the counties.
+    assert morpc.normalize_street_name("MARION-BUCYRUS") == "MARION BUCYRUS"
+    assert morpc.normalize_street_name("HAZELTON ETNA") == "HAZELTON ETNA"
+    assert morpc.parse_address("2388 MARION-BUCYRUS ROAD")["streetname"] == "MARION BUCYRUS"
 
 
 def test_route_prefix_requires_a_route_number():

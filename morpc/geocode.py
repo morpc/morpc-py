@@ -227,7 +227,10 @@ def normalize_street_name(value):
     if cleaned is None:
         return None
 
-    cleaned = re.sub(r"[.,]", " ", cleaned)
+    # The hyphen in a compound street name is inconsistent in both directions: the registries write
+    # "MARION-BUCYRUS ROAD" where Marion County publishes "MARION BUCYRUS", and "HAZELTON ETNA ROAD"
+    # where Licking publishes "HAZELTON-ETNA". Treating it as a space settles the question one way.
+    cleaned = re.sub(r"[.,\-]", " ", cleaned)
     cleaned = " ".join(cleaned.split())
     if not cleaned:
         return None
@@ -307,6 +310,271 @@ def parse_address(address):
         return None
 
     return parsed
+
+
+# The geocoding index stores street names and house numbers already normalized, so an index built
+# before a change to the normalization functions no longer agrees with the query side. Raise this
+# whenever normalize_street_name, normalize_house_number or normalize_zip changes what they return,
+# so that a stale index is rebuilt rather than silently matching against the old vocabulary.
+CONST_GEOCODE_INDEX_VERSION = 1
+
+
+def normalize_zip(value):
+    """Return a five digit ZIP code, or None.
+
+    Strips the float tail that Knox carries on every one of its records ("43050.0") and the
+    ZIP+4 extension that some registries publish, either of which defeats a literal join.
+    """
+    cleaned = _clean(value)
+    if cleaned is None:
+        return None
+    digits = cleaned.split(".")[0].split("-")[0].strip()
+    return digits[:5] if len(digits) >= 5 and digits[:5].isdigit() else None
+
+
+def build_geocode_index(resourcePath, indexPath=None, force=False):
+    """Build the local index that geocode_addresspoints() matches against.
+
+    The published address point database cannot be matched against directly. It carries no index on
+    the fields a match joins on, so every lookup is a full scan of 1.25 million rows; its geometry is
+    a WKB blob rather than coordinates; and its components are normalized inconsistently between
+    counties, so that Knox in particular joins against nothing. Indexing the file in place is not an
+    option either, because that changes the file and its Frictionless descriptor records a hash.
+
+    So a separate, smaller database is derived from it once: the match fields normalized through the
+    same functions the query side uses, the geometry decoded to coordinates, and an index over the
+    join. It is rebuilt automatically when the source it was derived from changes.
+
+    Parameters
+    ----------
+    resourcePath : str
+        Path to the Frictionless resource file describing morpc-addresspoints-standardize. The
+        database itself is downloaded and hash verified by morpc.frictionless.resolve_data_path if
+        it is not already cached.
+    indexPath : str
+        Optional. Where to write the index. Defaults to the source database path with a
+        ".geocodeindex.sqlite" extension, which keeps it beside the data it was derived from.
+    force : bool
+        Optional. Rebuild even if the existing index is current. Defaults to False.
+
+    Returns
+    -------
+    str
+        The path to the index.
+    """
+    import os
+    import sqlite3
+    import frictionless
+    import shapely.wkb
+    import morpc.frictionless
+
+    resource = frictionless.Resource(resourcePath)
+    sourceDir = os.path.dirname(os.path.abspath(resourcePath))
+    sourcePath = morpc.frictionless.resolve_data_path(resource, sourceDir)
+    tableName = resource.dialect.get_control("sql").table
+
+    if indexPath is None:
+        indexPath = os.path.splitext(sourcePath)[0] + ".geocodeindex.sqlite"
+
+    # An index is current only if it was built from this release of the data and by this version of
+    # the normalization. Either one moving on leaves it matching against a vocabulary nothing uses.
+    if os.path.exists(indexPath) and not force:
+        try:
+            existing = sqlite3.connect(indexPath)
+            meta = dict(existing.execute("select key, value from meta").fetchall())
+            existing.close()
+            if (meta.get("sourcehash") == resource.hash
+                    and meta.get("version") == str(CONST_GEOCODE_INDEX_VERSION)):
+                logger.info("Using existing geocoding index at {}".format(indexPath))
+                return indexPath
+            logger.info("Geocoding index at {} is out of date. Rebuilding.".format(indexPath))
+        except sqlite3.DatabaseError:
+            logger.warning("Geocoding index at {} is unreadable. Rebuilding.".format(indexPath))
+
+    logger.info("Building geocoding index at {} from {}".format(indexPath, sourcePath))
+    if os.path.exists(indexPath):
+        os.remove(indexPath)
+
+    source = sqlite3.connect("file:{}?mode=ro".format(sourcePath), uri=True)
+    index = sqlite3.connect(indexPath)
+    index.execute("create table meta (key text primary key, value text)")
+    index.execute("""create table addresspoints (
+        streetaddr text, streetname text, streettype text, prefixdir text, suffixdir text,
+        city text, zip text, county text, lon real, lat real)""")
+
+    read = source.execute("""select streetaddr, streetname, streettype, prefixdir, suffixdir,
+        city, zip, county, GEOMETRY from {}""".format(tableName))
+    written = 0
+    skipped = 0
+    while True:
+        batch = read.fetchmany(50000)
+        if not batch:
+            break
+        rows = []
+        for streetaddr, streetname, streettype, prefixdir, suffixdir, city, zip_, county, geometry in batch:
+            name = normalize_street_name(streetname)
+            if name is None or geometry is None:
+                # A record with no street name or no location cannot be matched to or returned.
+                skipped += 1
+                continue
+            point = shapely.wkb.loads(geometry)
+            rows.append((normalize_house_number(streetaddr), name, normalize_street_type(streettype),
+                         normalize_directional(prefixdir), normalize_directional(suffixdir),
+                         _clean(city), normalize_zip(zip_), county, point.x, point.y))
+        index.executemany("insert into addresspoints values (?,?,?,?,?,?,?,?,?,?)", rows)
+        written += len(rows)
+    source.close()
+
+    index.execute("create index idx_number_name on addresspoints(streetaddr, streetname)")
+    index.execute("insert into meta values ('sourcehash', ?)", (resource.hash,))
+    index.execute("insert into meta values ('sourcepath', ?)", (resource.path,))
+    index.execute("insert into meta values ('version', ?)", (str(CONST_GEOCODE_INDEX_VERSION),))
+    index.commit()
+    index.close()
+    logger.info("Geocoding index holds {:,} records. {:,} were skipped for want of a street name "
+                "or a location.".format(written, skipped))
+    return indexPath
+
+
+def geocode_addresspoints(addresses, resourcePath, zipcodes=None, indexPath=None, tolerance=500):
+    """Geocode street addresses by matching them against MORPC's regional address points.
+
+    This is the local alternative to geocode(), which calls Nominatim. It is offline, reproducible,
+    and better on in-region addresses, but it can only find an address that a county auditor has
+    published a point for, and only within the MORPC 15-county region.
+
+    Matching proceeds in tiers, from every component to the house number and street name alone, and
+    the tier that produced each result is reported so that a caller can decide how much to trust it.
+    Where a tier finds several points more than `tolerance` apart and nothing distinguishes them, no
+    point is returned and the result is reported as ambiguous. An address that is honestly unmatched
+    is more useful than a point that is quietly wrong.
+
+    Parameters
+    ----------
+    addresses : list
+        Single-line street addresses ("1234 E MAIN ST"). Anything parse_address() accepts.
+    resourcePath : str
+        Path to the Frictionless resource file describing morpc-addresspoints-standardize. Pin the
+        descriptor from a specific release to pin the reference data.
+    zipcodes : list
+        Optional. ZIP codes parallel to `addresses`, used to disambiguate a street name that occurs
+        in more than one community. Strongly recommended: without one, common street names in
+        Franklin County are frequently ambiguous.
+    indexPath : str
+        Optional. Path to the geocoding index. See build_geocode_index().
+    tolerance : float
+        Optional. Metres within which several matched points are treated as one place -- the units
+        of an apartment building, or the buildings of a hospital campus -- and returned as their
+        centre. Beyond it they are treated as different places and the address is left unmatched.
+        Defaults to 500, which is above the widest campus observed in the validation facilities
+        (353 m across 133 points) and well below the closest genuine collision (two "BETHEL RD"
+        addresses 75 km apart).
+
+    Returns
+    -------
+    geopandas.GeoDataFrame
+        One row per input address, in input order, in EPSG:4326. Carries the parsed components, the
+        geometry where one was found, and the match reporting fields:
+
+        matched     : bool, whether a point was returned.
+        matchtier   : "exact" (every component), "components" (house number, street name and ZIP),
+                      "number_name" (house number and street name alone), or None.
+        matchcount  : number of address points the winning tier found.
+        matchspread : metres between the furthest apart of them.
+        matchnote   : why an address was not matched, where it was not.
+    """
+    import math
+    import sqlite3
+    import pandas as pd
+    import geopandas as gpd
+    import shapely
+
+    if zipcodes is None:
+        zipcodes = [None] * len(addresses)
+    if len(zipcodes) != len(addresses):
+        logger.error("zipcodes must be the same length as addresses.")
+        raise ValueError
+
+    if indexPath is None:
+        indexPath = build_geocode_index(resourcePath)
+    index = sqlite3.connect("file:{}?mode=ro".format(indexPath), uri=True)
+
+    def separation(candidates):
+        """Metres across the bounding box of the candidate points.
+
+        The diagonal of the box rather than the true furthest pair, which is the same number for the
+        two point case that matters and an upper bound otherwise, computed in one pass rather than
+        the n squared a common street name would cost.
+        """
+        if len(candidates) < 2:
+            return 0.0
+        lons = [c[0] for c in candidates]
+        lats = [c[1] for c in candidates]
+        midLatitude = math.radians((min(lats) + max(lats)) / 2)
+        northing = (max(lats) - min(lats)) * 111320
+        easting = (max(lons) - min(lons)) * 111320 * math.cos(midLatitude)
+        return math.hypot(northing, easting)
+
+    results = []
+    for address, zipcode in zip(addresses, zipcodes):
+        parsed = parse_address(address)
+        record = {"address": address, "matched": False, "matchtier": None, "matchcount": 0,
+                  "matchspread": None, "matchnote": None, "lon": None, "lat": None}
+
+        if parsed is None:
+            record["matchnote"] = "no street name could be parsed from the address"
+            results.append(record)
+            continue
+        record.update(parsed)
+
+        if parsed["streetaddr"] is None:
+            record["matchnote"] = "address carries no house number, so it cannot be located"
+            results.append(record)
+            continue
+
+        zipcode = normalize_zip(zipcode)
+        tiers = [
+            ("exact", "streetaddr=? and streetname=? and streettype is ? and prefixdir is ? and suffixdir is ?"
+                      + (" and zip=?" if zipcode else ""),
+             [parsed["streetaddr"], parsed["streetname"], parsed["streettype"],
+              parsed["prefixdir"], parsed["suffixdir"]] + ([zipcode] if zipcode else [])),
+            ("components", "streetaddr=? and streetname=?" + (" and zip=?" if zipcode else ""),
+             [parsed["streetaddr"], parsed["streetname"]] + ([zipcode] if zipcode else [])),
+            ("number_name", "streetaddr=? and streetname=?",
+             [parsed["streetaddr"], parsed["streetname"]]),
+        ]
+
+        for tier, where, parameters in tiers:
+            candidates = index.execute(
+                "select lon, lat from addresspoints where " + where, parameters).fetchall()
+            if not candidates:
+                continue
+            spread = separation(candidates)
+            record.update({"matchtier": tier, "matchcount": len(candidates),
+                           "matchspread": round(spread, 1)})
+            if spread > tolerance:
+                record["matchnote"] = ("{} address points {:,.0f} m apart match equally well"
+                                       .format(len(candidates), spread))
+                break
+            # One address commonly matches many points -- the units of an apartment building, or the
+            # buildings of a hospital campus. They are one place, so the result is their centre.
+            record.update({"matched": True,
+                           "lon": sum(c[0] for c in candidates) / len(candidates),
+                           "lat": sum(c[1] for c in candidates) / len(candidates)})
+            break
+        else:
+            record["matchnote"] = "no address point matches this house number and street name"
+
+        results.append(record)
+
+    index.close()
+    frame = pd.DataFrame(results)
+    geometry = [shapely.Point(lon, lat) if pd.notna(lon) else None
+                for lon, lat in zip(frame["lon"], frame["lat"])]
+    frame = frame.drop(columns=["lon", "lat"])
+    logger.info("Matched {:,} of {:,} addresses against the address points."
+                .format(int(frame["matched"].sum()), len(frame)))
+    return gpd.GeoDataFrame(frame, geometry=geometry, crs="EPSG:4326")
 
 
 def geocode(addresses: list, endpoint=None):
