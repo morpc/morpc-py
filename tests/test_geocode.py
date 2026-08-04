@@ -17,16 +17,22 @@ def index(tmp_path):
     connection = sqlite3.connect(path)
     connection.execute("""create table addresspoints (
         streetaddr text, streetname text, streettype text, prefixdir text, suffixdir text,
-        city text, zip text, county text, lon real, lat real)""")
-    connection.executemany("insert into addresspoints values (?,?,?,?,?,?,?,?,?,?)", [
+        city text, zip text, county text, lon real, lat real, routenum text)""")
+    connection.executemany("insert into addresspoints values (?,?,?,?,?,?,?,?,?,?,?)", [
         # An ordinary address.
-        ("290", "HIGH", "ST", "W", None, "OSTRANDER", "43061", "Delaware", -83.21639, 40.26325),
+        ("290", "HIGH", "ST", "W", None, "OSTRANDER", "43061", "Delaware", -83.21639, 40.26325, None),
         # Two units of one building, metres apart: one place.
-        ("1150", "COLONY", "DR", None, None, "WESTERVILLE", "43081", "Franklin", -82.92000, 40.12000),
-        ("1150", "COLONY", "DR", None, None, "WESTERVILLE", "43081", "Franklin", -82.92100, 40.12050),
+        ("1150", "COLONY", "DR", None, None, "WESTERVILLE", "43081", "Franklin", -82.92000, 40.12000, None),
+        ("1150", "COLONY", "DR", None, None, "WESTERVILLE", "43081", "Franklin", -82.92100, 40.12050, None),
         # The same house number on same-named streets in two counties: two places.
-        ("3000", "BETHEL", "RD", None, None, "COLUMBUS", "43230", "Franklin", -83.08000, 40.06000),
-        ("3000", "BETHEL", "RD", None, None, "BELLEFONTAINE", "43311", "Logan", -83.76000, 40.36000),
+        ("3000", "BETHEL", "RD", None, None, "COLUMBUS", "43230", "Franklin", -83.08000, 40.06000, None),
+        ("3000", "BETHEL", "RD", None, None, "BELLEFONTAINE", "43311", "Logan", -83.76000, 40.36000, None),
+        # A route published without its class, as Delaware publishes US 42.
+        ("844", "42", None, None, "N", "DELAWARE", "43015", "Delaware", -83.06000, 40.29000, "42"),
+        # Two different roads sharing a number, as Logan publishes both CR 32 and TR 32. Far enough
+        # apart that folding them together would be caught rather than silently averaged.
+        ("284", "CR 32", None, None, None, "BELLEFONTAINE", "43311", "Logan", -83.75000, 40.35000, "32"),
+        ("284", "TR 32", None, None, None, "BELLEFONTAINE", "43311", "Logan", -83.70000, 40.40000, "32"),
     ])
     connection.commit()
     connection.close()
@@ -263,3 +269,42 @@ def test_canonical_sets_are_self_consistent():
         assert morpc.normalize_street_type(value) == value
     for value in morpc.CONST_DIRECTIONALS:
         assert morpc.normalize_directional(value) == value
+
+
+def test_route_number_reads_a_route_with_or_without_its_class():
+    assert morpc.route_number("US 42") == "42"
+    assert morpc.route_number("State Route 104") == "104"
+    assert morpc.route_number("42") == "42"
+    # Not numbered routes.
+    assert morpc.route_number("HIGH") is None
+    assert morpc.route_number("US BANK") is None
+    assert morpc.route_number(None) is None
+
+
+def test_route_number_tier_matches_a_county_that_omits_the_class(index):
+    # Delaware publishes US 42 as the street name "42", so the regionally normalized query finds
+    # nothing under the full name and falls through to the route number.
+    result = morpc.geocode_addresspoints(["844 US 42 N"], "unused", indexPath=index)
+    assert result.loc[0, "matched"]
+    assert result.loc[0, "matchtier"] == "route_number"
+    assert result.loc[0, "geometry"].x == pytest.approx(-83.06000)
+
+
+def test_route_number_does_not_displace_a_full_street_name(index):
+    # Logan publishes both CR 32 and TR 32. The full name matches, so the looser tier never runs and
+    # the two roads are not folded together.
+    result = morpc.geocode_addresspoints(["284 CR 32"], "unused", indexPath=index)
+    assert result.loc[0, "matched"]
+    assert result.loc[0, "matchtier"] != "route_number"
+    assert result.loc[0, "matchcount"] == 1
+    assert result.loc[0, "geometry"].x == pytest.approx(-83.75000)
+
+
+def test_route_number_reports_ambiguity_rather_than_averaging(index):
+    # SR 32 is in neither the full names nor a single road, so the route number tier finds Logan's
+    # CR 32 and TR 32 together. They are kilometres apart, so the address is left unmatched.
+    result = morpc.geocode_addresspoints(["284 SR 32"], "unused", indexPath=index)
+    assert not result.loc[0, "matched"]
+    assert result.loc[0, "matchtier"] == "route_number"
+    assert result.loc[0, "matchcount"] == 2
+    assert "apart" in result.loc[0, "matchnote"]

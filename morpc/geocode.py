@@ -246,6 +246,37 @@ def normalize_street_name(value):
     return cleaned
 
 
+def route_number(name):
+    """Return the number of a numbered route, whether or not the name carries its class.
+
+    The counties disagree about whether a route name includes the class that qualifies it. Most of
+    the region publishes "US 42" and "SR 104", but 4,328 points across Delaware, Union, Fayette,
+    Franklin and Logan name the route by number alone -- Delaware holds the point for "844 US 42 N"
+    under the street name "42". A query normalized to the regional form cannot join against those,
+    so the index carries this looser key alongside the full name.
+
+    It is deliberately not a substitute for the street name. Logan publishes both "CR 32" and
+    "TR 32", and fifteen other county-and-number pairs are likewise two different roads, so folding
+    the class away entirely would merge them. Matching on this key is a last resort, after the full
+    name has found nothing, and is reported as its own tier.
+
+    Returns None for a name that is not a numbered route.
+    """
+    cleaned = normalize_street_name(name)
+    if cleaned is None:
+        return None
+
+    tokens = cleaned.split()
+    # normalize_street_name has already folded the class to its abbreviation, so a route name is
+    # either "<CLASS> <number>..." or, for the counties that omit the class, "<number>" alone.
+    if len(tokens) > 1 and tokens[0] in set(CONST_ROUTE_PREFIX_ABBREV.values()) and tokens[1].isdigit():
+        return " ".join(tokens[1:])
+    if tokens[0].isdigit():
+        return cleaned
+
+    return None
+
+
 def parse_address(address):
     """Split a single-line street address into the components used by the address point data.
 
@@ -316,7 +347,7 @@ def parse_address(address):
 # before a change to the normalization functions no longer agrees with the query side. Raise this
 # whenever normalize_street_name, normalize_house_number or normalize_zip changes what they return,
 # so that a stale index is rebuilt rather than silently matching against the old vocabulary.
-CONST_GEOCODE_INDEX_VERSION = 1
+CONST_GEOCODE_INDEX_VERSION = 2
 
 
 def normalize_zip(value):
@@ -400,7 +431,7 @@ def build_geocode_index(resourcePath, indexPath=None, force=False):
     index.execute("create table meta (key text primary key, value text)")
     index.execute("""create table addresspoints (
         streetaddr text, streetname text, streettype text, prefixdir text, suffixdir text,
-        city text, zip text, county text, lon real, lat real)""")
+        city text, zip text, county text, lon real, lat real, routenum text)""")
 
     read = source.execute("""select streetaddr, streetname, streettype, prefixdir, suffixdir,
         city, zip, county, GEOMETRY from {}""".format(tableName))
@@ -420,12 +451,14 @@ def build_geocode_index(resourcePath, indexPath=None, force=False):
             point = shapely.wkb.loads(geometry)
             rows.append((normalize_house_number(streetaddr), name, normalize_street_type(streettype),
                          normalize_directional(prefixdir), normalize_directional(suffixdir),
-                         _clean(city), normalize_zip(zip_), county, point.x, point.y))
-        index.executemany("insert into addresspoints values (?,?,?,?,?,?,?,?,?,?)", rows)
+                         _clean(city), normalize_zip(zip_), county, point.x, point.y,
+                         route_number(name)))
+        index.executemany("insert into addresspoints values (?,?,?,?,?,?,?,?,?,?,?)", rows)
         written += len(rows)
     source.close()
 
     index.execute("create index idx_number_name on addresspoints(streetaddr, streetname)")
+    index.execute("create index idx_route_number on addresspoints(streetaddr, routenum)")
     index.execute("insert into meta values ('sourcehash', ?)", (resource.hash,))
     index.execute("insert into meta values ('sourcepath', ?)", (resource.path,))
     index.execute("insert into meta values ('version', ?)", (str(CONST_GEOCODE_INDEX_VERSION),))
@@ -478,7 +511,9 @@ def geocode_addresspoints(addresses, resourcePath, zipcodes=None, indexPath=None
 
         matched     : bool, whether a point was returned.
         matchtier   : "exact" (every component), "components" (house number, street name and ZIP),
-                      "number_name" (house number and street name alone), or None.
+                      "number_name" (house number and street name alone), "route_number" (house
+                      number and route number, for the counties that publish a route without its
+                      class), or None.
         matchcount  : number of address points the winning tier found.
         matchspread : metres between the furthest apart of them.
         matchnote   : why an address was not matched, where it was not.
@@ -543,6 +578,15 @@ def geocode_addresspoints(addresses, resourcePath, zipcodes=None, indexPath=None
             ("number_name", "streetaddr=? and streetname=?",
              [parsed["streetaddr"], parsed["streetname"]]),
         ]
+
+        # The counties disagree about whether a numbered route name carries its class, so a query
+        # normalized to "US 42" finds nothing where a county published "42". Matching on the number
+        # alone recovers those, but it cannot distinguish Logan's "CR 32" from its "TR 32", so it
+        # runs only after the full name has failed and is reported as its own tier.
+        number = route_number(parsed["streetname"])
+        if number is not None:
+            tiers.append(("route_number", "streetaddr=? and routenum=?" + (" and zip=?" if zipcode else ""),
+                          [parsed["streetaddr"], number] + ([zipcode] if zipcode else [])))
 
         for tier, where, parameters in tiers:
             candidates = index.execute(
