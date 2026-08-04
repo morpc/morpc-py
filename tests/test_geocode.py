@@ -3,6 +3,7 @@ import sqlite3
 import pytest
 
 import morpc
+from morpc.geocode import _strip_postal_tail
 
 
 @pytest.fixture
@@ -308,3 +309,35 @@ def test_route_number_reports_ambiguity_rather_than_averaging(index):
     assert result.loc[0, "matchtier"] == "route_number"
     assert result.loc[0, "matchcount"] == 2
     assert "apart" in result.loc[0, "matchnote"]
+
+
+def test_postal_tail_is_stripped_before_parsing():
+    # ODRC publishes a full postal address where DODD and CMS publish the street line alone.
+    parsed = morpc.parse_address("1990 Harmon Avenue, Columbus, OH 43223")
+    assert parsed["streetaddr"] == "1990"
+    assert parsed["streetname"] == "HARMON"
+    # The street type is inside the tail, so it is lost too when the tail is not removed.
+    assert parsed["streettype"] == "AVE"
+
+
+def test_postal_tail_variants():
+    # Spelled-out state, a trailing parenthetical note, and no city segment at all.
+    assert morpc.parse_address("5900 BIS Rd SW, Lancaster, Ohio 43130")["streetname"] == "BIS"
+    assert morpc.parse_address(
+        "16197 State Route 104, Chillicothe, OH 45601, (visitor entrance)")["streetname"] == "SR 104"
+    assert morpc.parse_address("1234 Main St, OH 43215")["streetname"] == "MAIN"
+
+
+def test_a_comma_alone_is_not_a_postal_tail():
+    # DODD writes a directional after a comma, and names every unit of a building with commas.
+    # Neither is a postal tail, and cutting at the comma would discard part of the address. Asserted
+    # against the strip itself: what these addresses go on to parse to is a separate question, and
+    # the first two of them parse imperfectly for reasons that predate the strip.
+    for address in ["1359 STATE ROUTE #38, SOUTHEAST",
+                    "4410,4412,4416,4418,4424,4426 MORSE RD",
+                    "1990 HARMON AVENUE, COLUMBUS"]:
+        assert _strip_postal_tail(address) == address
+
+
+def test_a_street_named_for_the_state_is_not_stripped():
+    assert morpc.parse_address("123 Ohio Ave")["streetname"] == "OHIO"
