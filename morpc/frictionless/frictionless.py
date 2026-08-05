@@ -668,7 +668,7 @@ def create_resource(dataPath, title=None, name=None, description=None, sources=N
     else:
         resourceProfile = "data-resource"
 
-    resource = frictionless.Resource.from_descriptor({
+    resourceDescriptor = {
         "name": resourceName,
         "title": resourceTitle,
         "description": resourceDescription,
@@ -676,7 +676,15 @@ def create_resource(dataPath, title=None, name=None, description=None, sources=N
         "path": dataFilePath,
         "format": resourceFormat,
         "mediatype": resourceMediaType,
-    })
+    }
+    # Frictionless has no built-in parser for GeoPackage, so morpc.frictionless.gpkg registers a
+    # "gpkg" resource type. That registration is only picked up if "type" is set explicitly here --
+    # otherwise Frictionless falls back to its generic FileResource, which GpkgResource.validate()
+    # is needed to avoid.
+    if resourceFormat == "gpkg":
+        resourceDescriptor["type"] = "gpkg"
+
+    resource = frictionless.Resource.from_descriptor(resourceDescriptor)
 
     if control != None:
         resource = frictionless.Resource(resource.to_dict(), control=control)
@@ -1044,7 +1052,15 @@ def load_data(resourcePath, archiveDir=None, validate=False, forceInteger=False,
         data = pd.read_csv(targetData, dtype="str")
     elif(dataFileExtension == ".xlsx"):
         data = pd.read_excel(targetData, sheet_name=sheetName)
-    elif(dataFileExtension in [".gpkg",".shp",".geojson",".gdb"]):
+    elif(dataFileExtension == ".gpkg"):
+        if(layerName == None):
+            # Fall back to the layer name stored in the resource's gpkg control, if present.
+            gpkgControl = resource.dialect.get_control("gpkg") if resource.dialect.has_control("gpkg") else None
+            if(gpkgControl != None and gpkgControl.layer != None):
+                layerName = gpkgControl.layer
+                logger.info("Layer name not specified. Using layer name from resource gpkg control: {}".format(layerName))
+        data = morpc.load_spatial_data(targetData, layerName=layerName, driverName=driverName)
+    elif(dataFileExtension in [".shp",".geojson",".gdb"]):
         data = morpc.load_spatial_data(targetData, layerName=layerName, driverName=driverName)
     elif(dataFileExtension == ".sqlite"):
         import sqlite3
