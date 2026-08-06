@@ -1015,9 +1015,9 @@ class varLookup():
         aliasesSchema = morpc.frictionless.load_schema(dictionaryPath.replace(".xlsx","-Aliases.schema.yaml"))
         contextsSchema = morpc.frictionless.load_schema(dictionaryPath.replace(".xlsx","-Contexts.schema.yaml"))
 
-        variables = morpc.frictionless.cast_field_types(variables, variablesSchema, verbose=False)
-        aliases = morpc.frictionless.cast_field_types(aliases, aliasesSchema, verbose=False)
-        contexts = morpc.frictionless.cast_field_types(contexts, contextsSchema, verbose=False)
+        variables = morpc.frictionless.cast_field_types(variables, variablesSchema)
+        aliases = morpc.frictionless.cast_field_types(aliases, aliasesSchema)
+        contexts = morpc.frictionless.cast_field_types(contexts, contextsSchema)
 
         self.dictionaryPath = dictionaryPath
         self.variables = variables.copy()
@@ -1228,7 +1228,7 @@ def avro_map_from_first_alias(schema):
     return fieldMap
 
 # Wrapper for backward compatibility
-def cast_field_types(df, schema, forceInteger=False, forceInt64=False, handleMissingFields='error', verbose=True):
+def cast_field_types(df, schema, forceInteger=False, forceInt64=False, handleMissingFields='error'):
     """
     Wrapper for backward compatibility with AVRO Schema
 
@@ -1236,21 +1236,20 @@ def cast_field_types(df, schema, forceInteger=False, forceInt64=False, handleMis
     import morpc
     # If schema is a dict object, assume it is in Avro format
     if(type(schema) == dict):
-        outDF = avro_cast_field_types(df, schema, forceInteger=forceInteger, forceInt64=forceInt64, verbose=verbose)
+        outDF = avro_cast_field_types(df, schema, forceInteger=forceInteger, forceInt64=forceInt64)
     # Otherwise, assume it is in Frictionless format
     else:
-        outDF = morpc.frictionless.cast_field_types(df, schema, forceInteger=forceInteger, forceInt64=forceInt64, handleMissingFields=handleMissingFields, verbose=verbose)
+        outDF = morpc.frictionless.cast_field_types(df, schema, forceInteger=forceInteger, forceInt64=forceInt64, handleMissingFields=handleMissingFields)
     return outDF
 
 # Given a dataframe and the Avro dictionary object that describes its schema (see load_avro_schema), recast each of the fields in the dataframe
 # to the data type specified in the schema.    
-def avro_cast_field_types(df, schema, forceInteger=False, forceInt64=False, verbose=True):
+def avro_cast_field_types(df, schema, forceInteger=False, forceInt64=False):
     outDF = df.copy()
     for field in schema["fields"]:
         fieldName = field["name"]
         fieldType = field["type"]    
-        if(verbose):
-            print("Casting field {} as type {}.".format(fieldName, fieldType))
+        print("Casting field {} as type {}.".format(fieldName, fieldType))
         # The following section is necessary because the pandas "int" type does not support null values.  If null values are present,
         # the field must be cast as "Int64" instead.
         if((fieldType == "int") or (fieldType == "integer")):
