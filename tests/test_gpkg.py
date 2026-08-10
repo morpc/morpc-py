@@ -251,6 +251,39 @@ def test_load_package_loads_every_resource_by_default(tmp_path):
     assert pointsSchema.field_names == ["addr_id", "housenum"]
 
 
+def test_load_package_mixed_formats(tmp_path):
+    # A package's resources don't need to share a format -- a GPKG layer and a plain CSV can sit in
+    # the same package, and each should dispatch to the right loader on its own.
+    import pandas as pd
+
+    from morpc.frictionless import create_resource
+
+    _build_gpkg()
+    create_gpkgresource(
+        "addresspoints.gpkg", layerNames=["points"], schemaPaths=["points.schema.yaml"],
+        resourceDir=".", writeResource=True,
+    )
+    pd.DataFrame({"county": ["Franklin", "Delaware"], "count": [10, 20]}).to_csv("summary.csv", index=False)
+    with open("summary.schema.yaml", "w") as f:
+        f.write("fields:\n  - name: county\n    type: string\n  - name: count\n    type: integer\n")
+    create_resource(
+        "summary.csv", resourcePath="summary.resource.yaml", schemaPath="summary.schema.yaml",
+        name="summary", writeResource=True,
+    )
+    create_package(
+        dir=".", resources=["addresspoints-points.resource.yaml", "summary.resource.yaml"],
+        name="mixed", version="1.0.0",
+    )
+
+    results = load_package("mixed.package.yaml")
+
+    assert set(results) == {"addresspoints-points", "summary"}
+    pointsData = results["addresspoints-points"][0]
+    assert "geometry" in pointsData.columns
+    summaryData = results["summary"][0]
+    assert summaryData["count"].tolist() == [10, 20]
+
+
 def test_load_package_local_package_with_separate_archive_dir(tmp_path):
     # A local (not-yet-released) package's resource paths are relative to the package's own
     # directory, not to an archiveDir the caller points somewhere else -- and frictionless refuses to

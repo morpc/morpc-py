@@ -1156,7 +1156,13 @@ def load_package(packagePath, resources=None, archiveDir=None, validate=False, *
         Passed through to load_data() for every selected resource.
     **kwargs
         Passed through to load_data() for every selected resource (forceInteger, useSchema, layerName,
-        etc.), applied identically to all of them.
+        etc.), applied identically to all of them. A package's resources don't need to share a format
+        -- CSV, GPKG (single or multiple layers), and SQLite resources can be mixed freely in one
+        package and each loads correctly, since each carries its own layer/table control that
+        load_data() falls back to when not overridden. Leave layerName/tableName/sheetName unset for a
+        mixed package so each resource resolves from its own control; there is no way to pass a
+        different override to two different resources in one call -- load_package() twice with
+        resources= instead if that's ever needed.
 
     Returns
     -------
