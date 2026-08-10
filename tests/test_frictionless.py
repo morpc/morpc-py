@@ -262,3 +262,28 @@ def test_create_package_writes_created_as_an_iso8601_string(tmp_path):
     # one and the Data Package spec requires a string. See #165.
     assert isinstance(descriptor["created"], str)
     datetime.datetime.fromisoformat(descriptor["created"])
+
+
+def test_create_package_writes_resources_as_inline_descriptors(tmp_path):
+    # A Resource loaded from a descriptor path retains that path for lossless round-tripping, so
+    # naively embedding it in a Package would serialize back out as a bare filename string rather
+    # than an object. That form fails the Data Package schema on reload (each package resource must
+    # be an object), so the written package must always carry the full resource descriptor inline.
+    import frictionless
+
+    from morpc.frictionless import create_package, create_resource
+
+    (tmp_path / "data.csv").write_bytes(b"id,name\r\n1,alice\r\n")
+    create_resource(
+        "data.csv",
+        resourcePath=str(tmp_path / "data.resource.yaml"),
+        ignoreSchema=True,
+        name="parcels",
+        writeResource=True,
+    )
+    create_package(dir=str(tmp_path), resources=["data.resource.yaml"], name="bundle", version="2026.7.30")
+
+    # Must round-trip through frictionless.Package() without a "not of type 'object'" schema error.
+    reloaded = frictionless.Package(str(tmp_path / "bundle.package.yaml"))
+    assert isinstance(reloaded.resources[0].to_dict(), dict)
+    assert reloaded.resources[0].name == "parcels"

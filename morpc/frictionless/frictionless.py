@@ -1184,7 +1184,12 @@ def create_package(dir: PathLike, resources: List[str], name: str, version: str 
             logger.error(f"Version is not valid: {e}")
 
     with tempWorkingDirectory(dir):
-        resources = [frictionless.Resource(x) for x in resources]
+        # Resource.to_dict() is rebuilt into a fresh Resource rather than used directly: a Resource
+        # loaded from a descriptor path retains that path for lossless round-tripping, so passing it
+        # straight into Package() would serialize it back out as a bare filename string instead of an
+        # inline descriptor. That collapsed form fails to reload (Frictionless requires each package
+        # resource to be an object, not a string), so it must be expanded here before bundling.
+        resources = [frictionless.Resource(frictionless.Resource(x).to_dict()) for x in resources]
 
         package = frictionless.Package(
             name=name,

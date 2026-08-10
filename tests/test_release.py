@@ -439,14 +439,13 @@ def test_prepare_release_rewrites_descriptors_and_creates_package(tmp_path):
     assert reread2.path.endswith("/download/v2026.7.22/data2.csv")
     assert reread2.custom["_cache"] == "data2.csv"
 
-    # frictionless.Package.to_yaml() writes resources as bare path strings, which
-    # frictionless.Package() itself cannot re-read (a pre-existing quirk unrelated to this
-    # function), so read the version back as plain YAML instead of round-tripping through frictionless.
-    import yaml
-
-    packageDescriptor = yaml.safe_load((tmp_path / "bundle.package.yaml").read_text())
-    assert packageDescriptor["version"] == "2026.7.22"
-    assert packageDescriptor["resources"] == ["data1.resource.yaml", "data2.resource.yaml"]
+    # The package descriptor must round-trip through frictionless.Package() itself, which requires
+    # each resource to be an inline object rather than a bare path string.
+    package = frictionless.Package(str(tmp_path / "bundle.package.yaml"))
+    assert package.version == "2026.7.22"
+    assert [r.name for r in package.resources] == ["one", "two"]
+    assert package.resources[0].path.endswith("/download/v2026.7.22/data1.csv")
+    assert package.resources[1].path.endswith("/download/v2026.7.22/data2.csv")
 
 
 def test_prepare_release_accepts_a_bare_string_path(tmp_path):
