@@ -3,8 +3,9 @@ import pandas as pd
 import pytest
 from shapely.geometry import Point, Polygon
 
-from morpc.frictionless import create_gpkgresource, create_package, load_data, load_resource, validate_resource
+from morpc.frictionless import create_gpkgresource, create_package, load_data, load_package, load_resource, validate_resource
 from morpc.frictionless.gpkg import GpkgControl, GpkgResource
+from morpc.frictionless.release import prepare_release
 
 
 POINTS_SCHEMA_YAML = """\
@@ -216,3 +217,145 @@ def test_create_package_bundles_multiple_layers_of_one_gpkg(tmp_path):
     for resource in package.resources:
         report = resource.validate()
         assert report.valid, report.errors
+
+
+# --- load_package ---
+
+def _build_gpkg_package(tmp_path, name="addresspoints"):
+    """Two-layer local package, the shape create_package() now writes (inline resources)."""
+    _build_gpkg()
+    create_gpkgresource(
+        "addresspoints.gpkg",
+        layerNames=["points", "ranges"],
+        schemaPaths=["points.schema.yaml", "ranges.schema.yaml"],
+        resourceDir=".",
+        writeResource=True,
+    )
+    create_package(
+        dir=".",
+        resources=["addresspoints-points.resource.yaml", "addresspoints-ranges.resource.yaml"],
+        name=name,
+        version="1.0.0",
+    )
+    return f"{name}.package.yaml"
+
+
+def test_load_package_loads_every_resource_by_default(tmp_path):
+    packagePath = _build_gpkg_package(tmp_path)
+    results = load_package(packagePath)
+
+    assert set(results) == {"addresspoints-points", "addresspoints-ranges"}
+    pointsData, pointsResource, pointsSchema = results["addresspoints-points"]
+    assert sorted(pointsData["housenum"].tolist()) == ["100", "102"]
+    assert pointsResource.name == "addresspoints-points"
+    assert pointsSchema.field_names == ["addr_id", "housenum"]
+
+
+def test_load_package_mixed_formats(tmp_path):
+    # A package's resources don't need to share a format -- a GPKG layer and a plain CSV can sit in
+    # the same package, and each should dispatch to the right loader on its own.
+    import pandas as pd
+
+    from morpc.frictionless import create_resource
+
+    _build_gpkg()
+    create_gpkgresource(
+        "addresspoints.gpkg", layerNames=["points"], schemaPaths=["points.schema.yaml"],
+        resourceDir=".", writeResource=True,
+    )
+    pd.DataFrame({"county": ["Franklin", "Delaware"], "count": [10, 20]}).to_csv("summary.csv", index=False)
+    with open("summary.schema.yaml", "w") as f:
+        f.write("fields:\n  - name: county\n    type: string\n  - name: count\n    type: integer\n")
+    create_resource(
+        "summary.csv", resourcePath="summary.resource.yaml", schemaPath="summary.schema.yaml",
+        name="summary", writeResource=True,
+    )
+    create_package(
+        dir=".", resources=["addresspoints-points.resource.yaml", "summary.resource.yaml"],
+        name="mixed", version="1.0.0",
+    )
+
+    results = load_package("mixed.package.yaml")
+
+    assert set(results) == {"addresspoints-points", "summary"}
+    pointsData = results["addresspoints-points"][0]
+    assert "geometry" in pointsData.columns
+    summaryData = results["summary"][0]
+    assert summaryData["count"].tolist() == [10, 20]
+
+
+def test_load_package_local_package_with_separate_archive_dir(tmp_path):
+    # A local (not-yet-released) package's resource paths are relative to the package's own
+    # directory, not to an archiveDir the caller points somewhere else -- and frictionless refuses to
+    # accept an absolute path in a descriptor ("is not safe"), so this only works if the underlying
+    # data is actually copied into archiveDir rather than just referenced by a rewritten path.
+    packagePath = _build_gpkg_package(tmp_path)
+    cacheDir = str(tmp_path / "cache")
+
+    results = load_package(packagePath, archiveDir=cacheDir)
+
+    assert set(results) == {"addresspoints-points", "addresspoints-ranges"}
+    assert sorted(results["addresspoints-points"][0]["housenum"].tolist()) == ["100", "102"]
+    assert (tmp_path / "cache" / "addresspoints.gpkg").exists()
+
+
+def test_load_package_filters_by_resource_name(tmp_path):
+    packagePath = _build_gpkg_package(tmp_path)
+    results = load_package(packagePath, resources="addresspoints-points")
+
+    assert set(results) == {"addresspoints-points"}
+
+
+def test_load_package_unknown_resource_name_raises(tmp_path):
+    packagePath = _build_gpkg_package(tmp_path)
+    with pytest.raises(RuntimeError):
+        load_package(packagePath, resources=["does-not-exist"])
+
+
+def test_load_package_url_without_archive_dir_raises():
+    with pytest.raises(RuntimeError):
+        load_package("https://example.org/bundle.package.yaml")
+
+
+def test_load_package_fetches_shared_data_file_once(tmp_path, monkeypatch):
+    # Both layers point at the same underlying .gpkg once published as a release. Loading both
+    # resources should download that file exactly once, not once per resource.
+    import shutil
+
+    import morpc.req
+
+    _build_gpkg()
+    create_gpkgresource(
+        "addresspoints.gpkg",
+        layerNames=["points", "ranges"],
+        schemaPaths=["points.schema.yaml", "ranges.schema.yaml"],
+        resourceDir=".",
+        writeResource=True,
+    )
+    prepare_release(
+        ["addresspoints-points.resource.yaml", "addresspoints-ranges.resource.yaml"],
+        "morpc",
+        "addresspoints-standardize",
+        "v2026.7.30",
+        packageName="addresspoints",
+    )
+
+    origin = tmp_path / "origin.gpkg"
+    shutil.copyfile("addresspoints.gpkg", str(origin))
+
+    calls = []
+
+    def _fake_download(url, output_dir, returnPath=False, **kwargs):
+        calls.append(url)
+        target = f"{output_dir}/addresspoints.gpkg"
+        shutil.copyfile(str(origin), target)
+        return target
+
+    monkeypatch.setattr(morpc.req, "get_file_safely", _fake_download)
+
+    cacheDir = str(tmp_path / "cache")
+    results = load_package("addresspoints.package.yaml", archiveDir=cacheDir)
+
+    assert len(calls) == 1
+    assert set(results) == {"addresspoints-points", "addresspoints-ranges"}
+    assert sorted(results["addresspoints-points"][0]["housenum"].tolist()) == ["100", "102"]
