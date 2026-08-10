@@ -359,3 +359,140 @@ def test_load_package_fetches_shared_data_file_once(tmp_path, monkeypatch):
     assert len(calls) == 1
     assert set(results) == {"addresspoints-points", "addresspoints-ranges"}
     assert sorted(results["addresspoints-points"][0]["housenum"].tolist()) == ["100", "102"]
+
+
+def test_load_package_falls_back_to_private_asset_for_url_package(tmp_path, monkeypatch):
+    # The plain package fetch has no knowledge of GITHUB_TOKEN either -- same gap as
+    # load_resource(), one level up. Each selected resource's schema is also a bare sibling
+    # filename reference and must be fetched too, not just the package.yaml itself.
+    import os
+    import shutil
+
+    import morpc.req
+    import requests
+
+    _build_gpkg()
+    create_gpkgresource(
+        "addresspoints.gpkg",
+        layerNames=["points", "ranges"],
+        schemaPaths=["points.schema.yaml", "ranges.schema.yaml"],
+        resourceDir=".",
+        writeResource=True,
+    )
+    # prepare_release() rewrites each resource's path to a real release-asset URL, the shape a
+    # published private repo's resources actually have -- without it, resource.path stays a bare
+    # local filename and resolve_data_path() never exercises its own URL/private-asset handling.
+    prepare_release(
+        ["addresspoints-points.resource.yaml", "addresspoints-ranges.resource.yaml"],
+        "morpc", "parcels-standardize", "v2026.7.22", packageName="addresspoints",
+    )
+
+    packageUrl = "https://github.com/morpc/parcels-standardize/releases/download/v2026.7.22/addresspoints.package.yaml"
+
+    # Patched at the HTTP layer rather than replacing frictionless.Package() itself: Package's
+    # class-selection machinery (unlike Resource's) breaks when the top-level name it's invoked
+    # through is swapped out for a plain function mid-call. This way the real frictionless code runs
+    # throughout and only the one request actually fails.
+    from frictionless import platform
+    session = platform.frictionless.system.http_session
+    realGet = session.get
+
+    class _FakeResponse:
+        def raise_for_status(self):
+            raise requests.HTTPError("404", response=self)
+
+    def _fake_get(requestUrl, *args, **kwargs):
+        if requestUrl == packageUrl:
+            return _FakeResponse()
+        return realGet(requestUrl, *args, **kwargs)
+
+    def _fake_get_file_safely(dataUrl, output_dir, returnPath=False, **kwargs):
+        raise requests.HTTPError("404 Client Error")
+
+    def _fake_private_asset(assetUrl, output_dir, token, returnPath=False, **kwargs):
+        assert token == "secret-token"
+        filename = os.path.basename(assetUrl)
+        target = os.path.join(output_dir, filename)
+        shutil.copyfile(filename, target)
+        return target
+
+    monkeypatch.setattr(session, "get", _fake_get)
+    monkeypatch.setattr(morpc.req, "get_file_safely", _fake_get_file_safely)
+    monkeypatch.setattr("morpc.frictionless.release.get_private_release_asset", _fake_private_asset)
+    monkeypatch.setenv("GITHUB_TOKEN", "secret-token")
+
+    results = load_package(packageUrl, archiveDir=str(tmp_path / "cache"))
+
+    assert set(results) == {"addresspoints-points", "addresspoints-ranges"}
+    assert sorted(results["addresspoints-points"][0]["housenum"].tolist()) == ["100", "102"]
+
+
+def test_load_package_resolves_old_bare_string_shape(tmp_path, monkeypatch):
+    # A package.yaml written before #180/#181 lists its resources as bare filename strings, not
+    # inline objects -- frictionless.Package() refuses to load that directly ("is not of type
+    # 'object'"), so each bare entry is resolved by fetching its sibling *.resource.yaml* (the same
+    # way a schema reference is already resolved) before handing the rewritten package off to
+    # frictionless.Package() for real. This is what actually unblocks morpc-addresspoints-standardize
+    # and morpc-moodlbrs-standardize's real, currently-published (old-shape) releases.
+    import os
+    import shutil
+
+    import morpc.req
+    import requests
+    import yaml
+
+    _build_gpkg()
+    create_gpkgresource(
+        "addresspoints.gpkg",
+        layerNames=["points", "ranges"],
+        schemaPaths=["points.schema.yaml", "ranges.schema.yaml"],
+        resourceDir=".",
+        writeResource=True,
+    )
+    prepare_release(
+        ["addresspoints-points.resource.yaml", "addresspoints-ranges.resource.yaml"],
+        "morpc", "parcels-standardize", "v2026.7.22", packageName="addresspoints",
+    )
+    # prepare_release()'s packageName writes the new (inline) shape -- overwrite it with the old,
+    # bare-string shape create_package() used to produce, the thing under test here.
+    with open("addresspoints.package.yaml", "w") as f:
+        yaml.dump({
+            "name": "addresspoints",
+            "version": "2026.7.22",
+            "resources": ["addresspoints-points.resource.yaml", "addresspoints-ranges.resource.yaml"],
+        }, f)
+
+    packageUrl = "https://github.com/morpc/parcels-standardize/releases/download/v2026.7.22/addresspoints.package.yaml"
+
+    from frictionless import platform
+    session = platform.frictionless.system.http_session
+    realGet = session.get
+
+    class _FakeResponse:
+        def raise_for_status(self):
+            raise requests.HTTPError("404", response=self)
+
+    def _fake_get(requestUrl, *args, **kwargs):
+        if requestUrl == packageUrl:
+            return _FakeResponse()
+        return realGet(requestUrl, *args, **kwargs)
+
+    def _fake_get_file_safely(dataUrl, output_dir, returnPath=False, **kwargs):
+        raise requests.HTTPError("404 Client Error")
+
+    def _fake_private_asset(assetUrl, output_dir, token, returnPath=False, **kwargs):
+        assert token == "secret-token"
+        filename = os.path.basename(assetUrl)
+        target = os.path.join(output_dir, filename)
+        shutil.copyfile(filename, target)
+        return target
+
+    monkeypatch.setattr(session, "get", _fake_get)
+    monkeypatch.setattr(morpc.req, "get_file_safely", _fake_get_file_safely)
+    monkeypatch.setattr("morpc.frictionless.release.get_private_release_asset", _fake_private_asset)
+    monkeypatch.setenv("GITHUB_TOKEN", "secret-token")
+
+    results = load_package(packageUrl, resources="addresspoints-points", archiveDir=str(tmp_path / "cache"))
+
+    assert set(results) == {"addresspoints-points"}
+    assert sorted(results["addresspoints-points"][0]["housenum"].tolist()) == ["100", "102"]

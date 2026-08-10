@@ -13,6 +13,8 @@ from morpc.frictionless import (
     create_release,
     create_resource,
     get_private_release_asset,
+    load_data,
+    load_package,
     parse_release_asset_url,
     prepare_release,
     publish_paths,
@@ -54,6 +56,11 @@ def test_parse_release_asset_url_round_trips():
 
 def test_parse_release_asset_url_rejects_non_matching_url():
     assert parse_release_asset_url("https://example.com/data.csv") is None
+
+
+def test_parse_release_asset_url_handles_latest_shape_with_no_tag():
+    url = "https://github.com/morpc/morpc-parcels-standardize/releases/latest/download/data.csv"
+    assert parse_release_asset_url(url) == ("morpc", "morpc-parcels-standardize", None, "data.csv")
 
 
 # --- calver ---
@@ -424,6 +431,55 @@ def test_get_private_release_asset_downloads_matching_asset(tmp_path, monkeypatc
     assert calls[1][1]["Authorization"] == "Bearer secret-token"
 
 
+def test_get_private_release_asset_resolves_latest_release(tmp_path, monkeypatch):
+    # A "latest" URL names no tag, so the release must be resolved via GitHub's own "get the latest
+    # release" endpoint instead of the tags/{tag} one used for a pinned URL.
+    import requests
+
+    latestUrl = "https://github.com/morpc/morpc-parcels-standardize/releases/latest/download/data.csv"
+    dataBytes = b"id,name\r\n1,alice\r\n"
+
+    class _FakeResponse:
+        def __init__(self, json_data=None, content=b""):
+            self._json = json_data
+            self._content = content
+
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return self._json
+
+        def iter_content(self, chunk_size):
+            yield self._content
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+    calls = []
+
+    def _fake_get(url, headers=None, params=None, stream=False):
+        calls.append(url)
+        if url == "https://api.github.com/repos/morpc/morpc-parcels-standardize/releases/latest":
+            return _FakeResponse(json_data={"assets": [
+                {"name": "data.csv", "url": "https://api.github.com/repos/morpc/morpc-parcels-standardize/releases/assets/9"},
+            ]})
+        assert url == "https://api.github.com/repos/morpc/morpc-parcels-standardize/releases/assets/9"
+        return _FakeResponse(content=dataBytes)
+
+    monkeypatch.setattr(requests, "get", _fake_get)
+
+    output_dir = tmp_path / "out"
+    output_dir.mkdir()
+    path = get_private_release_asset(latestUrl, str(output_dir), "secret-token", returnPath=True)
+
+    assert calls[0] == "https://api.github.com/repos/morpc/morpc-parcels-standardize/releases/latest"
+    assert open(path, "rb").read() == dataBytes
+
+
 def test_get_private_release_asset_missing_asset_raises(tmp_path, monkeypatch):
     import requests
     import morpc.req
@@ -446,6 +502,116 @@ def test_get_private_release_asset_rejects_non_release_url(tmp_path):
 
     with pytest.raises(ValueError):
         get_private_release_asset("https://example.com/data.csv", str(tmp_path), "secret-token")
+
+
+# --- load_data with a URL resourcePath ---
+#
+# A RELEASE_URL env var (morpc-addresspoints-geocoder's pin-then-redeploy convention) points directly
+# at a released *.resource.yaml*, not at a local descriptor file -- so resourcePath itself is a URL,
+# not just resource.path within it. Three distinct bugs surfaced only by exercising that shape.
+
+def test_load_data_url_resourcepath_not_mangled_by_normpath(tmp_path, monkeypatch):
+    # os.path.normpath() collapses "https://" to "https:/", which then fails to parse as a URL at
+    # all. Regression test: capture what load_resource() actually receives and assert the "//" survived.
+    import sys
+    ff = sys.modules["morpc.frictionless.frictionless"]
+
+    _build_data(tmp_path, name="data.csv")
+    create_resource(
+        "data.csv", resourcePath=str(tmp_path / "data.resource.yaml"), ignoreSchema=True,
+        name="parcels", writeResource=True,
+    )
+
+    url = "https://example.org/release/data.resource.yaml"
+    captured = {}
+    realResource = frictionless.Resource(str(tmp_path / "data.resource.yaml"))
+
+    def _fake_load_resource(path):
+        captured["path"] = path
+        return realResource
+
+    monkeypatch.setattr(ff, "load_resource", _fake_load_resource)
+
+    data, resource, schema = load_data(url, archiveDir=str(tmp_path), useSchema=None)
+
+    assert captured["path"] == url
+    assert "https://" in captured["path"]
+
+
+def test_load_resource_falls_back_to_private_asset_for_url_descriptor(tmp_path, monkeypatch):
+    # The plain descriptor fetch has no knowledge of GITHUB_TOKEN at all -- distinct from
+    # resolve_data_path()'s fallback, which only covers the *data* file, not the descriptor itself.
+    import frictionless as fl
+    import requests
+
+    from morpc.frictionless.frictionless import load_resource
+
+    url = "https://github.com/morpc/morpc-parcels-standardize/releases/download/v2026.7.22/data.resource.yaml"
+    _build_data(tmp_path, name="downloaded.csv")
+    localResourcePath = tmp_path / "data.resource.yaml"
+    create_resource(
+        "downloaded.csv", resourcePath=str(localResourcePath), ignoreSchema=True,
+        name="parcels", writeResource=True,
+    )
+
+    realResourceCtor = frictionless.Resource
+
+    def _fake_resource_ctor(path):
+        if path == url:
+            raise fl.FrictionlessException(fl.errors.SchemeError(note="not found")) from requests.HTTPError("404")
+        return realResourceCtor(path)
+
+    def _fake_private_asset(assetUrl, output_dir, token, returnPath=False, **kwargs):
+        assert assetUrl == url
+        assert token == "secret-token"
+        shutil.copyfile(str(localResourcePath), os.path.join(output_dir, "data.resource.yaml"))
+        return os.path.join(output_dir, "data.resource.yaml")
+
+    monkeypatch.setattr(frictionless, "Resource", _fake_resource_ctor)
+    monkeypatch.setattr("morpc.frictionless.release.get_private_release_asset", _fake_private_asset)
+    monkeypatch.setenv("GITHUB_TOKEN", "secret-token")
+
+    resource = load_resource(url)
+    assert resource.name == "parcels"
+
+
+def test_load_data_url_resourcepath_resolves_directly_into_archive_dir(tmp_path, monkeypatch):
+    # Regression test for a real duplicate-download bug: without special handling, sourceDir for a
+    # URL resourcePath became a bogus dirname-of-URL (e.g. "./https:/example.org/release"), so
+    # resolve_data_path() cached the data there instead of into archiveDir -- a second, unwanted full
+    # copy on every run. Assert only archiveDir's copy exists, nothing under a URL-shaped directory.
+    import sys
+    ff = sys.modules["morpc.frictionless.frictionless"]
+
+    origin = tmp_path / "origin.csv"
+    _build_data(tmp_path, name="origin.csv")
+
+    url = "https://example.org/release/data.resource.yaml"
+    realResource = frictionless.Resource.from_descriptor({
+        "name": "parcels",
+        "path": "https://example.org/release/data.csv",
+        "format": "csv",
+        "_cache": "data.csv",
+    })
+
+    def _fake_load_resource(path):
+        return realResource
+
+    def _fake_download(fetchUrl, output_dir, returnPath=False, **kwargs):
+        target = os.path.join(output_dir, "data.csv")
+        shutil.copyfile(str(origin), target)
+        return target
+
+    monkeypatch.setattr(ff, "load_resource", _fake_load_resource)
+    monkeypatch.setattr("morpc.req.get_file_safely", _fake_download)
+
+    archiveDir = tmp_path / "archive"
+    archiveDir.mkdir()
+    data, resource, schema = load_data(url, archiveDir=str(archiveDir), useSchema=None)
+
+    assert (archiveDir / "data.csv").exists()
+    assert not (tmp_path / "https:").exists()
+    assert not (tmp_path / "example.org").exists()
 
 
 def test_resolve_data_path_verifies_sha256_hash(tmp_path):
