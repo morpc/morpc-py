@@ -1165,6 +1165,7 @@ def load_package(packagePath, resources=None, archiveDir=None, validate=False, *
         resource, one entry per selected resource.
     """
     import os
+    import shutil
     import frictionless
 
     if archiveDir is None:
@@ -1175,6 +1176,8 @@ def load_package(packagePath, resources=None, archiveDir=None, validate=False, *
             raise RuntimeError
         archiveDir = os.path.dirname(os.path.abspath(packagePath))
     os.makedirs(archiveDir, exist_ok=True)
+
+    packageDir = None if _is_url(packagePath) else os.path.dirname(os.path.abspath(packagePath))
 
     logger.info(f"Loading Frictionless Package at {packagePath}")
     package = frictionless.Package(packagePath)
@@ -1203,6 +1206,20 @@ def load_package(packagePath, resources=None, archiveDir=None, validate=False, *
             schemaFilePath = os.path.join(archiveDir, f"{resource.name}.schema.yaml")
             resource.schema.to_yaml(schemaFilePath)
             resourceDict["schema"] = os.path.basename(schemaFilePath)
+        # The resource we write lands in archiveDir, which is not necessarily the package's own
+        # directory (a caller may redirect where cached data lands). A local, non-URL path is only
+        # meaningful relative to where the package actually lives, and frictionless refuses to accept
+        # an absolute path in a descriptor ("is not safe") so it can't just be resolved that way either
+        # -- copy the data file itself into archiveDir instead, the same place a URL would be
+        # downloaded to, and leave the written path as the bare filename that now resolves there.
+        # Skipped once the file is already present, so this is a one-time cost when archiveDir differs
+        # from the package's own directory, not a copy per resource that shares the same file.
+        if packageDir is not None and not _is_url(resourceDict.get("path", "")):
+            sourceDataPath = os.path.join(packageDir, resourceDict["path"])
+            targetDataPath = os.path.join(archiveDir, os.path.basename(resourceDict["path"]))
+            if os.path.abspath(sourceDataPath) != os.path.abspath(targetDataPath) and not os.path.exists(targetDataPath):
+                shutil.copyfile(sourceDataPath, targetDataPath)
+            resourceDict["path"] = os.path.basename(resourceDict["path"])
         inlineResource = frictionless.Resource(resourceDict)
         resourceFilePath = os.path.join(archiveDir, f"{resource.name}.resource.yaml")
         write_resource(inlineResource, resourceFilePath)

@@ -251,6 +251,21 @@ def test_load_package_loads_every_resource_by_default(tmp_path):
     assert pointsSchema.field_names == ["addr_id", "housenum"]
 
 
+def test_load_package_local_package_with_separate_archive_dir(tmp_path):
+    # A local (not-yet-released) package's resource paths are relative to the package's own
+    # directory, not to an archiveDir the caller points somewhere else -- and frictionless refuses to
+    # accept an absolute path in a descriptor ("is not safe"), so this only works if the underlying
+    # data is actually copied into archiveDir rather than just referenced by a rewritten path.
+    packagePath = _build_gpkg_package(tmp_path)
+    cacheDir = str(tmp_path / "cache")
+
+    results = load_package(packagePath, archiveDir=cacheDir)
+
+    assert set(results) == {"addresspoints-points", "addresspoints-ranges"}
+    assert sorted(results["addresspoints-points"][0]["housenum"].tolist()) == ["100", "102"]
+    assert (tmp_path / "cache" / "addresspoints.gpkg").exists()
+
+
 def test_load_package_filters_by_resource_name(tmp_path):
     packagePath = _build_gpkg_package(tmp_path)
     results = load_package(packagePath, resources="addresspoints-points")
