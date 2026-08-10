@@ -58,6 +58,11 @@ def test_parse_release_asset_url_rejects_non_matching_url():
     assert parse_release_asset_url("https://example.com/data.csv") is None
 
 
+def test_parse_release_asset_url_handles_latest_shape_with_no_tag():
+    url = "https://github.com/morpc/morpc-parcels-standardize/releases/latest/download/data.csv"
+    assert parse_release_asset_url(url) == ("morpc", "morpc-parcels-standardize", None, "data.csv")
+
+
 # --- calver ---
 
 def test_calver_is_unpadded_and_round_trips():
@@ -424,6 +429,55 @@ def test_get_private_release_asset_downloads_matching_asset(tmp_path, monkeypatc
     # The second call must hit the asset endpoint with the octet-stream Accept header, not the JSON one.
     assert calls[1][1]["Accept"] == "application/octet-stream"
     assert calls[1][1]["Authorization"] == "Bearer secret-token"
+
+
+def test_get_private_release_asset_resolves_latest_release(tmp_path, monkeypatch):
+    # A "latest" URL names no tag, so the release must be resolved via GitHub's own "get the latest
+    # release" endpoint instead of the tags/{tag} one used for a pinned URL.
+    import requests
+
+    latestUrl = "https://github.com/morpc/morpc-parcels-standardize/releases/latest/download/data.csv"
+    dataBytes = b"id,name\r\n1,alice\r\n"
+
+    class _FakeResponse:
+        def __init__(self, json_data=None, content=b""):
+            self._json = json_data
+            self._content = content
+
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return self._json
+
+        def iter_content(self, chunk_size):
+            yield self._content
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+    calls = []
+
+    def _fake_get(url, headers=None, params=None, stream=False):
+        calls.append(url)
+        if url == "https://api.github.com/repos/morpc/morpc-parcels-standardize/releases/latest":
+            return _FakeResponse(json_data={"assets": [
+                {"name": "data.csv", "url": "https://api.github.com/repos/morpc/morpc-parcels-standardize/releases/assets/9"},
+            ]})
+        assert url == "https://api.github.com/repos/morpc/morpc-parcels-standardize/releases/assets/9"
+        return _FakeResponse(content=dataBytes)
+
+    monkeypatch.setattr(requests, "get", _fake_get)
+
+    output_dir = tmp_path / "out"
+    output_dir.mkdir()
+    path = get_private_release_asset(latestUrl, str(output_dir), "secret-token", returnPath=True)
+
+    assert calls[0] == "https://api.github.com/repos/morpc/morpc-parcels-standardize/releases/latest"
+    assert open(path, "rb").read() == dataBytes
 
 
 def test_get_private_release_asset_missing_asset_raises(tmp_path, monkeypatch):

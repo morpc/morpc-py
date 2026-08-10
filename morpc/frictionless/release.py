@@ -12,7 +12,10 @@ logger = logging.getLogger(__name__)
 
 RELEASE_ASSET_URL_TEMPLATE = "https://github.com/{owner}/{repo}/releases/download/{tag}/{filename}"
 RELEASE_ASSET_URL_PATTERN = re.compile(
-    r"^https://github\.com/(?P<owner>[^/]+)/(?P<repo>[^/]+)/releases/download/(?P<tag>[^/]+)/(?P<filename>[^/]+)$"
+    # Either the ordinary tag-pinned shape (.../download/{tag}/{filename}) or GitHub's "latest"
+    # shape (.../latest/download/{filename}, no tag segment at all) -- tag is None for the latter.
+    r"^https://github\.com/(?P<owner>[^/]+)/(?P<repo>[^/]+)/releases/"
+    r"(?:download/(?P<tag>[^/]+)|latest/download)/(?P<filename>[^/]+)$"
 )
 
 
@@ -57,7 +60,8 @@ def parse_release_asset_url(url):
     Returns
     -------
     tuple of str, or None
-        (owner, repo, tag, filename) if url matches the shape, otherwise None.
+        (owner, repo, tag, filename) if url matches the shape, otherwise None. tag is None if url is
+        GitHub's "latest" shape (.../releases/latest/download/{filename}), which names no tag at all.
     """
     match = RELEASE_ASSET_URL_PATTERN.match(url)
     if match is None:
@@ -72,7 +76,8 @@ def get_private_release_asset(url, output_dir, token, chunk_size=4096, returnPat
     uses) only serves an authenticated browser session -- a bearer token on that same URL still 404s.
     GitHub's assets API endpoint (/repos/{owner}/{repo}/releases/assets/{id}) does accept a token, but
     addresses the asset by its numeric id rather than by this URL, so this first resolves the release
-    by tag to find that id, then downloads through the assets API.
+    -- by tag, or via GitHub's own "get the latest release" endpoint for a "latest" URL -- to find
+    that id, then downloads through the assets API.
 
     Parameters
     ----------
@@ -101,13 +106,17 @@ def get_private_release_asset(url, output_dir, token, chunk_size=4096, returnPat
     owner, repo, tag, filename = parsed
 
     apiHeaders = {"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json"}
-    releaseUrl = f"https://api.github.com/repos/{owner}/{repo}/releases/tags/{tag}"
-    logger.debug(f"Resolving private release asset id for {filename} in {owner}/{repo}@{tag}.")
+    if tag is None:
+        releaseUrl = f"https://api.github.com/repos/{owner}/{repo}/releases/latest"
+        logger.debug(f"Resolving private release asset id for {filename} in {owner}/{repo}@latest.")
+    else:
+        releaseUrl = f"https://api.github.com/repos/{owner}/{repo}/releases/tags/{tag}"
+        logger.debug(f"Resolving private release asset id for {filename} in {owner}/{repo}@{tag}.")
     r = requests.get(releaseUrl, headers=apiHeaders)
     r.raise_for_status()
     asset = next((a for a in r.json().get("assets", []) if a["name"] == filename), None)
     if asset is None:
-        raise RuntimeError(f"Asset {filename} not found in release {tag} of {owner}/{repo}")
+        raise RuntimeError(f"Asset {filename} not found in release {tag or 'latest'} of {owner}/{repo}")
 
     assetHeaders = {"Authorization": f"Bearer {token}", "Accept": "application/octet-stream"}
     filepath = os.path.join(output_dir, filename)
