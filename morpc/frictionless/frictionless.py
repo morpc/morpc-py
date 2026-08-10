@@ -1280,28 +1280,40 @@ def load_package(packagePath, resources=None, archiveDir=None, validate=False, *
         localDir = tempfile.mkdtemp()
         localPackagePath = get_private_release_asset(packagePath, localDir, token, returnPath=True)
 
-        # Resources are inline as of #180/#181, but each resource's own schema is still a bare
-        # sibling filename reference (the same gap load_resource() has for a single resource) --
-        # frictionless would resolve it relative to localDir and 404 unauthenticated. Only the
-        # resources actually being loaded are fetched, not all of a package's (a real
-        # morpc-geos-collect release bundles 28).
+        # Resources are inline as of #180/#181, but a package published before that fix still lists
+        # them as bare filename strings, which frictionless.Package() refuses to load at all ("is
+        # not of type 'object'") -- resolve each one to its sibling *.resource.yaml* and fetch it,
+        # same as a schema reference, so either shape works from here on.
         with open(localPackagePath) as f:
             rawPackage = yaml.safe_load(f)
         rawResources = rawPackage.get("resources", [])
-        if rawResources and not isinstance(rawResources[0], dict):
-            logger.error(f"{packagePath} lists its resources as bare filename strings, the shape "
-                         f"create_package() wrote before #180/#181 -- frictionless.Package() cannot "
-                         f"load that at all (\"is not of type 'object'\"), private-repo auth or not. "
-                         f"The release needs to be re-cut with a current morpc-py to fix this.")
-            raise RuntimeError
-        wantedNames = resources if resources is not None else [r.get("name") for r in rawResources]
-        for resourceDict in rawResources:
-            if resourceDict.get("name") not in wantedNames:
-                continue
+
+        resolvedResources = []
+        for entry in rawResources:
+            if isinstance(entry, dict):
+                resourceDict = entry
+            else:
+                # A bare filename can't be checked against `resources=` before it's fetched --
+                # there's no name to compare yet, only the path. Real packages in this shape are
+                # single-resource in practice (the ones this fixes: morpc-addresspoints-standardize,
+                # morpc-moodlbrs-standardize), so fetching every entry costs nothing extra there.
+                resourceUrl = urllib.parse.urljoin(packagePath, entry)
+                resourcePath = get_private_release_asset(resourceUrl, localDir, token, returnPath=True)
+                with open(resourcePath) as f:
+                    resourceDict = yaml.safe_load(f)
+            resolvedResources.append(resourceDict)
+
+        wantedNames = resources if resources is not None else [r.get("name") for r in resolvedResources]
+        rawPackage["resources"] = [r for r in resolvedResources if r.get("name") in wantedNames]
+
+        for resourceDict in rawPackage["resources"]:
             schemaRef = resourceDict.get("schema")
             if isinstance(schemaRef, str) and not _is_url(schemaRef):
                 schemaUrl = urllib.parse.urljoin(packagePath, schemaRef)
                 get_private_release_asset(schemaUrl, localDir, token)
+
+        with open(localPackagePath, "w") as f:
+            yaml.dump(rawPackage, f)
 
         package = frictionless.Package(localPackagePath)
 
