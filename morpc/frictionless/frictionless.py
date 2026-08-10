@@ -46,15 +46,52 @@ def load_resource(path: str | PathLike) -> frictionless.Resource:
     Given the path to a Frictionless Resource file in JSON or YAML format, load the file into memory as a Frictionless
     Resource object.
 
+    If path is itself a URL to a private repo's release asset (e.g. a RELEASE_URL env var pointing
+    directly at a released *.resource.yaml*, rather than at a local descriptor whose *data* happens to
+    be a private release asset), the plain fetch 404s -- frictionless's own descriptor-fetch has no
+    knowledge of GITHUB_TOKEN at all. This mirrors resolve_data_path()'s try-then-fallback for that
+    case: the plain fetch is tried first, and only on an HTTP error, with GITHUB_TOKEN set, is the
+    descriptor instead downloaded through the authenticated assets API and loaded from that local copy.
+    Its schema, if named as a plain sibling filename (the shape create_resource() writes), is fetched
+    the same way and placed alongside it -- frictionless resolves that reference relative to the
+    descriptor's own location once loaded, and the plain fetch would 404 on it too otherwise.
+
     Parameters:
     -----------
     path : path
         Path to the resource file
     """
+    import os
+    import tempfile
+    import urllib.parse
+
     import frictionless
+    import requests
+    import yaml
+
     logger.debug(f"Loading resource from {path}")
 
-    return frictionless.Resource(path)
+    try:
+        return frictionless.Resource(path)
+    except frictionless.FrictionlessException as e:
+        if not (_is_url(path) and isinstance(e.__cause__, requests.HTTPError)):
+            raise
+        token = os.environ.get("GITHUB_TOKEN")
+        if token is None:
+            raise
+        logger.info("Plain descriptor fetch failed; retrying as a private GitHub release asset using GITHUB_TOKEN.")
+        from morpc.frictionless.release import get_private_release_asset
+        localDir = tempfile.mkdtemp()
+        localPath = get_private_release_asset(path, localDir, token, returnPath=True)
+
+        with open(localPath) as f:
+            rawDescriptor = yaml.safe_load(f)
+        schemaRef = rawDescriptor.get("schema") if isinstance(rawDescriptor, dict) else None
+        if isinstance(schemaRef, str) and not _is_url(schemaRef):
+            schemaUrl = urllib.parse.urljoin(path, schemaRef)
+            get_private_release_asset(schemaUrl, localDir, token)
+
+        return frictionless.Resource(localPath)
 
 
 def get_field_names(schema: frictionless.Schema) -> list[str]:
@@ -975,14 +1012,28 @@ def load_data(resourcePath, archiveDir=None, validate=False, forceInteger=False,
     import os
     import json
     import shutil
+    import tempfile
 
-    myResourcePath = os.path.normpath(resourcePath)
+    # os.path.normpath() collapses "https://" to "https:/", which then fails to parse as a URL at
+    # all -- skip it for a URL resourcePath (e.g. a RELEASE_URL env var pointing directly at a
+    # released *.resource.yaml*, the shape morpc-addresspoints-geocoder's pin-then-redeploy .env
+    # convention uses).
+    myResourcePath = resourcePath if _is_url(resourcePath) else os.path.normpath(resourcePath)
 
-    logger.info("Loading Frictionless Resource file at location {}".format(myResourcePath))    
-    
+    logger.info("Loading Frictionless Resource file at location {}".format(myResourcePath))
+
     resource = load_resource(myResourcePath)
-    
-    sourceDir = os.path.dirname(myResourcePath)
+
+    if(_is_url(myResourcePath)):
+        # There is no local directory a URL resourcePath's data is "relative to" the way a local
+        # descriptor's is. Resolving into archiveDir directly (when given) means the data lands in
+        # its final location on the first fetch instead of a bogus dirname-of-URL directory tree
+        # (os.path.join happily builds one, e.g. "./https:/github.com/.../data.gpkg", and
+        # resolve_data_path() would then cache into -- and, on every call, re-verify the hash of --
+        # a full duplicate copy nobody asked for).
+        sourceDir = archiveDir if archiveDir is not None else tempfile.mkdtemp()
+    else:
+        sourceDir = os.path.dirname(myResourcePath)
     resourceFilename = os.path.basename(myResourcePath)
 
     # Resolve the resource's path and _cache to a single local file, downloading it if the path is a
@@ -1022,12 +1073,25 @@ def load_data(resourcePath, archiveDir=None, validate=False, forceInteger=False,
             targetSchema = None
 
         try:
-            logger.info("Copying data, resource file, and schema (if applicable) to directory {}".format(archiveDir))    
+            logger.info("Copying data, resource file, and schema (if applicable) to directory {}".format(archiveDir))
 
-            shutil.copyfile(os.path.join(sourceDir, resourceFilename), targetResource)
-            shutil.copyfile(sourceDataPath, targetData)
-            if(targetSchema != None):
-                shutil.copyfile(schemaSourcePath, targetSchema)
+            if(_is_url(myResourcePath)):
+                # There is no local descriptor file to copy from -- myResourcePath was fetched
+                # directly over HTTP (or, for a private release, downloaded by load_resource()'s
+                # fallback to an unrelated temp directory) -- so the already-loaded resource and
+                # schema are written out fresh instead of copied.
+                write_resource(resource, targetResource)
+                if(targetSchema != None and schema != None):
+                    schema.to_yaml(targetSchema)
+            else:
+                shutil.copyfile(os.path.join(sourceDir, resourceFilename), targetResource)
+                if(targetSchema != None):
+                    shutil.copyfile(schemaSourcePath, targetSchema)
+            # For a URL resourcePath, resolve_data_path() already resolved directly into archiveDir
+            # (sourceDir was set to it above), so sourceDataPath and targetData are already the same
+            # file -- shutil.copyfile() raises SameFileError given the same path twice.
+            if(os.path.abspath(sourceDataPath) != os.path.abspath(targetData)):
+                shutil.copyfile(sourceDataPath, targetData)
         except Exception as e:
             logger.error("Unhandled exception when trying to copy data and associated Frictionless files: {}".format(e))
             raise RuntimeError
@@ -1181,7 +1245,15 @@ def load_package(packagePath, resources=None, archiveDir=None, validate=False, *
     """
     import os
     import shutil
+    import tempfile
+    import urllib.parse
+
     import frictionless
+    import requests
+    import yaml
+
+    if isinstance(resources, str):
+        resources = [resources]
 
     if archiveDir is None:
         if _is_url(packagePath):
@@ -1195,10 +1267,44 @@ def load_package(packagePath, resources=None, archiveDir=None, validate=False, *
     packageDir = None if _is_url(packagePath) else os.path.dirname(os.path.abspath(packagePath))
 
     logger.info(f"Loading Frictionless Package at {packagePath}")
-    package = frictionless.Package(packagePath)
+    try:
+        package = frictionless.Package(packagePath)
+    except frictionless.FrictionlessException as e:
+        if not (_is_url(packagePath) and isinstance(e.__cause__, requests.HTTPError)):
+            raise
+        token = os.environ.get("GITHUB_TOKEN")
+        if token is None:
+            raise
+        logger.info("Plain package fetch failed; retrying as a private GitHub release asset using GITHUB_TOKEN.")
+        from morpc.frictionless.release import get_private_release_asset
+        localDir = tempfile.mkdtemp()
+        localPackagePath = get_private_release_asset(packagePath, localDir, token, returnPath=True)
 
-    if isinstance(resources, str):
-        resources = [resources]
+        # Resources are inline as of #180/#181, but each resource's own schema is still a bare
+        # sibling filename reference (the same gap load_resource() has for a single resource) --
+        # frictionless would resolve it relative to localDir and 404 unauthenticated. Only the
+        # resources actually being loaded are fetched, not all of a package's (a real
+        # morpc-geos-collect release bundles 28).
+        with open(localPackagePath) as f:
+            rawPackage = yaml.safe_load(f)
+        rawResources = rawPackage.get("resources", [])
+        if rawResources and not isinstance(rawResources[0], dict):
+            logger.error(f"{packagePath} lists its resources as bare filename strings, the shape "
+                         f"create_package() wrote before #180/#181 -- frictionless.Package() cannot "
+                         f"load that at all (\"is not of type 'object'\"), private-repo auth or not. "
+                         f"The release needs to be re-cut with a current morpc-py to fix this.")
+            raise RuntimeError
+        wantedNames = resources if resources is not None else [r.get("name") for r in rawResources]
+        for resourceDict in rawResources:
+            if resourceDict.get("name") not in wantedNames:
+                continue
+            schemaRef = resourceDict.get("schema")
+            if isinstance(schemaRef, str) and not _is_url(schemaRef):
+                schemaUrl = urllib.parse.urljoin(packagePath, schemaRef)
+                get_private_release_asset(schemaUrl, localDir, token)
+
+        package = frictionless.Package(localPackagePath)
+
     selected = package.resources if resources is None else [
         r for r in package.resources if r.name in resources
     ]
