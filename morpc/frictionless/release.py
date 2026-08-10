@@ -7,9 +7,13 @@ written before the release exists, provided the tag is chosen first.
 """
 
 import logging
+import re
 logger = logging.getLogger(__name__)
 
 RELEASE_ASSET_URL_TEMPLATE = "https://github.com/{owner}/{repo}/releases/download/{tag}/{filename}"
+RELEASE_ASSET_URL_PATTERN = re.compile(
+    r"^https://github\.com/(?P<owner>[^/]+)/(?P<repo>[^/]+)/releases/download/(?P<tag>[^/]+)/(?P<filename>[^/]+)$"
+)
 
 
 def release_asset_url(owner, repo, tag, filename):
@@ -36,6 +40,29 @@ def release_asset_url(owner, repo, tag, filename):
         The asset download URL.
     """
     return RELEASE_ASSET_URL_TEMPLATE.format(owner=owner, repo=repo, tag=tag, filename=filename)
+
+
+def parse_release_asset_url(url):
+    """Return (owner, repo, tag, filename) parsed from a release asset URL, or None if url isn't one.
+
+    The inverse of release_asset_url(). Used to recover the pieces needed to look an asset up through
+    GitHub's REST API (which addresses assets by numeric id, not by this URL) when the plain download
+    fails, e.g. because the asset belongs to a private repository.
+
+    Parameters
+    ----------
+    url : str
+        A URL, checked against the release asset URL shape.
+
+    Returns
+    -------
+    tuple of str, or None
+        (owner, repo, tag, filename) if url matches the shape, otherwise None.
+    """
+    match = RELEASE_ASSET_URL_PATTERN.match(url)
+    if match is None:
+        return None
+    return match.group("owner"), match.group("repo"), match.group("tag"), match.group("filename")
 
 
 def calver(date=None, sequence=None):
