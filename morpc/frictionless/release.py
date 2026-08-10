@@ -65,6 +65,63 @@ def parse_release_asset_url(url):
     return match.group("owner"), match.group("repo"), match.group("tag"), match.group("filename")
 
 
+def get_private_release_asset(url, output_dir, token, chunk_size=4096, returnPath=False):
+    """Download a private repo's GitHub release asset via the authenticated assets API.
+
+    A private repo's release asset URL (the browser_download_url shape get_file_safely() otherwise
+    uses) only serves an authenticated browser session -- a bearer token on that same URL still 404s.
+    GitHub's assets API endpoint (/repos/{owner}/{repo}/releases/assets/{id}) does accept a token, but
+    addresses the asset by its numeric id rather than by this URL, so this first resolves the release
+    by tag to find that id, then downloads through the assets API.
+
+    Parameters
+    ----------
+    url : str
+        A release asset URL matching the release_asset_url() shape.
+    output_dir : str or PathLike
+        The directory to write the downloaded file to.
+    token : str
+        A GitHub token with access to the private repository.
+    chunk_size : int
+        Optional. Streaming chunk size in bytes. Defaults to 4096.
+    returnPath : bool
+        Optional. If True, return the path to the downloaded file. Defaults to False.
+
+    Returns
+    -------
+    str or None
+        The path to the downloaded file, if returnPath is True.
+    """
+    import os
+    import requests
+
+    parsed = parse_release_asset_url(url)
+    if parsed is None:
+        raise ValueError(f"Not a recognized GitHub release asset URL: {url}")
+    owner, repo, tag, filename = parsed
+
+    apiHeaders = {"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json"}
+    releaseUrl = f"https://api.github.com/repos/{owner}/{repo}/releases/tags/{tag}"
+    logger.debug(f"Resolving private release asset id for {filename} in {owner}/{repo}@{tag}.")
+    r = requests.get(releaseUrl, headers=apiHeaders)
+    r.raise_for_status()
+    asset = next((a for a in r.json().get("assets", []) if a["name"] == filename), None)
+    if asset is None:
+        raise RuntimeError(f"Asset {filename} not found in release {tag} of {owner}/{repo}")
+
+    assetHeaders = {"Authorization": f"Bearer {token}", "Accept": "application/octet-stream"}
+    filepath = os.path.join(output_dir, filename)
+    logger.debug(f"Downloading private release asset from {asset['url']} to {filepath}.")
+    with requests.get(asset["url"], headers=assetHeaders, stream=True) as resp:
+        resp.raise_for_status()
+        with open(filepath, "wb") as file:
+            for chunk in resp.iter_content(chunk_size=chunk_size):
+                file.write(chunk)
+
+    if returnPath:
+        return filepath
+
+
 def calver(date=None, sequence=None):
     """Return an unpadded CalVer version string, e.g. "2026.7.22".
 

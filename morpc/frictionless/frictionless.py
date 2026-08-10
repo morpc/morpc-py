@@ -866,6 +866,7 @@ def resolve_data_path(resource, sourceDir, download=True):
     import tempfile
     import requests
     import morpc.req
+    from morpc.frictionless.release import get_private_release_asset
 
     cache = resource.custom.get("_cache") if resource.custom else None
 
@@ -899,7 +900,7 @@ def resolve_data_path(resource, sourceDir, download=True):
             if token is None:
                 raise
             logger.info("Plain download failed; retrying as a private GitHub release asset using GITHUB_TOKEN.")
-            downloadedPath = morpc.req.get_private_release_asset(resource.path, targetDir, token, returnPath=True)
+            downloadedPath = get_private_release_asset(resource.path, targetDir, token, returnPath=True)
 
         # get_file_safely names the downloaded file after the URL. If the cache calls it something else, move it.
         if(os.path.abspath(downloadedPath) != os.path.abspath(targetPath)):

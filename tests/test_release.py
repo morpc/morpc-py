@@ -12,6 +12,7 @@ from morpc.frictionless import (
     calver,
     create_release,
     create_resource,
+    get_private_release_asset,
     parse_release_asset_url,
     prepare_release,
     publish_paths,
@@ -342,7 +343,7 @@ def test_resolve_data_path_falls_back_to_private_asset_when_token_present(tmp_pa
         return target
 
     monkeypatch.setattr(morpc.req, "get_file_safely", _fail_public)
-    monkeypatch.setattr(morpc.req, "get_private_release_asset", _fake_private)
+    monkeypatch.setattr("morpc.frictionless.release.get_private_release_asset", _fake_private)
     monkeypatch.setenv("GITHUB_TOKEN", "secret-token")
 
     resolved = resolve_data_path(resource, str(tmp_path))
@@ -414,7 +415,7 @@ def test_get_private_release_asset_downloads_matching_asset(tmp_path, monkeypatc
 
     output_dir = tmp_path / "out"
     output_dir.mkdir()
-    path = morpc.req.get_private_release_asset(ASSET_URL, str(output_dir), "secret-token", returnPath=True)
+    path = get_private_release_asset(ASSET_URL, str(output_dir), "secret-token", returnPath=True)
 
     assert os.path.exists(path)
     assert open(path, "rb").read() == dataBytes
@@ -437,14 +438,14 @@ def test_get_private_release_asset_missing_asset_raises(tmp_path, monkeypatch):
     monkeypatch.setattr(requests, "get", lambda url, headers=None, params=None, stream=False: _FakeResponse())
 
     with pytest.raises(RuntimeError):
-        morpc.req.get_private_release_asset(ASSET_URL, str(tmp_path), "secret-token")
+        get_private_release_asset(ASSET_URL, str(tmp_path), "secret-token")
 
 
 def test_get_private_release_asset_rejects_non_release_url(tmp_path):
     import morpc.req
 
     with pytest.raises(ValueError):
-        morpc.req.get_private_release_asset("https://example.com/data.csv", str(tmp_path), "secret-token")
+        get_private_release_asset("https://example.com/data.csv", str(tmp_path), "secret-token")
 
 
 def test_resolve_data_path_verifies_sha256_hash(tmp_path):
