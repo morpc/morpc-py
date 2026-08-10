@@ -12,6 +12,8 @@ from morpc.frictionless import (
     calver,
     create_release,
     create_resource,
+    get_private_release_asset,
+    parse_release_asset_url,
     prepare_release,
     publish_paths,
     release_asset_url,
@@ -44,6 +46,14 @@ def _build_data(dirpath, name="data.csv"):
 def test_release_asset_url_shape():
     url = release_asset_url("morpc", "morpc-parcels-standardize", "v2026.7.22", "data.csv")
     assert url == ASSET_URL
+
+
+def test_parse_release_asset_url_round_trips():
+    assert parse_release_asset_url(ASSET_URL) == ("morpc", "morpc-parcels-standardize", "v2026.7.22", "data.csv")
+
+
+def test_parse_release_asset_url_rejects_non_matching_url():
+    assert parse_release_asset_url("https://example.com/data.csv") is None
 
 
 # --- calver ---
@@ -306,6 +316,136 @@ def test_resolve_data_path_hash_mismatch_raises(tmp_path):
     resource = frictionless.Resource(str(resourcePath))
     with pytest.raises(RuntimeError):
         resolve_data_path(resource, str(tmp_path))
+
+
+def test_resolve_data_path_falls_back_to_private_asset_when_token_present(tmp_path, monkeypatch):
+    import requests
+    import morpc.req
+
+    origin = tmp_path / "origin" / "data.csv"
+    origin.parent.mkdir()
+    _build_data(origin.parent)
+
+    resource = frictionless.Resource.from_descriptor({
+        "name": "parcels",
+        "path": ASSET_URL,
+        "format": "csv",
+    })
+
+    def _fail_public(url, output_dir, returnPath=False, **kwargs):
+        raise requests.HTTPError("404 Client Error")
+
+    def _fake_private(url, output_dir, token, returnPath=False, **kwargs):
+        assert url == ASSET_URL
+        assert token == "secret-token"
+        target = os.path.join(output_dir, os.path.basename(url))
+        shutil.copyfile(str(origin), target)
+        return target
+
+    monkeypatch.setattr(morpc.req, "get_file_safely", _fail_public)
+    monkeypatch.setattr("morpc.frictionless.release.get_private_release_asset", _fake_private)
+    monkeypatch.setenv("GITHUB_TOKEN", "secret-token")
+
+    resolved = resolve_data_path(resource, str(tmp_path))
+    assert os.path.exists(resolved)
+
+
+def test_resolve_data_path_reraises_when_no_token(tmp_path, monkeypatch):
+    import requests
+    import morpc.req
+
+    resource = frictionless.Resource.from_descriptor({
+        "name": "parcels",
+        "path": ASSET_URL,
+        "format": "csv",
+    })
+
+    def _fail_public(url, output_dir, returnPath=False, **kwargs):
+        raise requests.HTTPError("404 Client Error")
+
+    monkeypatch.setattr(morpc.req, "get_file_safely", _fail_public)
+    monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+
+    with pytest.raises(requests.HTTPError):
+        resolve_data_path(resource, str(tmp_path))
+
+
+# --- get_private_release_asset ---
+
+def test_get_private_release_asset_downloads_matching_asset(tmp_path, monkeypatch):
+    import requests
+    import morpc.req
+
+    _build_data(tmp_path, name="downloaded.csv")
+    dataBytes = (tmp_path / "downloaded.csv").read_bytes()
+
+    class _FakeResponse:
+        def __init__(self, json_data=None, content=b""):
+            self._json = json_data
+            self._content = content
+
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return self._json
+
+        def iter_content(self, chunk_size):
+            yield self._content
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+    calls = []
+
+    def _fake_get(url, headers=None, params=None, stream=False):
+        calls.append((url, headers))
+        if url == "https://api.github.com/repos/morpc/morpc-parcels-standardize/releases/tags/v2026.7.22":
+            return _FakeResponse(json_data={"assets": [
+                {"name": "other.csv", "url": "https://api.github.com/repos/morpc/morpc-parcels-standardize/releases/assets/1"},
+                {"name": "data.csv", "url": "https://api.github.com/repos/morpc/morpc-parcels-standardize/releases/assets/2"},
+            ]})
+        assert url == "https://api.github.com/repos/morpc/morpc-parcels-standardize/releases/assets/2"
+        return _FakeResponse(content=dataBytes)
+
+    monkeypatch.setattr(requests, "get", _fake_get)
+
+    output_dir = tmp_path / "out"
+    output_dir.mkdir()
+    path = get_private_release_asset(ASSET_URL, str(output_dir), "secret-token", returnPath=True)
+
+    assert os.path.exists(path)
+    assert open(path, "rb").read() == dataBytes
+    # The second call must hit the asset endpoint with the octet-stream Accept header, not the JSON one.
+    assert calls[1][1]["Accept"] == "application/octet-stream"
+    assert calls[1][1]["Authorization"] == "Bearer secret-token"
+
+
+def test_get_private_release_asset_missing_asset_raises(tmp_path, monkeypatch):
+    import requests
+    import morpc.req
+
+    class _FakeResponse:
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return {"assets": []}
+
+    monkeypatch.setattr(requests, "get", lambda url, headers=None, params=None, stream=False: _FakeResponse())
+
+    with pytest.raises(RuntimeError):
+        get_private_release_asset(ASSET_URL, str(tmp_path), "secret-token")
+
+
+def test_get_private_release_asset_rejects_non_release_url(tmp_path):
+    import morpc.req
+
+    with pytest.raises(ValueError):
+        get_private_release_asset("https://example.com/data.csv", str(tmp_path), "secret-token")
 
 
 def test_resolve_data_path_verifies_sha256_hash(tmp_path):
