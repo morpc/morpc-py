@@ -1121,8 +1121,94 @@ def load_data(resourcePath, archiveDir=None, validate=False, forceInteger=False,
         logger.info("Skipping casting of field types since we are ignoring schema.")
     else:
         data = cast_field_types(data, schema, forceInteger=forceInteger, forceInt64=forceInt64)
-    
+
     return data, resource, schema
+
+
+def load_package(packagePath, resources=None, archiveDir=None, validate=False, **kwargs):
+    """Load selected resources from a Frictionless data package, e.g. one GitHub release bundling
+    several GeoPackage layers as separate resources.
+
+    Requires the package descriptor's resources to be inline objects, which is what create_package()
+    writes as of the fix in #180 -- a package written by an older create_package() (bare filename
+    strings) is not loadable through frictionless.Package() at all and needs to be re-cut before this
+    will work against it.
+
+    Each selected resource is written out as a standalone .resource.yaml in archiveDir and then loaded
+    through load_data(), rather than duplicating load_data()'s format-dispatch logic here. Pointing
+    every resource at the same archiveDir is what makes this efficient for the common case where every
+    resource in the package shares one underlying data file (e.g. one GeoPackage's several layers):
+    load_data()'s own resolve_data_path() cache-hit check means the file is downloaded once, for the
+    first resource, and reused by every later one -- not re-fetched per resource.
+
+    Parameters
+    ----------
+    packagePath : str
+        Local path or URL to a *.package.yaml.
+    resources : str or list of str, optional
+        Name(s) of the resources to load, matched against each resource's `name` field. Defaults to
+        every resource in the package. Raises if a named resource isn't found.
+    archiveDir : str, optional
+        Directory each resource's underlying data is resolved/cached into (see above). Required when
+        packagePath is a URL, since there is then no directory implied by the package's own location.
+        Defaults to packagePath's own directory when packagePath is local.
+    validate : bool
+        Passed through to load_data() for every selected resource.
+    **kwargs
+        Passed through to load_data() for every selected resource (forceInteger, useSchema, layerName,
+        etc.), applied identically to all of them.
+
+    Returns
+    -------
+    dict
+        Resource name -> (data, resource, schema), the same triple load_data() returns for one
+        resource, one entry per selected resource.
+    """
+    import os
+    import frictionless
+
+    if archiveDir is None:
+        if _is_url(packagePath):
+            logger.error("archiveDir is required when packagePath is a URL, so every resource's "
+                         "underlying data is cached to the same location instead of each downloading "
+                         "to its own temporary directory.")
+            raise RuntimeError
+        archiveDir = os.path.dirname(os.path.abspath(packagePath))
+    os.makedirs(archiveDir, exist_ok=True)
+
+    logger.info(f"Loading Frictionless Package at {packagePath}")
+    package = frictionless.Package(packagePath)
+
+    if isinstance(resources, str):
+        resources = [resources]
+    selected = package.resources if resources is None else [
+        r for r in package.resources if r.name in resources
+    ]
+    if resources is not None:
+        missing = set(resources) - {r.name for r in selected}
+        if missing:
+            logger.error(f"Resource(s) not found in package: {', '.join(sorted(missing))}. "
+                         f"Available: {', '.join(r.name for r in package.resources)}")
+            raise RuntimeError
+
+    results = {}
+    for resource in selected:
+        # A loaded Resource retains its schema's original path for lossless round-tripping (the same
+        # issue #180 fixed for a Package's resources list), so writing it out as-is would emit a bare
+        # "schema: whatever.schema.yaml" reference pointing at a file that doesn't exist next to it in
+        # archiveDir. Write the already-resolved schema out as a real sibling file instead, so the
+        # resource we write matches the plain resource.yaml + schema.yaml shape load_data() expects.
+        resourceDict = resource.to_dict()
+        if resource.schema is not None:
+            schemaFilePath = os.path.join(archiveDir, f"{resource.name}.schema.yaml")
+            resource.schema.to_yaml(schemaFilePath)
+            resourceDict["schema"] = os.path.basename(schemaFilePath)
+        inlineResource = frictionless.Resource(resourceDict)
+        resourceFilePath = os.path.join(archiveDir, f"{resource.name}.resource.yaml")
+        write_resource(inlineResource, resourceFilePath)
+        results[resource.name] = load_data(resourceFilePath, archiveDir=None, validate=validate, **kwargs)
+
+    return results
 
 
 def schema_from_avro(path):
