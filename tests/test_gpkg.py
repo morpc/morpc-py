@@ -62,6 +62,25 @@ def test_create_gpkgresource_one_per_layer():
     assert GpkgControl.from_dialect(resources[1].dialect).layer == "ranges"
 
 
+def test_create_gpkgresource_uppercase_layer_name_produces_valid_resource_name():
+    # Frictionless resource names must match ^([-a-z0-9._/])+$. MORPC layer names are
+    # conventionally uppercase (e.g. "COUNTY"), so the layer name must be lowercased when
+    # building the resource name, distinct from GpkgControl.layer which must preserve the
+    # original case to address the layer in the GeoPackage.
+    points = gpd.GeoDataFrame(
+        {"addr_id": [1]}, geometry=[Point(-83, 40)], crs="epsg:4326"
+    )
+    points.to_file("addresspoints.gpkg", layer="POINTS", driver="GPKG")
+    with open("points.schema.yaml", "w") as f:
+        f.write(POINTS_SCHEMA_YAML)
+
+    resources = create_gpkgresource(
+        "addresspoints.gpkg", layerNames=["POINTS"], schemaPaths=["points.schema.yaml"]
+    )
+    assert resources[0].name == "addresspoints-points"
+    assert GpkgControl.from_dialect(resources[0].dialect).layer == "POINTS"
+
+
 def test_create_gpkgresource_single_schema_applies_to_all_layers():
     _build_gpkg()
     resources = create_gpkgresource(

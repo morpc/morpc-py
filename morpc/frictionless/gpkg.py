@@ -261,7 +261,7 @@ def create_gpkgresource(
         resource = create_resource(
             dataPath,
             title=f"{baseTitle} - {layerName}",
-            name=f"{baseName}-{layerName}",
+            name=f"{baseName}-{re.sub(r'\W+', '-', layerName).lower()}",
             description=description,
             sources=sources,
             resourcePath=resourcePath,
