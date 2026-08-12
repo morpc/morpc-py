@@ -708,3 +708,122 @@ def geocode(addresses: list, endpoint=None):
     return df
 
 
+def query_geocoder(addresses, endpoint="http://127.0.0.1:8000", cities=None, states=None,
+                   zipcodes=None, batchSize=500, timeout=60):
+    """Geocode street addresses with MORPC's self-hosted Pelias geocoder.
+
+    Requires a running deployment of morpc-addresspoints-geocoder
+    (https://github.com/morpc/morpc-addresspoints-geocoder). That repository is a Docker Compose
+    stack -- Pelias indexed from MORPC's own address points, LBRS road centerlines and REGION15
+    boundaries, behind a small REST service -- and this function is only a client for it. Deploy it
+    first (clone, fill in docker/.env, run ./rebuild.sh) and pass its address as `endpoint`; nothing
+    here starts, checks or falls back to anything else if it is not running.
+
+    This is the fuzzy alternative to geocode_addresspoints(), which joins against the address points
+    directly. That one matches only what a county auditor published, tier by tier, and abstains
+    otherwise. This one adds full-text and typo-tolerant search and can interpolate a house number
+    between known points, at the cost of a service to run. Both keep the data and the matching
+    in-house, unlike geocode(), which calls a public Nominatim instance.
+
+    A result is returned only where the service was confident and the house number it found is the
+    one that was asked for. As with geocode_addresspoints(), an address that is honestly unmatched is
+    more useful than a point that is quietly wrong.
+
+    Parameters
+    ----------
+    addresses : list
+        Street addresses without the city, state or ZIP ("205 E CENTRAL AVE"). Supply those through
+        the parallel parameters below, where they are known -- the service uses them to search more
+        precisely, and packing them into this string instead makes the match worse, not better.
+    endpoint : str
+        Optional. Base URL of the geocoder service. Defaults to http://127.0.0.1:8000, where a local
+        deployment listens.
+    cities : list
+        Optional. Cities parallel to `addresses`.
+    states : list
+        Optional. States parallel to `addresses`. Two-letter codes.
+    zipcodes : list
+        Optional. ZIP codes parallel to `addresses`.
+    batchSize : int
+        Optional. Addresses per request. The service geocodes each batch concurrently; this only
+        bounds how much is in flight at once. Defaults to 500.
+    timeout : float
+        Optional. Seconds to wait for one batch. Defaults to 60.
+
+    Returns
+    -------
+    geopandas.GeoDataFrame
+        One row per input address, in input order, in EPSG:4326:
+
+        address     : the address as supplied.
+        matched     : bool, whether a point was returned.
+        confidence  : the service's confidence in the match, where there is one.
+        layer       : what kind of thing was matched. Always "address" on a match.
+        label       : the full address the service matched, worth checking against the input.
+        housenumber : house number of the matched address, always the one asked for.
+        matchnote   : why an address was not matched, where it was not.
+
+    Raises
+    ------
+    RuntimeError
+        If the service cannot be reached, or answers with an error.
+    """
+    import pandas as pd
+    import geopandas as gpd
+    import requests
+    import shapely
+
+    def parallel(values, name):
+        if values is None:
+            return [None] * len(addresses)
+        if len(values) != len(addresses):
+            logger.error("{} must be the same length as addresses.".format(name))
+            raise ValueError
+        return list(values)
+
+    cities = parallel(cities, "cities")
+    states = parallel(states, "states")
+    zipcodes = parallel(zipcodes, "zipcodes")
+
+    url = "{}/geocode/batch".format(endpoint.rstrip("/"))
+    results = []
+
+    for start in range(0, len(addresses), batchSize):
+        stop = start + batchSize
+        payload = {"addresses": [
+            {"address": address, "city": city, "state": state, "zipcode": zipcode}
+            for address, city, state, zipcode
+            in zip(addresses[start:stop], cities[start:stop], states[start:stop],
+                   zipcodes[start:stop])]}
+
+        try:
+            response = requests.post(url, json=payload, timeout=timeout)
+            response.raise_for_status()
+        except requests.exceptions.ConnectionError:
+            logger.error("Could not reach the geocoder at {}.".format(endpoint))
+            raise RuntimeError(
+                "Could not reach the MORPC geocoder at {}. It is a Docker Compose stack that has to "
+                "be deployed and running before this function can be used -- see "
+                "https://github.com/morpc/morpc-addresspoints-geocoder. If it is deployed elsewhere, "
+                "pass its address as endpoint.".format(endpoint))
+        except requests.exceptions.RequestException as e:
+            logger.error("The geocoder at {} returned an error.".format(endpoint))
+            raise RuntimeError("The MORPC geocoder at {} returned an error: {}".format(endpoint, e))
+
+        results.extend(response.json()["results"])
+        logger.info("Geocoded {:,} of {:,} addresses.".format(len(results), len(addresses)))
+
+    frame = pd.DataFrame({
+        "address": addresses,
+        "matched": [r["matched"] for r in results],
+        "confidence": [r.get("confidence") for r in results],
+        "layer": [r.get("layer") for r in results],
+        "label": [r.get("label") for r in results],
+        "housenumber": [r.get("housenumber") for r in results],
+        "matchnote": [r.get("note") for r in results],
+    })
+    geometry = [shapely.Point(r["longitude"], r["latitude"]) if r["matched"] else None
+                for r in results]
+    logger.info("Matched {:,} of {:,} addresses against the MORPC geocoder."
+                .format(int(frame["matched"].sum()), len(frame)))
+    return gpd.GeoDataFrame(frame, geometry=geometry, crs="EPSG:4326")
