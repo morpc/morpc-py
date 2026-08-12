@@ -362,8 +362,8 @@ def test_short_route_prefixes_do_not_capture_ordinary_names():
     assert parsed["streettype"] == "ST"
 
 
-class TestGeocodePelias:
-    """geocode_pelias() is a client for the morpc-addresspoints-geocoder service, so these stub the
+class TestQueryGeocoder:
+    """query_geocoder() is a client for the morpc-addresspoints-geocoder service, so these stub the
     service and check what is sent, what comes back, and what happens when it is not running."""
 
     @staticmethod
@@ -404,7 +404,7 @@ class TestGeocodePelias:
 
     def test_sends_components_alongside_each_address(self, monkeypatch):
         posted = self.service(monkeypatch, [self.result()])
-        morpc.geocode_pelias(["205 E CENTRAL AVE"], cities=["Delaware"], states=["OH"],
+        morpc.query_geocoder(["205 E CENTRAL AVE"], cities=["Delaware"], states=["OH"],
                                      zipcodes=["43015"])
 
         assert posted[0]["url"] == "http://127.0.0.1:8000/geocode/batch"
@@ -414,14 +414,14 @@ class TestGeocodePelias:
 
     def test_components_are_optional(self, monkeypatch):
         posted = self.service(monkeypatch, [self.result()])
-        morpc.geocode_pelias(["205 E CENTRAL AVE"])
+        morpc.query_geocoder(["205 E CENTRAL AVE"])
 
         assert posted[0]["json"]["addresses"] == [
             {"address": "205 E CENTRAL AVE", "city": None, "state": None, "zipcode": None}]
 
     def test_returns_a_geodataframe_in_input_order(self, monkeypatch):
         self.service(monkeypatch, [self.result(), self.result(matched=False), self.result()])
-        frame = morpc.geocode_pelias(["a", "b", "c"])
+        frame = morpc.query_geocoder(["a", "b", "c"])
 
         assert list(frame["address"]) == ["a", "b", "c"]
         assert list(frame["matched"]) == [True, False, True]
@@ -429,14 +429,14 @@ class TestGeocodePelias:
 
     def test_an_unmatched_address_has_no_geometry_but_keeps_its_note(self, monkeypatch):
         self.service(monkeypatch, [self.result(matched=False)])
-        frame = morpc.geocode_pelias(["nowhere"])
+        frame = morpc.query_geocoder(["nowhere"])
 
         assert frame.geometry.iloc[0] is None
         assert frame["matchnote"].iloc[0] == "no confident Pelias match"
 
     def test_a_matched_address_carries_the_point_and_the_reporting_fields(self, monkeypatch):
         self.service(monkeypatch, [self.result()])
-        row = morpc.geocode_pelias(["205 E CENTRAL AVE"]).iloc[0]
+        row = morpc.query_geocoder(["205 E CENTRAL AVE"]).iloc[0]
 
         assert (row.geometry.x, row.geometry.y) == (-83.056948, 40.300645)
         assert row["confidence"] == 1.0
@@ -446,7 +446,7 @@ class TestGeocodePelias:
 
     def test_a_long_list_is_split_into_batches(self, monkeypatch):
         posted = self.service(monkeypatch, [self.result()] * 3)
-        frame = morpc.geocode_pelias(["a", "b", "c"], batchSize=2)
+        frame = morpc.query_geocoder(["a", "b", "c"], batchSize=2)
 
         assert [len(p["json"]["addresses"]) for p in posted] == [2, 1]
         assert len(frame) == 3
@@ -454,17 +454,17 @@ class TestGeocodePelias:
     def test_a_parallel_list_of_the_wrong_length_is_rejected(self, monkeypatch):
         self.service(monkeypatch, [self.result()])
         with pytest.raises(ValueError):
-            morpc.geocode_pelias(["a", "b"], zipcodes=["43015"])
+            morpc.query_geocoder(["a", "b"], zipcodes=["43015"])
 
     def test_an_unreachable_service_says_it_has_to_be_deployed(self, monkeypatch):
         import requests
         self.service(monkeypatch, [], error=requests.exceptions.ConnectionError("refused"))
 
         with pytest.raises(RuntimeError, match="morpc-addresspoints-geocoder"):
-            morpc.geocode_pelias(["205 E CENTRAL AVE"])
+            morpc.query_geocoder(["205 E CENTRAL AVE"])
 
     def test_an_erroring_service_is_reported_rather_than_returning_empty(self, monkeypatch):
         self.service(monkeypatch, [self.result()], status=500)
 
         with pytest.raises(RuntimeError, match="returned an error"):
-            morpc.geocode_pelias(["205 E CENTRAL AVE"])
+            morpc.query_geocoder(["205 E CENTRAL AVE"])

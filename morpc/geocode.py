@@ -708,7 +708,7 @@ def geocode(addresses: list, endpoint=None):
     return df
 
 
-def geocode_pelias(addresses, endpoint="http://127.0.0.1:8000", cities=None, states=None,
+def query_geocoder(addresses, endpoint="http://127.0.0.1:8000", cities=None, states=None,
                    zipcodes=None, batchSize=500, timeout=60):
     """Geocode street addresses with MORPC's self-hosted Pelias geocoder.
 
@@ -824,6 +824,6 @@ def geocode_pelias(addresses, endpoint="http://127.0.0.1:8000", cities=None, sta
     })
     geometry = [shapely.Point(r["longitude"], r["latitude"]) if r["matched"] else None
                 for r in results]
-    logger.info("Matched {:,} of {:,} addresses against the Pelias geocoder."
+    logger.info("Matched {:,} of {:,} addresses against the MORPC geocoder."
                 .format(int(frame["matched"].sum()), len(frame)))
     return gpd.GeoDataFrame(frame, geometry=geometry, crs="EPSG:4326")
