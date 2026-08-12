@@ -363,7 +363,7 @@ def test_short_route_prefixes_do_not_capture_ordinary_names():
 
 
 class TestQueryGeocoder:
-    """query_geocoder() is a client for the morpc-addresspoints-geocoder service, so these stub the
+    """query_geocoder() is a client for the morpc-geocoder service, so these stub the
     service and check what is sent, what comes back, and what happens when it is not running."""
 
     @staticmethod
@@ -460,7 +460,7 @@ class TestQueryGeocoder:
         import requests
         self.service(monkeypatch, [], error=requests.exceptions.ConnectionError("refused"))
 
-        with pytest.raises(RuntimeError, match="morpc-addresspoints-geocoder"):
+        with pytest.raises(RuntimeError, match="morpc-geocoder"):
             morpc.query_geocoder(["205 E CENTRAL AVE"])
 
     def test_an_erroring_service_is_reported_rather_than_returning_empty(self, monkeypatch):
