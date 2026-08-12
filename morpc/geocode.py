@@ -712,8 +712,8 @@ def query_geocoder(addresses, endpoint="http://127.0.0.1:8000", cities=None, sta
                    zipcodes=None, batchSize=500, timeout=60):
     """Geocode street addresses with MORPC's self-hosted Pelias geocoder.
 
-    Requires a running deployment of morpc-addresspoints-geocoder
-    (https://github.com/morpc/morpc-addresspoints-geocoder). That repository is a Docker Compose
+    Requires a running deployment of morpc-geocoder
+    (https://github.com/morpc/morpc-geocoder). That repository is a Docker Compose
     stack -- Pelias indexed from MORPC's own address points, LBRS road centerlines and REGION15
     boundaries, behind a small REST service -- and this function is only a client for it. Deploy it
     first (clone, fill in docker/.env, run ./rebuild.sh) and pass its address as `endpoint`; nothing
@@ -804,7 +804,7 @@ def query_geocoder(addresses, endpoint="http://127.0.0.1:8000", cities=None, sta
             raise RuntimeError(
                 "Could not reach the MORPC geocoder at {}. It is a Docker Compose stack that has to "
                 "be deployed and running before this function can be used -- see "
-                "https://github.com/morpc/morpc-addresspoints-geocoder. If it is deployed elsewhere, "
+                "https://github.com/morpc/morpc-geocoder. If it is deployed elsewhere, "
                 "pass its address as endpoint.".format(endpoint))
         except requests.exceptions.RequestException as e:
             logger.error("The geocoder at {} returned an error.".format(endpoint))
