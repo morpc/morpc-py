@@ -1,4 +1,4 @@
-__version__ = "0.5.18"
+__version__ = "0.6.0"
 
 import logging
 logger = logging.getLogger(__name__)
