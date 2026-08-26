@@ -1,0 +1,470 @@
+# morpc-py/morpc/osm/osm.py
+
+"""OpenStreetMap module for MORPC.
+
+This module wraps osmnx/Overpass queries behind a scope (polygon, place name, or
+bounding box) plus a tag filter, in the same spirit as morpc.rest_api wraps ArcGIS
+REST queries. A single request to the public Overpass API can fail because the area
+requested is too large for the server to answer, or because the mirror itself is
+temporarily overloaded regardless of query size; fetch_osm_features() copes with both
+by splitting an oversized request into smaller tiles and, failing that, falling back to
+an alternate public Overpass mirror.
+
+OsmResource/OsmControl/OsmPlugin register a "osm" Frictionless resource type, mirroring
+morpc.rest_api.ArcGISResource: a resource documents a scope + tag query rather than a
+literal file, and calling to_geodataframe() replays that query live against Overpass.
+Overpass exposes no field metadata the way an ArcGIS REST service does, so OsmSchema
+infers a schema from whichever tag columns are actually present in a fetched response,
+rather than from a hand-written schema file.
+"""
+
+import logging
+import os
+import re
+
+import attrs
+import frictionless
+import geopandas as gpd
+import shapely
+from frictionless.dialect import Control
+
+logger = logging.getLogger(__name__)
+
+# Public Overpass mirrors to try, in order, when a query keeps failing even at the
+# smallest tile size. overpass-api.de is the busiest of the public mirrors and the one
+# most likely to be temporarily overloaded (returning 504s or resetting connections);
+# the others are independently-run public instances offering the same API.
+DEFAULT_OVERPASS_ENDPOINTS = [
+    "https://overpass-api.de/api",
+    "https://overpass.kumi.systems/api",
+    "https://overpass.private.coffee/api",
+]
+
+# How many times a request's area may be halved in each direction when it is too large
+# for Overpass to answer. Each level of depth splits one request into four, so depth 4
+# permits up to 256 tiles for a single query.
+DEFAULT_MAX_SPLIT_DEPTH = 4
+
+# Seconds to allow a single Overpass request before giving up on it.
+DEFAULT_TIMEOUT = 900
+
+
+def _which_scope(polygon, place, bbox):
+    """Return which of polygon/place/bbox was given. Raises if it is not exactly one."""
+    given = [name for name, value in (("polygon", polygon), ("place", place), ("bbox", bbox)) if value is not None]
+    if len(given) != 1:
+        logger.error(f"Exactly one of polygon, place, or bbox must be given. Received: {given}")
+        raise ValueError("Exactly one of polygon, place, or bbox must be given.")
+    return given[0]
+
+
+def _resolve_scope(polygon=None, place=None, bbox=None):
+    """Return a single shapely (Multi)Polygon to query against, regardless of scope kind.
+
+    Normalizing all three scope kinds to one geometry up front lets the split-retry
+    engine below serve all of them through a single code path.
+    """
+    import osmnx as ox
+
+    kind = _which_scope(polygon, place, bbox)
+    if kind == "polygon":
+        return polygon
+    if kind == "bbox":
+        return shapely.geometry.box(*bbox)
+
+    boundary = ox.geocode_to_gdf(place)
+    return boundary.union_all()
+
+
+def _describe_scope(polygon=None, place=None, bbox=None):
+    """Return (scope_type, scope) in a form that round-trips through a Resource descriptor."""
+    kind = _which_scope(polygon, place, bbox)
+    if kind == "polygon":
+        return "polygon", shapely.geometry.mapping(polygon)
+    if kind == "bbox":
+        return "bbox", list(bbox)
+    return "place", place
+
+
+def _reconstruct_scope(scope_type, scope):
+    """Return (polygon, place, bbox) kwargs for fetch_osm_features from a stored scope descriptor."""
+    if scope_type == "polygon":
+        return shapely.geometry.shape(scope), None, None
+    if scope_type == "bbox":
+        return None, None, tuple(scope)
+    if scope_type == "place":
+        return None, scope, None
+
+    logger.error(f"Unknown scope_type '{scope_type}'.")
+    raise ValueError(f"Unknown scope_type '{scope_type}'.")
+
+
+def _quarter_polygon(polygon):
+    """Split `polygon` into its four bounding-box quadrants, dropping any that it does not reach."""
+    minx, miny, maxx, maxy = polygon.bounds
+    midx, midy = (minx + maxx) / 2, (miny + maxy) / 2
+    quadrants = [
+        shapely.geometry.box(minx, miny, midx, midy),
+        shapely.geometry.box(midx, miny, maxx, midy),
+        shapely.geometry.box(minx, midy, midx, maxy),
+        shapely.geometry.box(midx, midy, maxx, maxy),
+    ]
+    parts = [polygon.intersection(q) for q in quadrants]
+    return [p for p in parts if not p.is_empty]
+
+
+def _fetch_with_splitting(polygon, tags, label, max_split_depth, depth=0):
+    """Fetch every feature within `polygon`, splitting the request when it is too large.
+
+    A single query covering a large area can exceed what the public Overpass API will
+    return; Overpass signals this by timing out or returning an error status rather
+    than by returning partial data. This treats a failed request as a signal to ask for
+    less: it splits the area into quadrants and retries each one, recursing until the
+    request succeeds or max_split_depth is reached. Splitting is done only when needed,
+    so a scope small enough to answer in one request still costs exactly one request.
+
+    A feature straddling a tile boundary is returned by every tile it touches; the
+    caller is responsible for de-duplicating on OSM element identity if that matters.
+    """
+    import pandas as pd
+    import osmnx as ox
+    from osmnx._errors import InsufficientResponseError, ResponseStatusCodeError
+
+    indent = "  " * depth
+    try:
+        logger.info(f"{indent}Requesting features for {label}")
+        gdf = ox.features_from_polygon(polygon, tags=tags)
+        logger.info(f"{indent}{label}: {len(gdf):,} features returned")
+        return gdf
+
+    except InsufficientResponseError:
+        # Overpass answered, and the answer is that there is nothing here. This is a
+        # legitimate result, not a failure, so it must not trigger a split.
+        logger.info(f"{indent}{label}: no features found")
+        return gpd.GeoDataFrame(geometry=[], crs="epsg:4326")
+
+    except (ResponseStatusCodeError, TimeoutError, OSError) as error:
+        # The request was too big, or the server declined it. Ask for less.
+        if depth >= max_split_depth:
+            logger.error(
+                f"{indent}{label}: still failing at maximum split depth {max_split_depth}. "
+                f"Increase max_split_depth or retry later. Underlying error: {error}"
+            )
+            raise
+
+        parts = _quarter_polygon(polygon)
+        logger.warning(
+            f"{indent}{label}: request failed ({type(error).__name__}), splitting into "
+            f"{len(parts)} tiles and retrying. Underlying error: {error}"
+        )
+        results = [
+            _fetch_with_splitting(part, tags, f"{label}.{i + 1}", max_split_depth, depth=depth + 1)
+            for i, part in enumerate(parts)
+        ]
+        results = [r for r in results if len(r) > 0]
+        if not results:
+            return gpd.GeoDataFrame(geometry=[], crs="epsg:4326")
+        return pd.concat(results)
+
+
+def _fetch_with_fallback(polygon, tags, label, overpass_endpoints, max_split_depth, timeout):
+    """Fetch `label`'s features, falling back to the next Overpass mirror if the current
+    mirror keeps failing.
+
+    _fetch_with_splitting already copes with a request that is too large by splitting
+    it into smaller tiles. That does not help when the mirror itself is the problem --
+    overloaded or otherwise returning errors regardless of query size -- so this only
+    moves to the next mirror once a mirror has failed even at max_split_depth. A working
+    first mirror never triggers this at all.
+    """
+    import osmnx as ox
+    from osmnx._errors import ResponseStatusCodeError
+
+    ox.settings.requests_timeout = timeout
+    ox.settings.overpass_rate_limit = True
+
+    lastError = None
+    for i, endpoint in enumerate(overpass_endpoints):
+        if i > 0:
+            logger.warning(f"{label}: switching to Overpass mirror {endpoint} after the previous mirror failed")
+        ox.settings.overpass_url = endpoint
+        try:
+            return _fetch_with_splitting(polygon, tags, label, max_split_depth)
+        except (ResponseStatusCodeError, TimeoutError, OSError) as error:
+            lastError = error
+
+    logger.error(f"{label}: every configured Overpass mirror failed. Underlying error: {lastError}")
+    raise lastError
+
+
+def fetch_osm_features(
+    tags,
+    polygon=None,
+    place=None,
+    bbox=None,
+    label=None,
+    overpass_endpoints=None,
+    max_split_depth=DEFAULT_MAX_SPLIT_DEPTH,
+    timeout=DEFAULT_TIMEOUT,
+    archive_dir=None,
+    name=None,
+    version=None,
+):
+    """Fetch OSM features matching `tags` within a scope, optionally archiving the result.
+
+    Exactly one of polygon, place, or bbox must be given to define the query's scope.
+    The request is retried against progressively smaller tiles if the scope is too
+    large for Overpass to answer in one response, and falls back to an alternate public
+    Overpass mirror if a mirror keeps failing even at the smallest tile size.
+
+    Parameters
+    ----------
+    tags : dict
+        OSM tag filter passed to osmnx, e.g. {"building": True}. See
+        osmnx.features_from_polygon for the accepted forms.
+    polygon : shapely Polygon or MultiPolygon, optional
+        Area to query, in EPSG:4326.
+    place : str or dict, optional
+        Place name or structured Nominatim query to geocode and query, e.g.
+        "Franklin County, Ohio".
+    bbox : tuple of float, optional
+        Bounding box as (left, bottom, right, top) in EPSG:4326.
+    label : str, optional
+        Human-readable name for the query, used in log messages to make split/fallback
+        retries legible. Defaults to `name`, or "query" if neither is given.
+    overpass_endpoints : list of str, optional
+        Overpass mirrors to try, in order. Defaults to DEFAULT_OVERPASS_ENDPOINTS.
+    max_split_depth : int, optional
+        How many times the scope may be halved in each direction before giving up.
+        Defaults to DEFAULT_MAX_SPLIT_DEPTH.
+    timeout : int, optional
+        Seconds to allow a single Overpass request before giving up on it. Defaults to
+        DEFAULT_TIMEOUT.
+    archive_dir : str, optional
+        If given, write the fetched features to `{archive_dir}/{name}.gpkg`, along with
+        a schema inferred from the response, an OsmResource documenting the live query
+        that produced it, a GpkgResource documenting the archived copy, and a single
+        `{name}.package.yaml` bundling both inline. Requires `name`.
+    name : str, optional
+        Base name for the archived files. Required if archive_dir is given.
+    version : str, optional
+        Version for the archived package. Defaults to morpc.frictionless.calver() if
+        omitted.
+
+    Returns
+    -------
+    geopandas.GeoDataFrame
+        The fetched features.
+    """
+    overpass_endpoints = overpass_endpoints or DEFAULT_OVERPASS_ENDPOINTS
+    label = label or name or "query"
+
+    scope_geometry = _resolve_scope(polygon=polygon, place=place, bbox=bbox)
+    gdf = _fetch_with_fallback(scope_geometry, tags, label, overpass_endpoints, max_split_depth, timeout)
+
+    if archive_dir is not None:
+        if name is None:
+            logger.error("name is required when archive_dir is given.")
+            raise ValueError("name is required when archive_dir is given.")
+        _archive_features(
+            gdf,
+            tags,
+            polygon=polygon,
+            place=place,
+            bbox=bbox,
+            overpass_endpoints=overpass_endpoints,
+            max_split_depth=max_split_depth,
+            archive_dir=archive_dir,
+            name=name,
+            version=version,
+        )
+
+    return gdf
+
+
+def _archive_features(gdf, tags, polygon, place, bbox, overpass_endpoints, max_split_depth, archive_dir, name, version):
+    """Write `gdf` to a GeoPackage and a dense Frictionless package documenting it.
+
+    The package bundles two inline resources: an OsmResource documenting the live
+    Overpass query that produced the data, and a GpkgResource documenting the archived
+    local copy -- so the package is self-describing about both provenance and storage.
+    """
+    from morpc.frictionless.frictionless import create_package, tempWorkingDirectory
+    from morpc.frictionless.gpkg import create_gpkgresource
+    from morpc.frictionless.release import calver
+
+    os.makedirs(archive_dir, exist_ok=True)
+
+    dataFileName = f"{name}.gpkg"
+    schemaFileName = f"{name}.schema.yaml"
+
+    schema = OsmSchema.from_geodataframe(gdf)
+
+    with tempWorkingDirectory(archive_dir):
+        gdf.to_file(dataFileName, driver="GPKG", layer=name)
+        schema.to_yaml(schemaFileName)
+
+        gpkgResource = create_gpkgresource(
+            dataFileName,
+            name,
+            schemaPaths=schemaFileName,
+            computeHash=True,
+            computeBytes=True,
+        )[0]
+
+    osmResource = OsmResource.from_query(
+        name,
+        tags,
+        polygon=polygon,
+        place=place,
+        bbox=bbox,
+        overpass_endpoints=overpass_endpoints,
+        max_split_depth=max_split_depth,
+    )
+
+    packageVersion = version if version is not None else calver()
+    create_package(
+        dir=archive_dir,
+        resources=[osmResource, gpkgResource],
+        name=name,
+        version=packageVersion,
+    )
+
+
+class OsmSchema(frictionless.Schema):
+    """A frictionless Schema built from the tag columns present in a fetched GeoDataFrame.
+
+    Overpass exposes no field metadata to build a schema from ahead of a fetch, unlike
+    an ArcGIS REST service (see morpc.rest_api.ArcGISSchema.from_url()), so this infers
+    the schema after the fact from whatever tag columns actually came back. Every field
+    is typed "string": OSM tags are free text, and this module does not interpret them
+    the way a downstream standardization workflow would.
+    """
+
+    @classmethod
+    def from_geodataframe(cls, gdf):
+        geometryColumn = gdf.geometry.name
+        fields = [{"name": column, "type": "string"} for column in gdf.columns if column != geometryColumn]
+        return cls({"fields": fields})
+
+
+@attrs.define(kw_only=True, repr=False)
+class OsmControl(Control):
+    """Control identifying the scope and tag query an OsmResource describes."""
+
+    type = "osm"
+
+    tags: dict = attrs.Factory(dict)
+    scope_type: str = "polygon"
+    scope: object = attrs.Factory(dict)
+    overpass_endpoints: list = attrs.Factory(list)
+    max_split_depth: int = DEFAULT_MAX_SPLIT_DEPTH
+
+    metadata_profile_patch = {
+        "properties": {
+            "tags": {"type": "object"},
+            "scopeType": {"type": "string"},
+            "scope": {},
+            "overpassEndpoints": {"type": "array"},
+            "maxSplitDepth": {"type": "integer"},
+        }
+    }
+
+
+class OsmPlugin(frictionless.Plugin):
+    """Frictionless plugin that registers OsmResource/OsmControl for type='osm'."""
+
+    def select_resource_class(self, type=None, *, datatype=None):
+        if type == "osm":
+            return OsmResource
+
+    def select_control_class(self, type=None):
+        if type == "osm":
+            return OsmControl
+
+
+frictionless.system.register("osm", OsmPlugin())
+
+
+class OsmResource(frictionless.Resource):
+    """A frictionless Resource describing an OpenStreetMap Overpass query.
+
+    Construct from an existing descriptor using the inherited frictionless.Resource
+    interface, or use from_query() to describe a fresh scope + tag query. to_geodataframe()
+    replays the stored query live against Overpass, the way morpc.rest_api.ArcGISResource
+    replays its stored query against a live ArcGIS REST service.
+    """
+
+    type = "osm"
+
+    @classmethod
+    def from_query(
+        cls,
+        name,
+        tags,
+        polygon=None,
+        place=None,
+        bbox=None,
+        overpass_endpoints=None,
+        max_split_depth=DEFAULT_MAX_SPLIT_DEPTH,
+    ):
+        """Create an OsmResource describing a scope + tag query, without fetching it.
+
+        Parameters
+        ----------
+        name : str
+            Human-readable name; converted to a valid resource slug.
+        tags : dict
+            OSM tag filter, e.g. {"building": True}.
+        polygon, place, bbox
+            Exactly one must be given. See fetch_osm_features().
+        overpass_endpoints : list of str, optional
+            Overpass mirrors to try, in order. Defaults to DEFAULT_OVERPASS_ENDPOINTS.
+        max_split_depth : int, optional
+            Defaults to DEFAULT_MAX_SPLIT_DEPTH.
+        """
+        overpass_endpoints = overpass_endpoints or DEFAULT_OVERPASS_ENDPOINTS
+        scope_type, scope = _describe_scope(polygon=polygon, place=place, bbox=bbox)
+
+        control = OsmControl(
+            tags=tags,
+            scope_type=scope_type,
+            scope=scope,
+            overpass_endpoints=overpass_endpoints,
+            max_split_depth=max_split_depth,
+        )
+        dialect = frictionless.Dialect(controls=[control])
+
+        descriptor = {
+            "name": re.sub(r"[:/_ ]", "-", name).lower(),
+            "type": "osm",
+            "format": "json",
+            "path": f"{overpass_endpoints[0]}/interpreter",
+            "mediatype": "application/json",
+            "dialect": dialect.to_descriptor(),
+        }
+
+        return cls(descriptor)
+
+    def to_geodataframe(self, timeout=DEFAULT_TIMEOUT):
+        """Fetch this resource's query live from Overpass and return a GeoDataFrame.
+
+        The schema is inferred from whichever tag columns are present in the response
+        and attached to this resource, since Overpass exposes no field metadata to
+        build one from ahead of time.
+        """
+        control = OsmControl.from_dialect(self.dialect)
+        polygon, place, bbox = _reconstruct_scope(control.scope_type, control.scope)
+
+        gdf = fetch_osm_features(
+            control.tags,
+            polygon=polygon,
+            place=place,
+            bbox=bbox,
+            label=self.name,
+            overpass_endpoints=control.overpass_endpoints,
+            max_split_depth=control.max_split_depth,
+            timeout=timeout,
+        )
+        self.schema = OsmSchema.from_geodataframe(gdf)
+        return gdf

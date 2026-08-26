@@ -287,3 +287,22 @@ def test_create_package_writes_resources_as_inline_descriptors(tmp_path):
     reloaded = frictionless.Package(str(tmp_path / "bundle.package.yaml"))
     assert isinstance(reloaded.resources[0].to_dict(), dict)
     assert reloaded.resources[0].name == "parcels"
+
+
+def test_create_package_accepts_a_resource_object_directly(tmp_path):
+    # Passing an already-constructed Resource (never written to its own .resource.yaml) must inline
+    # correctly rather than being treated as an inline data source: naively re-wrapping an existing
+    # Resource instance with frictionless.Resource(x) mistakes it for an iterable data source and
+    # silently produces an empty "memory" resource instead of the real descriptor. See morpc.osm,
+    # which builds resources entirely in memory before archiving.
+    import frictionless
+
+    from morpc.frictionless import create_package
+
+    resource = frictionless.Resource({"name": "in-memory", "type": "file", "path": "https://example.com/data.json", "format": "json"})
+    create_package(dir=str(tmp_path), resources=[resource], name="bundle", version="2026.7.30")
+
+    reloaded = frictionless.Package(str(tmp_path / "bundle.package.yaml"))
+    assert len(reloaded.resources) == 1
+    assert reloaded.resources[0].name == "in-memory"
+    assert reloaded.resources[0].path == "https://example.com/data.json"

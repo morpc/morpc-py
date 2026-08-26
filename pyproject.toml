@@ -27,7 +27,8 @@ dependencies = [
     "xlsxwriter",
     "plotnine",
     "dateparser",
-    "enlighten"
+    "enlighten",
+    "osmnx"
 ]
 
 [build-system]

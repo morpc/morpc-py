@@ -11,4 +11,5 @@ import morpc.plot
 import morpc.color.colors as colors
 import morpc.color.palette as palette
 import morpc.rest_api
+import morpc.osm
 import morpc.utils
