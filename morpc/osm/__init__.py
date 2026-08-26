@@ -4,6 +4,7 @@ from .osm import (
     DEFAULT_TIMEOUT,
     OsmControl,
     OsmPlugin,
+    OsmQueryPackage,
     OsmResource,
     OsmSchema,
     fetch_osm_features,

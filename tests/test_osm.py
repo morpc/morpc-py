@@ -4,7 +4,7 @@ import pytest
 from osmnx._errors import InsufficientResponseError, ResponseStatusCodeError
 from shapely.geometry import Point, box, mapping, shape
 
-from morpc.osm import OsmControl, OsmResource, OsmSchema, fetch_osm_features
+from morpc.osm import OsmControl, OsmQueryPackage, OsmResource, OsmSchema, fetch_osm_features
 from morpc.osm.osm import _describe_scope, _quarter_polygon, _reconstruct_scope, _resolve_scope, _which_scope
 
 POLY = box(-83.1, 39.9, -83.0, 40.0)
@@ -221,3 +221,84 @@ def test_archive_writes_dense_package_with_unique_resource_names(monkeypatch, tm
     osmResource = next(r for r in package.resources if r.type == "osm")
     control = OsmControl.from_dialect(osmResource.dialect)
     assert control.tags == {"building": True}
+
+
+# --- OsmQueryPackage ---
+
+def test_from_query_never_fetches(monkeypatch):
+    monkeypatch.setattr(
+        ox, "features_from_polygon",
+        lambda *a, **k: (_ for _ in ()).throw(AssertionError("should not fetch")),
+    )
+    package = OsmQueryPackage.from_query("Franklin County", {"building": True}, polygon=POLY, version="2026.1.1")
+    assert isinstance(package, __import__("frictionless").Package)
+    assert package.type == "osm-query"
+    assert len(package.resources) == 1
+    assert package.resources[0].type == "osm"
+
+
+def test_save_writes_a_single_file_with_no_data(monkeypatch, tmp_path):
+    monkeypatch.setattr(
+        ox, "features_from_polygon",
+        lambda *a, **k: (_ for _ in ()).throw(AssertionError("should not fetch")),
+    )
+    package = OsmQueryPackage.from_query("franklin", {"building": True}, polygon=POLY, version="2026.1.1")
+    path = package.save(str(tmp_path))
+
+    assert path == str(tmp_path / "franklin.package.yaml")
+    assert list(tmp_path.iterdir()) == [tmp_path / "franklin.package.yaml"]
+
+
+def test_saved_package_reloads_as_osmquerypackage_via_plain_frictionless(tmp_path):
+    import frictionless
+
+    package = OsmQueryPackage.from_query("franklin", {"building": True}, polygon=POLY, version="2026.1.1")
+    path = package.save(str(tmp_path))
+
+    # Round-tripping through the generic frictionless.Package() constructor -- not a morpc.osm-specific
+    # loader -- must still come back as OsmQueryPackage, the same way GpkgResource/ArcGISResource
+    # already round-trip through frictionless.Resource(). Requires morpc.osm to have been imported
+    # (registers the plugin), same tradeoff those existing types already make.
+    reloaded = frictionless.Package(path)
+    assert isinstance(reloaded, OsmQueryPackage)
+    assert isinstance(reloaded.resources[0], OsmResource)
+
+    control = OsmControl.from_dialect(reloaded.resources[0].dialect)
+    assert control.tags == {"building": True}
+    assert shape(control.scope).equals(POLY)
+
+
+def test_fetch_delegates_to_fetch_osm_features(monkeypatch):
+    calls = []
+
+    def fake(polygon, tags):
+        calls.append(polygon)
+        return _gdf(3)
+
+    monkeypatch.setattr(ox, "features_from_polygon", fake)
+    package = OsmQueryPackage.from_query(
+        "franklin", {"building": True}, polygon=POLY, overpass_endpoints=["http://mirrorA"],
+    )
+    gdf = package.fetch()
+    assert len(gdf) == 3
+    assert len(calls) == 1
+
+
+def test_fetch_can_archive(monkeypatch, tmp_path):
+    monkeypatch.setattr(ox, "features_from_polygon", lambda polygon, tags: _gdf(2))
+    package = OsmQueryPackage.from_query(
+        "franklin", {"building": True}, polygon=POLY, overpass_endpoints=["http://mirrorA"],
+    )
+
+    archive_dir = tmp_path / "archive"
+    archive_dir.mkdir()
+    package.fetch(archive_dir=str(archive_dir), version="2026.1.1")
+
+    assert (archive_dir / "franklin.gpkg").exists()
+    assert (archive_dir / "franklin.package.yaml").exists()
+
+    # The snapshot file itself is untouched by fetch() -- it stays a static, data-free declaration.
+    snapshot_dir = tmp_path / "snapshot"
+    snapshot_dir.mkdir()
+    snapshot_path = package.save(str(snapshot_dir))
+    assert list(snapshot_dir.iterdir()) == [snapshot_dir / "franklin.package.yaml"]

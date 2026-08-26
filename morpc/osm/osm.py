@@ -372,7 +372,8 @@ class OsmControl(Control):
 
 
 class OsmPlugin(frictionless.Plugin):
-    """Frictionless plugin that registers OsmResource/OsmControl for type='osm'."""
+    """Frictionless plugin that registers OsmResource/OsmControl for type='osm', and
+    OsmQueryPackage for package type='osm-query'."""
 
     def select_resource_class(self, type=None, *, datatype=None):
         if type == "osm":
@@ -381,6 +382,10 @@ class OsmPlugin(frictionless.Plugin):
     def select_control_class(self, type=None):
         if type == "osm":
             return OsmControl
+
+    def select_package_class(self, type=None):
+        if type == "osm-query":
+            return OsmQueryPackage
 
 
 frictionless.system.register("osm", OsmPlugin())
@@ -468,3 +473,132 @@ class OsmResource(frictionless.Resource):
         )
         self.schema = OsmSchema.from_geodataframe(gdf)
         return gdf
+
+
+class OsmQueryPackage(frictionless.Package):
+    """A Frictionless Package that documents an OSM/Overpass query without fetching or
+    embedding any data -- a metadata snapshot of "what query would produce this input".
+
+    Registers as a "osm-query" package type (see OsmPlugin.select_package_class), so
+    loading a saved snapshot back with frictionless.Package(path) or OsmQueryPackage(path)
+    returns an OsmQueryPackage, the same way a "gpkg"/"arcgis" resource round-trips to its
+    own class -- provided morpc.osm has been imported to register the plugin. Without it,
+    loading raises rather than silently degrading, the same tradeoff every other custom
+    morpc Frictionless type (GpkgResource, ArcGISResource) already makes.
+
+    The package holds exactly one resource: the OsmResource describing the query. Saving
+    never fetches anything -- see save(). Actually running the query, optionally archiving
+    the result, is the separate, explicit fetch().
+    """
+
+    type = "osm-query"
+
+    @classmethod
+    def from_query(
+        cls,
+        name,
+        tags,
+        polygon=None,
+        place=None,
+        bbox=None,
+        overpass_endpoints=None,
+        max_split_depth=DEFAULT_MAX_SPLIT_DEPTH,
+        version=None,
+        keywords=None,
+    ):
+        """Describe a scope + tag query as a package, without fetching it.
+
+        Parameters
+        ----------
+        name : str
+            Human-readable name; converted to a valid resource slug for the wrapped
+            OsmResource, and used as-is for the package's own name.
+        tags : dict
+            OSM tag filter, e.g. {"building": True}.
+        polygon, place, bbox
+            Exactly one must be given. See fetch_osm_features().
+        overpass_endpoints : list of str, optional
+            Overpass mirrors to try, in order. Defaults to DEFAULT_OVERPASS_ENDPOINTS.
+        max_split_depth : int, optional
+            Defaults to DEFAULT_MAX_SPLIT_DEPTH.
+        version : str, optional
+            Package version. Defaults to morpc.frictionless.calver() if omitted.
+        keywords : list of str, optional
+            Package keywords.
+        """
+        import datetime
+
+        from morpc.frictionless.release import calver
+
+        resource = OsmResource.from_query(
+            name,
+            tags,
+            polygon=polygon,
+            place=place,
+            bbox=bbox,
+            overpass_endpoints=overpass_endpoints,
+            max_split_depth=max_split_depth,
+        )
+
+        descriptor = {
+            "name": resource.name,
+            "type": "osm-query",
+            "version": str(version) if version is not None else str(calver()),
+            "created": datetime.datetime.now().isoformat(),
+            "resources": [resource.to_dict()],
+        }
+        if keywords is not None:
+            descriptor["keywords"] = keywords
+
+        return cls(descriptor)
+
+    def save(self, dir):
+        """Write this package to `{dir}/{name}.package.yaml`. Never fetches or writes data.
+
+        Returns
+        -------
+        str
+            The path written.
+        """
+        path = os.path.join(dir, f"{self.name}.package.yaml")
+        self.to_yaml(path)
+        return path
+
+    def fetch(self, archive_dir=None, timeout=DEFAULT_TIMEOUT, version=None):
+        """Run the documented query live, optionally archiving the result.
+
+        Delegates entirely to fetch_osm_features() using the scope, tags, and mirrors
+        recorded in this package's OsmResource -- this is the one place that actually
+        talks to Overpass. See fetch_osm_features() for the archiving behavior.
+
+        Parameters
+        ----------
+        archive_dir : str, optional
+            If given, archive the result there (gpkg + schema + a separate dense
+            package documenting the fetched copy). See fetch_osm_features().
+        timeout : int, optional
+            Defaults to DEFAULT_TIMEOUT.
+        version : str, optional
+            Version for the archived package, if archive_dir is given. Defaults to
+            morpc.frictionless.calver() if omitted.
+
+        Returns
+        -------
+        geopandas.GeoDataFrame
+        """
+        control = OsmControl.from_dialect(self.resources[0].dialect)
+        polygon, place, bbox = _reconstruct_scope(control.scope_type, control.scope)
+
+        return fetch_osm_features(
+            control.tags,
+            polygon=polygon,
+            place=place,
+            bbox=bbox,
+            label=self.name,
+            overpass_endpoints=control.overpass_endpoints,
+            max_split_depth=control.max_split_depth,
+            timeout=timeout,
+            archive_dir=archive_dir,
+            name=self.name,
+            version=version,
+        )
