@@ -1406,9 +1406,27 @@ def schema_from_avro(path):
     
     return frictionlessSchema
 
-def create_package(dir: PathLike, resources: List[str], name: str, version: str | Version, keywords: List[str] | None = None):
+def create_package(dir: PathLike, resources: List[str | frictionless.Resource], name: str, version: str | Version, keywords: List[str] | None = None):
     """
-    Create a data package from a list of resources
+    Create a data package from a list of resources.
+
+    Parameters
+    ----------
+    dir : PathLike
+        Directory to write the package file to. Also the base directory that any path
+        entries in `resources` are resolved relative to.
+    resources : list of str or frictionless.Resource
+        Each entry is either a path to an existing `.resource.yaml`/`.resource.json`
+        file, or an already-constructed Resource object (e.g. one built in memory via
+        Resource.from_query()-style helpers without ever being written to its own
+        file). Either way, its descriptor is inlined into the package -- see below.
+    name : str
+        The value for the package's name attribute, and the base of the output filename
+        ("{name}.package.yaml").
+    version : str or semantic_version.Version
+        The value for the package's version attribute.
+    keywords : list of str, optional
+        The value for the package's keywords attribute.
     """
     import os
     import frictionless
@@ -1425,7 +1443,14 @@ def create_package(dir: PathLike, resources: List[str], name: str, version: str 
         # straight into Package() would serialize it back out as a bare filename string instead of an
         # inline descriptor. That collapsed form fails to reload (Frictionless requires each package
         # resource to be an object, not a string), so it must be expanded here before bundling.
-        resources = [frictionless.Resource(frictionless.Resource(x).to_dict()) for x in resources]
+        #
+        # An entry that is already a Resource object must not be re-wrapped with frictionless.Resource(x):
+        # passed an existing Resource instance, that constructor treats it as an inline data source (since
+        # a Resource is iterable) rather than as a descriptor, silently producing an empty "memory" resource.
+        resources = [
+            frictionless.Resource((x if isinstance(x, frictionless.Resource) else frictionless.Resource(x)).to_dict())
+            for x in resources
+        ]
 
         package = frictionless.Package(
             name=name,
