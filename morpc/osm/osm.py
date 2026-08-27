@@ -16,15 +16,24 @@ literal file, and calling to_geodataframe() replays that query live against Over
 Overpass exposes no field metadata the way an ArcGIS REST service does, so OsmSchema
 infers a schema from whichever tag columns are actually present in a fetched response,
 rather than from a hand-written schema file.
+
+Where fetch_osm_features() reports the current contents of the map, fetch_changesets()
+reports recent editing activity: given the same kind of scope plus a date window, it
+lists the OSM changesets touching that area through the OSMCha web API, and
+summarize_changesets() rolls that list into a time series for monitoring a region.
 """
 
+import json
 import logging
 import os
 import re
+import time
 
 import attrs
 import frictionless
 import geopandas as gpd
+import pandas as pd
+import requests
 import shapely
 from frictionless.dialect import Control
 
@@ -47,6 +56,17 @@ DEFAULT_MAX_SPLIT_DEPTH = 4
 
 # Seconds to allow a single Overpass request before giving up on it.
 DEFAULT_TIMEOUT = 900
+
+# OSMCha web API, used by fetch_changesets() to list changesets by geometry and date.
+# This is the API behind osmcha.org, not the osmcha PyPI package (which analyses one
+# changeset at a time from replication files). A free token is required: log in at
+# https://osmcha.org with an OSM account and copy the API token from the account page.
+DEFAULT_OSMCHA_API = "https://osmcha.org/api/v1"
+
+# Changesets whose bounding box is larger than this many square degrees are dropped by
+# default. Continent-scale mechanical edits intersect any region of interest without
+# saying anything about it; this is OSMCha's own knob for excluding them.
+DEFAULT_OSMCHA_AREA_LT = 2.0
 
 
 def _which_scope(polygon, place, bbox):
@@ -328,6 +348,189 @@ def _archive_features(gdf, tags, polygon, place, bbox, overpass_endpoints, max_s
         resources=[osmResource, gpkgResource],
         name=name,
         version=packageVersion,
+    )
+
+
+# --- changeset monitoring -------------------------------------------------------------
+#
+# fetch_osm_features() answers "what is in the map here now". fetch_changesets() answers
+# "what has been edited here lately": it lists the OSM changesets that touch a scope over
+# a time window, with OSMCha's review metadata attached, and summarize_changesets() rolls
+# that list into a time series suitable for monitoring a region.
+
+# Changeset properties kept from each OSMCha feature. OSMCha returns many more fields;
+# these are the ones that carry over to regional monitoring.
+_CHANGESET_PROPERTIES = [
+    "user", "uid", "date", "editor", "comment", "source",
+    "create", "modify", "delete", "comments_count",
+    "is_suspect", "harmful", "checked", "check_user", "check_date", "reasons",
+]
+
+
+def _osmcha_get(url, params, headers, max_retries=5):
+    """GET `url`, retrying with exponential backoff on HTTP 429.
+
+    OSMCha rate-limits fairly aggressively (a few hundred results per minute); a
+    backfill of any length will be throttled at least once, so this is not optional.
+    """
+    delay = 10
+    for attempt in range(max_retries + 1):
+        response = requests.get(url, params=params, headers=headers, timeout=120)
+        if response.status_code != 429 or attempt == max_retries:
+            return response
+        wait = int(response.headers.get("Retry-After", delay))
+        logger.warning(f"OSMCha rate limited (429); waiting {wait}s (attempt {attempt + 1}/{max_retries}).")
+        time.sleep(wait)
+        delay *= 2
+    return response
+
+
+def _changesets_to_gdf(features):
+    """Turn a list of OSMCha GeoJSON changeset features into a typed GeoDataFrame."""
+    rows = []
+    geometries = []
+    for feature in features:
+        properties = feature.get("properties", {})
+        row = {key: properties.get(key) for key in _CHANGESET_PROPERTIES}
+        # OSMCha reports the changeset id at the GeoJSON feature level, not in properties.
+        row["id"] = feature.get("id", properties.get("id"))
+        rows.append(row)
+        geometries.append(shapely.geometry.shape(feature["geometry"]) if feature.get("geometry") else None)
+
+    gdf = gpd.GeoDataFrame(rows, geometry=geometries, crs="EPSG:4326")
+    if gdf.empty:
+        return gdf
+
+    gdf["date"] = pd.to_datetime(gdf["date"], utc=True, errors="coerce")
+    gdf["check_date"] = pd.to_datetime(gdf["check_date"], utc=True, errors="coerce")
+    for column in ("id", "uid", "create", "modify", "delete", "comments_count"):
+        gdf[column] = pd.to_numeric(gdf[column], errors="coerce")
+    gdf["edits"] = gdf[["create", "modify", "delete"]].sum(axis=1)
+    return gdf
+
+
+def fetch_changesets(
+    polygon=None,
+    place=None,
+    bbox=None,
+    start=None,
+    end=None,
+    token=None,
+    area_lt=DEFAULT_OSMCHA_AREA_LT,
+    only_suspect=False,
+    endpoint=DEFAULT_OSMCHA_API,
+    page_size=100,
+    max_pages=200,
+):
+    """List the OSM changesets intersecting a scope within a date window, via OSMCha.
+
+    Exactly one of polygon, place, or bbox must be given to define the scope, the same
+    way as fetch_osm_features(). Every changeset OSMCha reports for that scope and date
+    range is returned as one row, with its bounding box as the geometry.
+
+    Parameters
+    ----------
+    polygon : shapely Polygon or MultiPolygon, optional
+        Area to query, in EPSG:4326.
+    place : str or dict, optional
+        Place name or structured Nominatim query to geocode and query, e.g.
+        "Franklin County, Ohio".
+    bbox : tuple of float, optional
+        Bounding box as (left, bottom, right, top) in EPSG:4326.
+    start, end : str or datetime, optional
+        Inclusive bounds on changeset creation date, anything pandas can parse to a
+        timestamp. OSMCha compares against the date only. An open end is allowed.
+    token : str, optional
+        OSMCha API token. Defaults to the OSMCHA_TOKEN environment variable.
+    area_lt : float or None, optional
+        Drop changesets whose bounding box is larger than this many square degrees.
+        Defaults to DEFAULT_OSMCHA_AREA_LT. Pass None to keep every changeset.
+    only_suspect : bool, optional
+        Ask OSMCha for flagged changesets only. Defaults to False.
+    endpoint : str, optional
+        OSMCha API base URL. Defaults to DEFAULT_OSMCHA_API.
+    page_size : int, optional
+        Changesets per request, capped at 100 by OSMCha. Defaults to 100.
+    max_pages : int, optional
+        Stop after this many pages as a runaway guard. Defaults to 200.
+
+    Returns
+    -------
+    geopandas.GeoDataFrame
+        One row per changeset: id, user, uid, date, editor, comment, source,
+        create/modify/delete, edits, comments_count, is_suspect, harmful, checked,
+        check_user, check_date, reasons, plus the changeset bounding box as geometry.
+        Empty if nothing matched.
+    """
+    token = token or os.environ.get("OSMCHA_TOKEN")
+    if not token:
+        logger.error("An OSMCha API token is required. Pass token= or set OSMCHA_TOKEN.")
+        raise ValueError("An OSMCha API token is required. Pass token= or set OSMCHA_TOKEN.")
+
+    scope_geometry = _resolve_scope(polygon=polygon, place=place, bbox=bbox)
+
+    params = {
+        "geometry": json.dumps(shapely.geometry.mapping(scope_geometry)),
+        "page_size": min(page_size, 100),
+    }
+    if start is not None:
+        params["date__gte"] = pd.Timestamp(start).strftime("%Y-%m-%d")
+    if end is not None:
+        params["date__lte"] = pd.Timestamp(end).strftime("%Y-%m-%d")
+    if area_lt is not None:
+        params["area_lt"] = area_lt
+    if only_suspect:
+        params["is_suspect"] = "True"
+
+    headers = {"Authorization": f"Token {token}"}
+    url = f"{endpoint}/changesets/"
+
+    features = []
+    for page in range(1, max_pages + 1):
+        response = _osmcha_get(url, {**params, "page": page}, headers)
+        if response.status_code == 404:
+            break  # paged past the last result
+        response.raise_for_status()
+        payload = response.json()
+        features.extend(payload.get("features", []))
+        logger.info(f"OSMCha page {page}: {len(payload.get('features', []))} changesets (total {len(features)}).")
+        if not payload.get("next"):
+            break
+        time.sleep(2)  # be gentle with a shared service
+    else:
+        logger.warning(f"fetch_changesets hit max_pages={max_pages}; results may be truncated.")
+
+    return _changesets_to_gdf(features)
+
+
+def summarize_changesets(changesets, freq="W"):
+    """Roll a fetch_changesets() result into a time series for monitoring.
+
+    Parameters
+    ----------
+    changesets : geopandas.GeoDataFrame
+        A fetch_changesets() result.
+    freq : str, optional
+        pandas offset alias for the bucket size, e.g. "D", "W", "MS". Defaults to "W".
+
+    Returns
+    -------
+    pandas.DataFrame
+        Indexed by period start, with columns changeset_count, distinct_users,
+        total_edits, suspect_count, harmful_count, reviewed_count. Empty if the input
+        is empty.
+    """
+    if changesets.empty:
+        return pd.DataFrame()
+
+    grouped = changesets.set_index("date").groupby(pd.Grouper(freq=freq))
+    return grouped.agg(
+        changeset_count=("id", "count"),
+        distinct_users=("uid", "nunique"),
+        total_edits=("edits", "sum"),
+        suspect_count=("is_suspect", "sum"),
+        harmful_count=("harmful", lambda s: s.fillna(False).astype(bool).sum()),
+        reviewed_count=("checked", "sum"),
     )
 
 

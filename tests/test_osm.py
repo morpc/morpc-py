@@ -1,11 +1,28 @@
+import json
+
 import geopandas as gpd
 import osmnx as ox
 import pytest
 from osmnx._errors import InsufficientResponseError, ResponseStatusCodeError
 from shapely.geometry import Point, box, mapping, shape
 
-from morpc.osm import OsmControl, OsmQueryPackage, OsmResource, OsmSchema, fetch_osm_features
-from morpc.osm.osm import _describe_scope, _quarter_polygon, _reconstruct_scope, _resolve_scope, _which_scope
+from morpc.osm import (
+    OsmControl,
+    OsmQueryPackage,
+    OsmResource,
+    OsmSchema,
+    fetch_changesets,
+    fetch_osm_features,
+    summarize_changesets,
+)
+from morpc.osm.osm import (
+    _changesets_to_gdf,
+    _describe_scope,
+    _quarter_polygon,
+    _reconstruct_scope,
+    _resolve_scope,
+    _which_scope,
+)
 
 POLY = box(-83.1, 39.9, -83.0, 40.0)
 
@@ -302,3 +319,137 @@ def test_fetch_can_archive(monkeypatch, tmp_path):
     snapshot_dir.mkdir()
     snapshot_path = package.save(str(snapshot_dir))
     assert list(snapshot_dir.iterdir()) == [snapshot_dir / "franklin.package.yaml"]
+
+
+# --- changeset monitoring ---
+
+CHANGESET_BOX = box(-83.05, 39.95, -83.04, 39.96)
+
+
+def _changeset_feature(cid, date, uid=1, create=5, modify=2, delete=0, is_suspect=False, checked=False, harmful=None):
+    return {
+        "id": cid,
+        "type": "Feature",
+        "geometry": mapping(CHANGESET_BOX),
+        "properties": {
+            "user": f"user{uid}",
+            "uid": uid,
+            "date": date,
+            "editor": "iD 2.0",
+            "comment": "add buildings",
+            "source": "",
+            "create": create,
+            "modify": modify,
+            "delete": delete,
+            "comments_count": 0,
+            "is_suspect": is_suspect,
+            "harmful": harmful,
+            "checked": checked,
+            "check_user": "reviewer" if checked else None,
+            "check_date": "2026-08-10T00:00:00Z" if checked else None,
+            "reasons": [{"name": "possible import"}] if is_suspect else [],
+        },
+    }
+
+
+class _FakeResponse:
+    def __init__(self, payload, status_code=200, headers=None):
+        self._payload = payload
+        self.status_code = status_code
+        self.headers = headers or {}
+
+    def json(self):
+        return self._payload
+
+    def raise_for_status(self):
+        if self.status_code >= 400:
+            raise AssertionError(f"unexpected status {self.status_code}")
+
+
+def _fake_osmcha(pages, captured=None, fail_first_with=None):
+    """Return a requests.get stand-in that serves `pages` (a list of feature lists)."""
+    state = {"429s_left": 1 if fail_first_with else 0}
+
+    def _get(url, params=None, headers=None, timeout=None):
+        if captured is not None:
+            captured.append(params)
+        if state["429s_left"]:
+            state["429s_left"] -= 1
+            return _FakeResponse({}, status_code=429, headers={"Retry-After": "0"})
+        page = params.get("page", 1)
+        if page > len(pages):
+            return _FakeResponse({"features": [], "next": None})
+        has_next = page < len(pages)
+        return _FakeResponse({"features": pages[page - 1], "next": "http://next" if has_next else None})
+
+    return _get
+
+
+def test_fetch_changesets_requires_token(monkeypatch):
+    monkeypatch.delenv("OSMCHA_TOKEN", raising=False)
+    with pytest.raises(ValueError):
+        fetch_changesets(polygon=POLY, start="2026-08-01", end="2026-08-07")
+
+
+def test_fetch_changesets_paginates_and_types_result(monkeypatch):
+    pages = [
+        [_changeset_feature(1, "2026-08-01T10:00:00Z", uid=1, is_suspect=True, checked=True)],
+        [_changeset_feature(2, "2026-08-04T12:00:00Z", uid=2)],
+    ]
+    monkeypatch.setattr("morpc.osm.osm.requests.get", _fake_osmcha(pages))
+    monkeypatch.setattr("morpc.osm.osm.time.sleep", lambda s: None)
+
+    gdf = fetch_changesets(polygon=POLY, start="2026-08-01", end="2026-08-07", token="x")
+
+    assert list(gdf["id"]) == [1, 2]
+    assert gdf.crs == "EPSG:4326"
+    assert str(gdf["date"].dt.tz) == "UTC"
+    assert list(gdf["edits"]) == [7, 7]
+    assert gdf.loc[0, "is_suspect"] and not gdf.loc[1, "is_suspect"]
+
+
+def test_fetch_changesets_sends_scope_and_filter_params(monkeypatch):
+    captured = []
+    monkeypatch.setattr("morpc.osm.osm.requests.get", _fake_osmcha([[]], captured=captured))
+    monkeypatch.setattr("morpc.osm.osm.time.sleep", lambda s: None)
+
+    fetch_changesets(bbox=(-83.1, 39.9, -83.0, 40.0), start="2026-08-01", end="2026-08-07",
+                     token="x", area_lt=1.5, only_suspect=True)
+
+    params = captured[0]
+    assert params["date__gte"] == "2026-08-01" and params["date__lte"] == "2026-08-07"
+    assert params["area_lt"] == 1.5 and params["is_suspect"] == "True"
+    assert shape(json.loads(params["geometry"])).equals(box(-83.1, 39.9, -83.0, 40.0))
+
+
+def test_fetch_changesets_retries_on_429(monkeypatch):
+    pages = [[_changeset_feature(1, "2026-08-01T10:00:00Z")]]
+    monkeypatch.setattr("morpc.osm.osm.requests.get", _fake_osmcha(pages, fail_first_with=429))
+    monkeypatch.setattr("morpc.osm.osm.time.sleep", lambda s: None)
+
+    gdf = fetch_changesets(polygon=POLY, start="2026-08-01", token="x")
+    assert list(gdf["id"]) == [1]
+
+
+def test_changesets_to_gdf_empty_is_empty_frame():
+    gdf = _changesets_to_gdf([])
+    assert gdf.empty
+
+
+def test_summarize_changesets_rolls_up_by_period():
+    features = [
+        _changeset_feature(1, "2026-08-03T10:00:00Z", uid=1, is_suspect=True, checked=True),
+        _changeset_feature(2, "2026-08-04T10:00:00Z", uid=1),
+        _changeset_feature(3, "2026-08-11T10:00:00Z", uid=2, harmful=True, checked=True),
+    ]
+    summary = summarize_changesets(_changesets_to_gdf(features), freq="W")
+
+    assert list(summary["changeset_count"]) == [2, 1]
+    assert list(summary["distinct_users"]) == [1, 1]
+    assert list(summary["suspect_count"]) == [1, 0]
+    assert list(summary["harmful_count"]) == [0, 1]
+    assert list(summary["reviewed_count"]) == [1, 1]
+
+
+def test_summarize_changesets_empty_input():
+    assert summarize_changesets(_changesets_to_gdf([])).empty
