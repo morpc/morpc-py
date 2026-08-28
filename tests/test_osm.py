@@ -366,13 +366,16 @@ class _FakeResponse:
             raise AssertionError(f"unexpected status {self.status_code}")
 
 
-def _fake_osmcha(pages, captured=None, fail_first_with=None):
+def _fake_osmcha(pages, captured=None, fail_first_with=None, raise_first=None):
     """Return a requests.get stand-in that serves `pages` (a list of feature lists)."""
-    state = {"429s_left": 1 if fail_first_with else 0}
+    state = {"429s_left": 1 if fail_first_with else 0, "raises_left": 1 if raise_first else 0}
 
     def _get(url, params=None, headers=None, timeout=None):
         if captured is not None:
             captured.append(params)
+        if state["raises_left"]:
+            state["raises_left"] -= 1
+            raise raise_first
         if state["429s_left"]:
             state["429s_left"] -= 1
             return _FakeResponse({}, status_code=429, headers={"Retry-After": "0"})
@@ -425,6 +428,20 @@ def test_fetch_changesets_sends_scope_and_filter_params(monkeypatch):
 def test_fetch_changesets_retries_on_429(monkeypatch):
     pages = [[_changeset_feature(1, "2026-08-01T10:00:00Z")]]
     monkeypatch.setattr("morpc.osm.osm.requests.get", _fake_osmcha(pages, fail_first_with=429))
+    monkeypatch.setattr("morpc.osm.osm.time.sleep", lambda s: None)
+
+    gdf = fetch_changesets(polygon=POLY, start="2026-08-01", token="x")
+    assert list(gdf["id"]) == [1]
+
+
+def test_fetch_changesets_retries_on_transient_network_error(monkeypatch):
+    import requests
+
+    pages = [[_changeset_feature(1, "2026-08-01T10:00:00Z")]]
+    monkeypatch.setattr(
+        "morpc.osm.osm.requests.get",
+        _fake_osmcha(pages, raise_first=requests.exceptions.ReadTimeout("slow")),
+    )
     monkeypatch.setattr("morpc.osm.osm.time.sleep", lambda s: None)
 
     gdf = fetch_changesets(polygon=POLY, start="2026-08-01", token="x")

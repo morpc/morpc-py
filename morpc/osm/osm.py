@@ -367,15 +367,28 @@ _CHANGESET_PROPERTIES = [
 ]
 
 
-def _osmcha_get(url, params, headers, max_retries=5):
-    """GET `url`, retrying with exponential backoff on HTTP 429.
+def _osmcha_get(url, params, headers, max_retries=5, timeout=180):
+    """GET `url`, retrying with exponential backoff on HTTP 429 and transient failures.
 
-    OSMCha rate-limits fairly aggressively (a few hundred results per minute); a
-    backfill of any length will be throttled at least once, so this is not optional.
+    OSMCha rate-limits fairly aggressively (a few hundred results per minute), so a
+    backfill of any length will be throttled at least once. It also serves a large
+    geometry-and-date query slowly enough to time out or drop the connection now and
+    then. Both are transient, so both are retried rather than raised.
     """
     delay = 10
     for attempt in range(max_retries + 1):
-        response = requests.get(url, params=params, headers=headers, timeout=120)
+        try:
+            response = requests.get(url, params=params, headers=headers, timeout=timeout)
+        except requests.exceptions.RequestException as exc:
+            if attempt == max_retries:
+                raise
+            logger.warning(
+                f"OSMCha request failed ({type(exc).__name__}); "
+                f"retrying in {delay}s (attempt {attempt + 1}/{max_retries})."
+            )
+            time.sleep(delay)
+            delay *= 2
+            continue
         if response.status_code != 429 or attempt == max_retries:
             return response
         wait = int(response.headers.get("Retry-After", delay))
