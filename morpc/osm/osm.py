@@ -422,6 +422,42 @@ def _changesets_to_gdf(features):
     return gdf
 
 
+def _fetch_changeset_features(url, params, headers, max_pages):
+    """Page through one OSMCha changeset query and return the raw feature list."""
+    features = []
+    for page in range(1, max_pages + 1):
+        response = _osmcha_get(url, {**params, "page": page}, headers)
+        if response.status_code == 404:
+            break  # paged past the last result
+        response.raise_for_status()
+        payload = response.json()
+        page_features = payload.get("features", [])
+        features.extend(page_features)
+        logger.info(f"OSMCha page {page}: {len(page_features)} changesets (total {len(features)}).")
+        if not payload.get("next"):
+            break
+        time.sleep(2)  # be gentle with a shared service
+    else:
+        logger.warning(f"fetch_changesets hit max_pages={max_pages}; results may be truncated.")
+    return features
+
+
+def _date_chunks(start, end, chunk_days):
+    """Yield (gte, lte) date-string pairs covering [start, end] in <= chunk_days steps.
+
+    Chunk boundaries overlap by a day because OSMCha's date filter is inclusive on both
+    ends; the caller deduplicates by changeset id.
+    """
+    start = pd.Timestamp(start).normalize()
+    end = pd.Timestamp(end).normalize()
+    step = pd.Timedelta(days=chunk_days)
+    left = start
+    while left <= end:
+        right = min(left + step, end)
+        yield left.strftime("%Y-%m-%d"), right.strftime("%Y-%m-%d")
+        left = right + pd.Timedelta(days=1)
+
+
 def fetch_changesets(
     polygon=None,
     place=None,
@@ -434,6 +470,7 @@ def fetch_changesets(
     endpoint=DEFAULT_OSMCHA_API,
     page_size=100,
     max_pages=200,
+    chunk_days=30,
 ):
     """List the OSM changesets intersecting a scope within a date window, via OSMCha.
 
@@ -465,7 +502,12 @@ def fetch_changesets(
     page_size : int, optional
         Changesets per request, capped at 100 by OSMCha. Defaults to 100.
     max_pages : int, optional
-        Stop after this many pages as a runaway guard. Defaults to 200.
+        Stop after this many pages as a runaway guard, per date chunk. Defaults to 200.
+    chunk_days : int, optional
+        Split the date range into windows of at most this many days and query each
+        separately. OSMCha answers a narrow date range quickly but can time out on a
+        wide one, so a long history is fetched as a series of short queries and
+        concatenated. Defaults to 30. Only applies when both start and end are given.
 
     Returns
     -------
@@ -486,10 +528,6 @@ def fetch_changesets(
         "geometry": json.dumps(shapely.geometry.mapping(scope_geometry)),
         "page_size": min(page_size, 100),
     }
-    if start is not None:
-        params["date__gte"] = pd.Timestamp(start).strftime("%Y-%m-%d")
-    if end is not None:
-        params["date__lte"] = pd.Timestamp(end).strftime("%Y-%m-%d")
     if area_lt is not None:
         params["area_lt"] = area_lt
     if only_suspect:
@@ -498,22 +536,31 @@ def fetch_changesets(
     headers = {"Authorization": f"Token {token}"}
     url = f"{endpoint}/changesets/"
 
-    features = []
-    for page in range(1, max_pages + 1):
-        response = _osmcha_get(url, {**params, "page": page}, headers)
-        if response.status_code == 404:
-            break  # paged past the last result
-        response.raise_for_status()
-        payload = response.json()
-        features.extend(payload.get("features", []))
-        logger.info(f"OSMCha page {page}: {len(payload.get('features', []))} changesets (total {len(features)}).")
-        if not payload.get("next"):
-            break
-        time.sleep(2)  # be gentle with a shared service
+    if start is not None and end is not None:
+        windows = list(_date_chunks(start, end, chunk_days))
     else:
-        logger.warning(f"fetch_changesets hit max_pages={max_pages}; results may be truncated.")
+        window = {}
+        if start is not None:
+            window["date__gte"] = pd.Timestamp(start).strftime("%Y-%m-%d")
+        if end is not None:
+            window["date__lte"] = pd.Timestamp(end).strftime("%Y-%m-%d")
+        windows = [(window.get("date__gte"), window.get("date__lte"))]
 
-    return _changesets_to_gdf(features)
+    features = []
+    for i, (gte, lte) in enumerate(windows, start=1):
+        window_params = dict(params)
+        if gte is not None:
+            window_params["date__gte"] = gte
+        if lte is not None:
+            window_params["date__lte"] = lte
+        if len(windows) > 1:
+            logger.info(f"OSMCha window {i}/{len(windows)}: {gte} to {lte}.")
+        features.extend(_fetch_changeset_features(url, window_params, headers, max_pages))
+
+    gdf = _changesets_to_gdf(features)
+    if not gdf.empty:
+        gdf = gdf.drop_duplicates(subset="id").reset_index(drop=True)
+    return gdf
 
 
 def summarize_changesets(changesets, freq="W"):

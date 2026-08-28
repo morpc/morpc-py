@@ -434,6 +434,21 @@ def test_fetch_changesets_retries_on_429(monkeypatch):
     assert list(gdf["id"]) == [1]
 
 
+def test_fetch_changesets_chunks_wide_range_and_dedupes(monkeypatch):
+    captured = []
+    pages = [[_changeset_feature(1, "2026-02-01T10:00:00Z")]]  # served for every window
+    monkeypatch.setattr("morpc.osm.osm.requests.get", _fake_osmcha(pages, captured=captured))
+    monkeypatch.setattr("morpc.osm.osm.time.sleep", lambda s: None)
+
+    gdf = fetch_changesets(
+        polygon=POLY, start="2026-01-01", end="2026-03-15", token="x", chunk_days=30,
+    )
+
+    gte_values = {params["date__gte"] for params in captured}
+    assert gte_values == {"2026-01-01", "2026-02-01", "2026-03-04"}
+    assert list(gdf["id"]) == [1]  # same changeset from three windows, deduped
+
+
 def test_fetch_changesets_retries_on_transient_network_error(monkeypatch):
     import requests
 
