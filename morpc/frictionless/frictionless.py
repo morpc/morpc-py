@@ -1465,6 +1465,59 @@ def create_package(dir: PathLike, resources: List[str | frictionless.Resource], 
         package.to_yaml(f"{name}.package.yaml")
 
     return package
+    
+def schema_to_dictionary_table(schema, output_path, output_format=None):
+    """
+    Create a "data dictionary" spreadsheet from a Frictionless schema.
+
+    Parameters
+    ----------
+    schema : frictionless.Schema
+        Frictionless schema which will be output in spreadsheet form
+    output_path: str
+        A string representing the path to the output spreadsheet
+    output_format : str
+        The file format for the output spreadsheet. Either "xlsx" or "csv". If output
+        format is not specified, the format will be inferred from the extension of the
+        file specified by output_path.
+    """
+    import os
+    import pandas as pd
+   
+    if(output_format == None):
+        ext = os.path.splitext(os.path.basename(output_path))[1]
+        if(ext == ".xlsx"):
+            logger.info("Output format not specified. Inferred Excel format from output path.")
+            output_format = "xlsx"
+        elif(ext == ".csv"):
+            logger.info("Output format not specified. Inferred CSV format from output path.")
+            output_format = "csv"
+        else:
+            logger.error(f"Output format {ext} (inferred from output path) is not supported.")
+            raise RuntimeError
+        
+        dictionary = pd.DataFrame.from_records(schema.to_dict()["fields"])
+
+        dictionary = dictionary.astype("string")
+
+        dictionary["primary_key"] = dictionary["name"].apply(lambda x:(True if x in schema.primary_key else False))
+
+        fields = dictionary.columns
+        requiredFields = ["name","primary_key","type","description"] 
+        otherFields = list(set(fields) - set(requiredFields))
+        
+        dictionary = dictionary.filter(items=requiredFields+otherFields, axis="columns")
+        
+        logger.info(f"Writing dictionary to path {output_path}")
+        if(output_format == "xlsx"):
+            dictionary.to_excel(output_path, index=False)
+        elif(output_format == "csv"):
+            dictionary.to_csv(output_path, index=False)            
+        else:
+            logger.error(f"Output format {output_format} is not supported.")
+            raise RuntimeError
+            
+
 
 
 # TODO: reinclude the geojson specific functions
