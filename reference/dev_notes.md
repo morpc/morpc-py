@@ -25,3 +25,23 @@ string and numeric representations and to fix correctness bugs:
 Not execution-tested in the dev container (pandas/dateparser not installed there);
 pure-Python digit/regex logic verified, file byte-compiles. Run `pytest` in a full
 env to confirm.
+
+## 2026-09-11 — Pass release notes to `gh` in a file
+
+Branch: `fix/release-notes-file`
+
+`morpc.frictionless.create_release` passed the generated release notes inline as
+`gh release create --notes <text>`. For a release with many resources the notes plus
+the asset paths exceed the maximum Windows command line length, so `CreateProcess`
+fails before `gh` runs with `FileNotFoundError: [WinError 206] The filename or
+extension is too long`.
+
+- Notes are now written to a file in a `tempfile.mkdtemp()` directory and passed as
+  `--notes-file`. The directory is removed in a `finally` so it is cleaned up whether
+  or not `gh` succeeds. A dry run writes nothing.
+- Added an `overrideNotes` parameter that replaces the generated notes verbatim.
+  `notes` keeps its meaning as intro text above the generated `## Resources` section
+  and is ignored (with a warning) when `overrideNotes` is given.
+
+Note this does not shorten the asset path list, which is still passed positionally and
+contributes to the same command line length limit.
