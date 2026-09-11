@@ -305,7 +305,7 @@ def _format_bytes(size):
         value /= 1024
 
 
-def create_release(resources, owner, repo, tag, title=None, notes=None, assets=None, dryRun=False):
+def create_release(resources, owner, repo, tag, title=None, notes=None, overrideNotes=None, assets=None, dryRun=False):
     """Create a GitHub release from a set of published resource descriptors.
 
     This is the multi-resource counterpart to the hand-rolled `gh release create` step a workflow
@@ -332,7 +332,10 @@ def create_release(resources, owner, repo, tag, title=None, notes=None, assets=N
         Optional. The release title. Defaults to tag.
     notes : str
         Optional. Introductory text placed above the generated "## Resources" section of the release
-        notes.
+        notes. Ignored if overrideNotes is given.
+    overrideNotes : str
+        Optional. Release notes to use verbatim in place of the generated ones. When given, no notes
+        are generated from the resources and notes is ignored.
     assets : list of str
         Optional. Extra asset paths to upload alongside the ones derived from resources, e.g. a data
         package descriptor.
@@ -350,6 +353,7 @@ def create_release(resources, owner, repo, tag, title=None, notes=None, assets=N
     import os
     import shutil
     import subprocess
+    import tempfile
     import frictionless
     from .frictionless import _is_url
 
@@ -390,31 +394,36 @@ def create_release(resources, owner, repo, tag, title=None, notes=None, assets=N
             seen.add(key)
             dedupedAssets.append(assetPath)
 
-    lines = []
-    if notes is not None:
-        lines.append(notes)
+    if overrideNotes is not None:
+        if notes is not None:
+            logger.warning("Both notes and overrideNotes were given. Ignoring notes and using overrideNotes verbatim.")
+        releaseNotes = overrideNotes
+    else:
+        lines = []
+        if notes is not None:
+            lines.append(notes)
+            lines.append("")
+        lines.append("## Resources")
         lines.append("")
-    lines.append("## Resources")
-    lines.append("")
-    for descriptor in descriptors:
-        name = descriptor.get("name")
-        resourceTitle = descriptor.get("title", name)
-        lines.append("- **{}** (`{}`)".format(resourceTitle, name))
-        description = descriptor.get("description")
-        if description:
-            lines.append("  {}".format(description))
-        sizeBytes = descriptor.get("bytes")
-        hashValue = descriptor.get("hash")
-        detailParts = []
-        if sizeBytes is not None:
-            detailParts.append("{} ({:,} bytes)".format(_format_bytes(sizeBytes), sizeBytes))
-        if hashValue is not None:
-            detailParts.append("`{}`".format(hashValue))
-        if detailParts:
-            lines.append("  {}".format(" — ".join(detailParts)))
-    lines.append("")
-    lines.append("Load with `morpc.frictionless.load_data()` against the resource descriptor attached to this release.")
-    releaseNotes = "\n".join(lines)
+        for descriptor in descriptors:
+            name = descriptor.get("name")
+            resourceTitle = descriptor.get("title", name)
+            lines.append("- **{}** (`{}`)".format(resourceTitle, name))
+            description = descriptor.get("description")
+            if description:
+                lines.append("  {}".format(description))
+            sizeBytes = descriptor.get("bytes")
+            hashValue = descriptor.get("hash")
+            detailParts = []
+            if sizeBytes is not None:
+                detailParts.append("{} ({:,} bytes)".format(_format_bytes(sizeBytes), sizeBytes))
+            if hashValue is not None:
+                detailParts.append("`{}`".format(hashValue))
+            if detailParts:
+                lines.append("  {}".format(" — ".join(detailParts)))
+        lines.append("")
+        lines.append("Load with `morpc.frictionless.load_data()` against the resource descriptor attached to this release.")
+        releaseNotes = "\n".join(lines)
 
     releaseTitle = title if title is not None else tag
 
@@ -438,7 +447,17 @@ def create_release(resources, owner, repo, tag, title=None, notes=None, assets=N
         logger.info("Dry run. Notes:\n{}".format(releaseNotes))
         return dedupedAssets, releaseNotes
 
-    subprocess.run(["gh", "release", "create", tag, "--repo", "{}/{}".format(owner, repo),
-                     "--title", releaseTitle, "--notes", releaseNotes, *dedupedAssets], check=True)
+    # Notes are passed in a file rather than on the command line. Inline notes for a release with many
+    # resources can exceed the maximum command line length, which fails on Windows with WinError 206.
+    notesDir = tempfile.mkdtemp()
+    try:
+        notesPath = os.path.join(notesDir, "release_notes.md")
+        with open(notesPath, "w", encoding="utf-8") as notesFile:
+            notesFile.write(releaseNotes)
+
+        subprocess.run(["gh", "release", "create", tag, "--repo", "{}/{}".format(owner, repo),
+                         "--title", releaseTitle, "--notes-file", notesPath, *dedupedAssets], check=True)
+    finally:
+        shutil.rmtree(notesDir, ignore_errors=True)
 
     return dedupedAssets, releaseNotes

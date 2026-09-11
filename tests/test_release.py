@@ -4,6 +4,7 @@ import datetime
 import os
 import shutil
 import subprocess
+import tempfile
 
 import frictionless
 import pytest
@@ -911,9 +912,14 @@ def test_create_release_invokes_gh_with_the_expected_arguments(tmp_path, monkeyp
     create_resource("data.csv", resourcePath=str(resourcePath), ignoreSchema=True, name="parcels", writeResource=True)
 
     calls = []
+    notesFileContents = []
 
     def _fake_run(args, **kwargs):
         calls.append(args)
+        if args[:3] == ["gh", "release", "create"]:
+            # The notes file only exists for the duration of the call, so read it here.
+            with open(args[args.index("--notes-file") + 1], encoding="utf-8") as notesFile:
+                notesFileContents.append(notesFile.read())
         # A non-zero return from the tag check means no such release, so the create proceeds.
         return _FakeCompleted(1)
 
@@ -926,7 +932,9 @@ def test_create_release_invokes_gh_with_the_expected_arguments(tmp_path, monkeyp
     view, create = calls
     assert view == ["gh", "release", "view", "v2026.7.22", "--repo", "morpc/repo"]
     assert create[:6] == ["gh", "release", "create", "v2026.7.22", "--repo", "morpc/repo"]
-    assert create[6:10] == ["--title", "2026.7.22", "--notes", notes]
+    assert create[6:9] == ["--title", "2026.7.22", "--notes-file"]
+    # The notes are passed in a file rather than inline, but their content is the returned notes.
+    assert notesFileContents == [notes]
     # Every derived asset is passed positionally after the flags, in order.
     assert create[10:] == assets
 
@@ -949,6 +957,88 @@ def test_create_release_title_defaults_to_the_tag(tmp_path, monkeypatch):
 
     create = calls[1]
     assert create[create.index("--title") + 1] == "v2026.7.22"
+
+
+def test_create_release_override_notes_replaces_the_generated_notes(tmp_path, monkeypatch):
+    monkeypatch.setattr(shutil, "which", lambda name: "/usr/bin/gh")
+    _build_data(tmp_path)
+    resourcePath = tmp_path / "data.resource.yaml"
+    create_resource(
+        "data.csv", resourcePath=str(resourcePath), ignoreSchema=True, name="parcels", writeResource=True
+    )
+
+    assets, notes = create_release(
+        [str(resourcePath)], "morpc", "repo", "v2026.7.22", overrideNotes="Just these notes.", dryRun=True
+    )
+
+    assert notes == "Just these notes."
+    assert "## Resources" not in notes
+
+
+def test_create_release_override_notes_wins_over_notes(tmp_path, monkeypatch):
+    monkeypatch.setattr(shutil, "which", lambda name: "/usr/bin/gh")
+    _build_data(tmp_path)
+    resourcePath = tmp_path / "data.resource.yaml"
+    create_resource(
+        "data.csv", resourcePath=str(resourcePath), ignoreSchema=True, name="parcels", writeResource=True
+    )
+
+    assets, notes = create_release(
+        [str(resourcePath)],
+        "morpc",
+        "repo",
+        "v2026.7.22",
+        notes="Intro text.",
+        overrideNotes="Just these notes.",
+        dryRun=True,
+    )
+
+    assert notes == "Just these notes."
+    assert "Intro text." not in notes
+
+
+def test_create_release_removes_the_notes_file_when_gh_fails(tmp_path, monkeypatch):
+    monkeypatch.setattr(shutil, "which", lambda name: "/usr/bin/gh")
+    _build_data(tmp_path)
+    resourcePath = tmp_path / "data.resource.yaml"
+    create_resource(
+        "data.csv", resourcePath=str(resourcePath), ignoreSchema=True, name="parcels", writeResource=True
+    )
+
+    notesPaths = []
+
+    def _fake_run(args, **kwargs):
+        if args[:3] == ["gh", "release", "create"]:
+            notesPath = args[args.index("--notes-file") + 1]
+            notesPaths.append(notesPath)
+            assert os.path.exists(notesPath)
+            raise subprocess.CalledProcessError(1, args)
+        return _FakeCompleted(1)
+
+    monkeypatch.setattr(subprocess, "run", _fake_run)
+
+    with pytest.raises(subprocess.CalledProcessError):
+        create_release([str(resourcePath)], "morpc", "repo", "v2026.7.22")
+
+    assert not os.path.exists(notesPaths[0])
+
+
+def test_create_release_dry_run_writes_no_notes_file(tmp_path, monkeypatch):
+    monkeypatch.setattr(shutil, "which", lambda name: "/usr/bin/gh")
+    _build_data(tmp_path)
+    resourcePath = tmp_path / "data.resource.yaml"
+    create_resource(
+        "data.csv", resourcePath=str(resourcePath), ignoreSchema=True, name="parcels", writeResource=True
+    )
+
+    def _fail(*args, **kwargs):
+        raise AssertionError("A dry run must not create a temporary directory for the notes.")
+
+    monkeypatch.setattr(tempfile, "mkdtemp", _fail)
+
+    assets, notes = create_release([str(resourcePath)], "morpc", "repo", "v2026.7.22", dryRun=True)
+
+    assert "## Resources" in notes
 
 
 def test_create_release_missing_gh_raises(tmp_path, monkeypatch):
