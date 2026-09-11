@@ -305,7 +305,45 @@ def _format_bytes(size):
         value /= 1024
 
 
-def create_release(resources, owner, repo, tag, title=None, notes=None, assets=None, dryRun=False):
+def _batch_assets(assets, baseLength, limit=30000):
+    """Split asset paths into groups that each fit within a single command line.
+
+    Windows caps a command line at 32767 characters, and exceeding it fails in CreateProcess with
+    WinError 206 before the command runs. The limit default leaves headroom below that cap for
+    quoting and for the environment block.
+
+    Parameters
+    ----------
+    assets : list of str
+        The asset paths to group, in the order they should be uploaded.
+    baseLength : int
+        The length of the command that the paths are appended to, e.g. "gh release upload ...".
+    limit : int
+        Optional. The maximum projected command line length. Defaults to 30000.
+
+    Returns
+    -------
+    list of list of str
+        The batches, preserving the order of assets. Empty if assets is empty.
+    """
+    batches = []
+    batch = []
+    length = baseLength
+    for assetPath in assets:
+        # A separator plus room for quoting the path.
+        cost = len(assetPath) + 3
+        if batch and length + cost > limit:
+            batches.append(batch)
+            batch = []
+            length = baseLength
+        batch.append(assetPath)
+        length += cost
+    if batch:
+        batches.append(batch)
+    return batches
+
+
+def create_release(resources, owner, repo, tag, title=None, notes=None, overrideNotes=None, assets=None, dryRun=False):
     """Create a GitHub release from a set of published resource descriptors.
 
     This is the multi-resource counterpart to the hand-rolled `gh release create` step a workflow
@@ -315,6 +353,10 @@ def create_release(resources, owner, repo, tag, title=None, notes=None, assets=N
     Only descriptor paths are accepted, not in-memory frictionless.Resource objects: a Resource built
     in memory may have no known descriptor path, and the descriptor file is itself an asset that must
     be uploaded. Use prepare_release() to publish descriptors first; pass the same paths here.
+
+    The release is created without assets, which are then uploaded in batches small enough to fit
+    within the maximum command line length. If an upload fails, the release and its tag are deleted so
+    that the release can be retried once the cause is fixed, rather than left partially populated.
 
     Parameters
     ----------
@@ -332,7 +374,10 @@ def create_release(resources, owner, repo, tag, title=None, notes=None, assets=N
         Optional. The release title. Defaults to tag.
     notes : str
         Optional. Introductory text placed above the generated "## Resources" section of the release
-        notes.
+        notes. Ignored if overrideNotes is given.
+    overrideNotes : str
+        Optional. Release notes to use verbatim in place of the generated ones. When given, no notes
+        are generated from the resources and notes is ignored.
     assets : list of str
         Optional. Extra asset paths to upload alongside the ones derived from resources, e.g. a data
         package descriptor.
@@ -350,6 +395,7 @@ def create_release(resources, owner, repo, tag, title=None, notes=None, assets=N
     import os
     import shutil
     import subprocess
+    import tempfile
     import frictionless
     from .frictionless import _is_url
 
@@ -390,31 +436,36 @@ def create_release(resources, owner, repo, tag, title=None, notes=None, assets=N
             seen.add(key)
             dedupedAssets.append(assetPath)
 
-    lines = []
-    if notes is not None:
-        lines.append(notes)
+    if overrideNotes is not None:
+        if notes is not None:
+            logger.warning("Both notes and overrideNotes were given. Ignoring notes and using overrideNotes verbatim.")
+        releaseNotes = overrideNotes
+    else:
+        lines = []
+        if notes is not None:
+            lines.append(notes)
+            lines.append("")
+        lines.append("## Resources")
         lines.append("")
-    lines.append("## Resources")
-    lines.append("")
-    for descriptor in descriptors:
-        name = descriptor.get("name")
-        resourceTitle = descriptor.get("title", name)
-        lines.append("- **{}** (`{}`)".format(resourceTitle, name))
-        description = descriptor.get("description")
-        if description:
-            lines.append("  {}".format(description))
-        sizeBytes = descriptor.get("bytes")
-        hashValue = descriptor.get("hash")
-        detailParts = []
-        if sizeBytes is not None:
-            detailParts.append("{} ({:,} bytes)".format(_format_bytes(sizeBytes), sizeBytes))
-        if hashValue is not None:
-            detailParts.append("`{}`".format(hashValue))
-        if detailParts:
-            lines.append("  {}".format(" — ".join(detailParts)))
-    lines.append("")
-    lines.append("Load with `morpc.frictionless.load_data()` against the resource descriptor attached to this release.")
-    releaseNotes = "\n".join(lines)
+        for descriptor in descriptors:
+            name = descriptor.get("name")
+            resourceTitle = descriptor.get("title", name)
+            lines.append("- **{}** (`{}`)".format(resourceTitle, name))
+            description = descriptor.get("description")
+            if description:
+                lines.append("  {}".format(description))
+            sizeBytes = descriptor.get("bytes")
+            hashValue = descriptor.get("hash")
+            detailParts = []
+            if sizeBytes is not None:
+                detailParts.append("{} ({:,} bytes)".format(_format_bytes(sizeBytes), sizeBytes))
+            if hashValue is not None:
+                detailParts.append("`{}`".format(hashValue))
+            if detailParts:
+                lines.append("  {}".format(" — ".join(detailParts)))
+        lines.append("")
+        lines.append("Load with `morpc.frictionless.load_data()` against the resource descriptor attached to this release.")
+        releaseNotes = "\n".join(lines)
 
     releaseTitle = title if title is not None else tag
 
@@ -433,12 +484,42 @@ def create_release(resources, owner, repo, tag, title=None, notes=None, assets=N
             logger.error("Release {} already exists in {}/{}. A tag may only be cut once.".format(tag, owner, repo))
             raise RuntimeError
 
+    uploadBase = ["gh", "release", "upload", tag, "--repo", "{}/{}".format(owner, repo)]
+    batches = _batch_assets(dedupedAssets, len(" ".join(uploadBase)))
+
     if dryRun:
+        logger.info("Dry run. {} asset(s) in {} upload batch(es).".format(len(dedupedAssets), len(batches)))
         logger.info("Dry run. Assets: {}".format(dedupedAssets))
         logger.info("Dry run. Notes:\n{}".format(releaseNotes))
         return dedupedAssets, releaseNotes
 
-    subprocess.run(["gh", "release", "create", tag, "--repo", "{}/{}".format(owner, repo),
-                     "--title", releaseTitle, "--notes", releaseNotes, *dedupedAssets], check=True)
+    try:
+        # Notes are passed in a file rather than on the command line. Inline notes for a release with
+        # many resources can exceed the maximum command line length, which fails on Windows with
+        # WinError 206. The assets are uploaded separately for the same reason.
+        notesDir = tempfile.mkdtemp()
+        try:
+            notesPath = os.path.join(notesDir, "release_notes.md")
+            with open(notesPath, "w", encoding="utf-8") as notesFile:
+                notesFile.write(releaseNotes)
+
+            subprocess.run(["gh", "release", "create", tag, "--repo", "{}/{}".format(owner, repo),
+                             "--title", releaseTitle, "--notes-file", notesPath], check=True)
+        finally:
+            shutil.rmtree(notesDir, ignore_errors=True)
+
+        for batchNumber, batch in enumerate(batches, start=1):
+            logger.info("Uploading asset batch {} of {} ({} asset(s)).".format(batchNumber, len(batches), len(batch)))
+            subprocess.run([*uploadBase, *batch], check=True)
+    except Exception:
+        # The tag is deleted along with the release so that the release can be cut again once the
+        # cause is fixed. Failures here are logged rather than raised so that they do not mask the
+        # original error, which is what explains why the release failed.
+        logger.error("Release {} failed. Deleting the release and its tag so that it can be retried.".format(tag))
+        cleanup = subprocess.run(["gh", "release", "delete", tag, "--repo", "{}/{}".format(owner, repo),
+                                   "--yes", "--cleanup-tag"], capture_output=True)
+        if cleanup.returncode != 0:
+            logger.error("Could not delete release {}. Delete it manually before retrying.".format(tag))
+        raise
 
     return dedupedAssets, releaseNotes

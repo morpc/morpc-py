@@ -1,5 +1,7 @@
 from .osm import (
     DEFAULT_MAX_SPLIT_DEPTH,
+    DEFAULT_OSMCHA_API,
+    DEFAULT_OSMCHA_AREA_LT,
     DEFAULT_OVERPASS_ENDPOINTS,
     DEFAULT_TIMEOUT,
     OsmControl,
@@ -7,5 +9,7 @@ from .osm import (
     OsmQueryPackage,
     OsmResource,
     OsmSchema,
+    fetch_changesets,
     fetch_osm_features,
+    summarize_changesets,
 )

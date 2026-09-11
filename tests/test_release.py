@@ -4,6 +4,7 @@ import datetime
 import os
 import shutil
 import subprocess
+import tempfile
 
 import frictionless
 import pytest
@@ -22,6 +23,7 @@ from morpc.frictionless import (
     resolve_data_path,
     write_resource,
 )
+from morpc.frictionless.release import _batch_assets
 
 
 ASSET_URL = "https://github.com/morpc/morpc-parcels-standardize/releases/download/v2026.7.22/data.csv"
@@ -911,9 +913,14 @@ def test_create_release_invokes_gh_with_the_expected_arguments(tmp_path, monkeyp
     create_resource("data.csv", resourcePath=str(resourcePath), ignoreSchema=True, name="parcels", writeResource=True)
 
     calls = []
+    notesFileContents = []
 
     def _fake_run(args, **kwargs):
         calls.append(args)
+        if args[:3] == ["gh", "release", "create"]:
+            # The notes file only exists for the duration of the call, so read it here.
+            with open(args[args.index("--notes-file") + 1], encoding="utf-8") as notesFile:
+                notesFileContents.append(notesFile.read())
         # A non-zero return from the tag check means no such release, so the create proceeds.
         return _FakeCompleted(1)
 
@@ -923,12 +930,16 @@ def test_create_release_invokes_gh_with_the_expected_arguments(tmp_path, monkeyp
         [str(resourcePath)], "morpc", "repo", "v2026.7.22", title="2026.7.22", notes="Intro text."
     )
 
-    view, create = calls
+    view, create, upload = calls
     assert view == ["gh", "release", "view", "v2026.7.22", "--repo", "morpc/repo"]
     assert create[:6] == ["gh", "release", "create", "v2026.7.22", "--repo", "morpc/repo"]
-    assert create[6:10] == ["--title", "2026.7.22", "--notes", notes]
-    # Every derived asset is passed positionally after the flags, in order.
-    assert create[10:] == assets
+    assert create[6:9] == ["--title", "2026.7.22", "--notes-file"]
+    # The notes are passed in a file rather than inline, but their content is the returned notes.
+    assert notesFileContents == [notes]
+    # The release is created empty and the assets follow in a separate upload.
+    assert len(create) == 10
+    assert upload[:6] == ["gh", "release", "upload", "v2026.7.22", "--repo", "morpc/repo"]
+    assert upload[6:] == assets
 
 
 def test_create_release_title_defaults_to_the_tag(tmp_path, monkeypatch):
@@ -949,6 +960,204 @@ def test_create_release_title_defaults_to_the_tag(tmp_path, monkeypatch):
 
     create = calls[1]
     assert create[create.index("--title") + 1] == "v2026.7.22"
+
+
+def test_batch_assets_keeps_every_asset_in_order_within_the_limit():
+    assets = ["/tmp/{}.csv".format(index) for index in range(200)]
+
+    batches = _batch_assets(assets, baseLength=50, limit=400)
+
+    assert [asset for batch in batches for asset in batch] == assets
+    assert len(batches) > 1
+    for batch in batches:
+        assert 50 + sum(len(asset) + 3 for asset in batch) <= 400
+
+
+def test_batch_assets_returns_a_single_batch_when_everything_fits():
+    assets = ["/tmp/one.csv", "/tmp/two.csv"]
+
+    assert _batch_assets(assets, baseLength=50) == [assets]
+
+
+def test_batch_assets_of_nothing_is_no_batches():
+    assert _batch_assets([], baseLength=50) == []
+
+
+def test_batch_assets_keeps_an_oversized_asset_in_its_own_batch():
+    # A path that cannot fit is still passed through, so that gh reports the real error.
+    assets = ["/tmp/short.csv", "/tmp/{}.csv".format("x" * 500)]
+
+    batches = _batch_assets(assets, baseLength=50, limit=200)
+
+    assert batches == [[assets[0]], [assets[1]]]
+
+
+def test_create_release_uploads_long_asset_lists_in_multiple_batches(tmp_path, monkeypatch):
+    monkeypatch.setattr(shutil, "which", lambda name: "/usr/bin/gh")
+    # Deeply nested directories make the asset paths long enough to need more than one upload.
+    deep = tmp_path / ("nested" * 30)
+    deep.mkdir()
+    resourcePaths = []
+    for index in range(80):
+        (deep / "data{}.csv".format(index)).write_bytes(b"id,name\r\n1,alice\r\n")
+        resourcePath = deep / "data{}.resource.yaml".format(index)
+        create_resource(
+            "data{}.csv".format(index),
+            resourcePath=str(resourcePath),
+            ignoreSchema=True,
+            name="parcels{}".format(index),
+            writeResource=True,
+        )
+        resourcePaths.append(str(resourcePath))
+
+    calls = []
+
+    def _fake_run(args, **kwargs):
+        calls.append(args)
+        return _FakeCompleted(1)
+
+    monkeypatch.setattr(subprocess, "run", _fake_run)
+
+    assets, notes = create_release(resourcePaths, "morpc", "repo", "v2026.7.22")
+
+    uploads = [call for call in calls if call[:3] == ["gh", "release", "upload"]]
+    assert len(uploads) > 1
+    uploaded = [asset for upload in uploads for asset in upload[6:]]
+    assert uploaded == assets
+    for upload in uploads:
+        assert len(" ".join(upload)) <= 30000
+
+
+def test_create_release_deletes_the_release_when_an_upload_fails(tmp_path, monkeypatch):
+    monkeypatch.setattr(shutil, "which", lambda name: "/usr/bin/gh")
+    _build_data(tmp_path)
+    resourcePath = tmp_path / "data.resource.yaml"
+    create_resource(
+        "data.csv", resourcePath=str(resourcePath), ignoreSchema=True, name="parcels", writeResource=True
+    )
+
+    calls = []
+
+    def _fake_run(args, **kwargs):
+        calls.append(args)
+        if args[:3] == ["gh", "release", "upload"]:
+            raise subprocess.CalledProcessError(1, args)
+        return _FakeCompleted(1)
+
+    monkeypatch.setattr(subprocess, "run", _fake_run)
+
+    # The error that explains the failure is the one that propagates.
+    with pytest.raises(subprocess.CalledProcessError):
+        create_release([str(resourcePath)], "morpc", "repo", "v2026.7.22")
+
+    delete = calls[-1]
+    assert delete[:4] == ["gh", "release", "delete", "v2026.7.22"]
+    assert "--cleanup-tag" in delete
+    assert "--yes" in delete
+
+
+def test_create_release_failed_cleanup_does_not_mask_the_original_error(tmp_path, monkeypatch):
+    monkeypatch.setattr(shutil, "which", lambda name: "/usr/bin/gh")
+    _build_data(tmp_path)
+    resourcePath = tmp_path / "data.resource.yaml"
+    create_resource(
+        "data.csv", resourcePath=str(resourcePath), ignoreSchema=True, name="parcels", writeResource=True
+    )
+
+    def _fake_run(args, **kwargs):
+        if args[:3] == ["gh", "release", "upload"]:
+            raise subprocess.CalledProcessError(42, args)
+        # A non-zero return from the delete means the cleanup itself failed.
+        return _FakeCompleted(1)
+
+    monkeypatch.setattr(subprocess, "run", _fake_run)
+
+    with pytest.raises(subprocess.CalledProcessError) as failure:
+        create_release([str(resourcePath)], "morpc", "repo", "v2026.7.22")
+
+    assert failure.value.returncode == 42
+
+
+def test_create_release_override_notes_replaces_the_generated_notes(tmp_path, monkeypatch):
+    monkeypatch.setattr(shutil, "which", lambda name: "/usr/bin/gh")
+    _build_data(tmp_path)
+    resourcePath = tmp_path / "data.resource.yaml"
+    create_resource(
+        "data.csv", resourcePath=str(resourcePath), ignoreSchema=True, name="parcels", writeResource=True
+    )
+
+    assets, notes = create_release(
+        [str(resourcePath)], "morpc", "repo", "v2026.7.22", overrideNotes="Just these notes.", dryRun=True
+    )
+
+    assert notes == "Just these notes."
+    assert "## Resources" not in notes
+
+
+def test_create_release_override_notes_wins_over_notes(tmp_path, monkeypatch):
+    monkeypatch.setattr(shutil, "which", lambda name: "/usr/bin/gh")
+    _build_data(tmp_path)
+    resourcePath = tmp_path / "data.resource.yaml"
+    create_resource(
+        "data.csv", resourcePath=str(resourcePath), ignoreSchema=True, name="parcels", writeResource=True
+    )
+
+    assets, notes = create_release(
+        [str(resourcePath)],
+        "morpc",
+        "repo",
+        "v2026.7.22",
+        notes="Intro text.",
+        overrideNotes="Just these notes.",
+        dryRun=True,
+    )
+
+    assert notes == "Just these notes."
+    assert "Intro text." not in notes
+
+
+def test_create_release_removes_the_notes_file_when_gh_fails(tmp_path, monkeypatch):
+    monkeypatch.setattr(shutil, "which", lambda name: "/usr/bin/gh")
+    _build_data(tmp_path)
+    resourcePath = tmp_path / "data.resource.yaml"
+    create_resource(
+        "data.csv", resourcePath=str(resourcePath), ignoreSchema=True, name="parcels", writeResource=True
+    )
+
+    notesPaths = []
+
+    def _fake_run(args, **kwargs):
+        if args[:3] == ["gh", "release", "create"]:
+            notesPath = args[args.index("--notes-file") + 1]
+            notesPaths.append(notesPath)
+            assert os.path.exists(notesPath)
+            raise subprocess.CalledProcessError(1, args)
+        return _FakeCompleted(1)
+
+    monkeypatch.setattr(subprocess, "run", _fake_run)
+
+    with pytest.raises(subprocess.CalledProcessError):
+        create_release([str(resourcePath)], "morpc", "repo", "v2026.7.22")
+
+    assert not os.path.exists(notesPaths[0])
+
+
+def test_create_release_dry_run_writes_no_notes_file(tmp_path, monkeypatch):
+    monkeypatch.setattr(shutil, "which", lambda name: "/usr/bin/gh")
+    _build_data(tmp_path)
+    resourcePath = tmp_path / "data.resource.yaml"
+    create_resource(
+        "data.csv", resourcePath=str(resourcePath), ignoreSchema=True, name="parcels", writeResource=True
+    )
+
+    def _fail(*args, **kwargs):
+        raise AssertionError("A dry run must not create a temporary directory for the notes.")
+
+    monkeypatch.setattr(tempfile, "mkdtemp", _fail)
+
+    assets, notes = create_release([str(resourcePath)], "morpc", "repo", "v2026.7.22", dryRun=True)
+
+    assert "## Resources" in notes
 
 
 def test_create_release_missing_gh_raises(tmp_path, monkeypatch):
