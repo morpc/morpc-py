@@ -871,6 +871,15 @@ SUMLEVEL_DESCRIPTIONS = {
         "idField":"REGIONSWACOID",
         "nameField":"REGIONSWACO",
         "censusQueryName": None
+    },  
+    'M31': {
+        "singular":"library district",
+        "plural":"library districts",
+        "hierarchy_string":"LIBRARYD",
+        "authority":"morpc",
+        "idField":"LIBRARYDID",
+        "nameField":"LIBRARYD",
+        "censusQueryName": None
     },    
 }
 
