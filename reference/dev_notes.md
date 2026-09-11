@@ -45,3 +45,26 @@ extension is too long`.
 
 Note this does not shorten the asset path list, which is still passed positionally and
 contributes to the same command line length limit.
+
+## 2026-09-11 — Upload release assets in batches
+
+Branch: `fix/release-asset-batching`
+
+Follow-up to the `--notes-file` change. Asset paths were still passed positionally to
+`gh release create`, so a release with many resources could exceed the maximum Windows
+command line length on the paths alone and fail the same way (WinError 206).
+
+- Added `_batch_assets(assets, baseLength, limit=30000)`, which groups paths so each
+  projected command line stays under the limit. 30000 leaves headroom below Windows'
+  32767-character cap for quoting and the environment block.
+- `create_release` now creates the release with no assets and uploads them with
+  `gh release upload` in batches, logging progress per batch.
+- If the create or any upload fails, the release and its tag are deleted
+  (`gh release delete --yes --cleanup-tag`) and the original exception re-raised. The
+  cleanup does not raise on failure so that it cannot mask the error that explains the
+  failure; it logs instead and tells the user to delete the release manually.
+
+**Behavior change:** releases are no longer atomic. There is a window in which the
+release exists with only some assets. The rollback narrows that window but cannot close
+it: if the delete also fails, a partial release and its tag are left behind and must be
+removed by hand before retrying.
