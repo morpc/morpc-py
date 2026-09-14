@@ -23,7 +23,20 @@ from morpc.frictionless import (
     resolve_data_path,
     write_resource,
 )
-from morpc.frictionless.release import _batch_assets
+from morpc.frictionless import release
+from morpc.frictionless.release import _batch_assets, _check_worktree_synced
+
+
+@pytest.fixture(autouse=True)
+def _skip_worktree_check(monkeypatch):
+    """Neutralize create_release()'s repository preflight for the tests that are not about it.
+
+    Those tests build resources in tmp_path, which is not a repository, so the preflight would fail
+    them all for a reason none of them is testing. It is exercised directly by its own tests below,
+    which call _check_worktree_synced through the name imported above -- that name is bound to the
+    real function and is unaffected by patching the module attribute here.
+    """
+    monkeypatch.setattr(release, "_check_worktree_synced", lambda *args, **kwargs: None)
 
 
 ASSET_URL = "https://github.com/morpc/morpc-parcels-standardize/releases/download/v2026.7.22/data.csv"
@@ -1258,3 +1271,179 @@ def test_load_data_local_resource_is_unaffected(tmp_path):
     )
     data, resource, schema = load_data(str(resourcePath))
     assert data["id"].tolist() == [1, 2]
+
+
+# --- _check_worktree_synced ---
+
+def _run_git(*args, cwd):
+    subprocess.run(["git", *args], cwd=str(cwd), check=True, capture_output=True)
+
+
+def _make_repo(tmp_path, name="repo"):
+    """A repo with one commit, pushed to a bare remote whose HEAD names the default branch."""
+    remote = tmp_path / "{}.git".format(name)
+    repo = tmp_path / name
+    subprocess.run(["git", "init", "--bare", "-b", "main", str(remote)], check=True, capture_output=True)
+    subprocess.run(["git", "init", "-b", "main", str(repo)], check=True, capture_output=True)
+    _run_git("config", "user.email", "test@example.com", cwd=repo)
+    _run_git("config", "user.name", "Test", cwd=repo)
+    (repo / "README.md").write_text("hello\n")
+    _run_git("add", "-A", cwd=repo)
+    _run_git("commit", "-m", "initial", cwd=repo)
+    _run_git("remote", "add", "origin", str(remote), cwd=repo)
+    _run_git("push", "-u", "origin", "main", cwd=repo)
+    _run_git("remote", "set-head", "origin", "-a", cwd=repo)
+    return repo
+
+
+def test_check_worktree_synced_passes_when_clean_and_pushed(tmp_path):
+    repo = _make_repo(tmp_path)
+
+    assert _check_worktree_synced(str(repo)) is None
+
+
+def test_check_worktree_synced_modified_file_raises_and_names_it(tmp_path):
+    repo = _make_repo(tmp_path)
+    (repo / "README.md").write_text("changed\n")
+
+    with pytest.raises(RuntimeError, match="README.md"):
+        _check_worktree_synced(str(repo))
+
+
+def test_check_worktree_synced_untracked_file_raises(tmp_path):
+    repo = _make_repo(tmp_path)
+    (repo / "data.resource.yaml").write_text("name: data\n")
+
+    with pytest.raises(RuntimeError, match="data.resource.yaml"):
+        _check_worktree_synced(str(repo))
+
+
+def test_check_worktree_synced_ignored_file_is_not_dirty(tmp_path):
+    repo = _make_repo(tmp_path)
+    (repo / ".gitignore").write_text("*.log\n")
+    _run_git("add", "-A", cwd=repo)
+    _run_git("commit", "-m", "ignore logs", cwd=repo)
+    _run_git("push", cwd=repo)
+    (repo / "run.log").write_text("a log line\n")
+
+    assert _check_worktree_synced(str(repo)) is None
+
+
+def test_check_worktree_synced_dirty_tree_only_warns_on_a_dry_run(tmp_path, caplog):
+    repo = _make_repo(tmp_path)
+    (repo / "README.md").write_text("changed\n")
+
+    with caplog.at_level("WARNING"):
+        assert _check_worktree_synced(str(repo), dryRun=True) is True
+    assert "README.md" in caplog.text
+
+
+def test_check_worktree_synced_unpushed_commit_raises(tmp_path):
+    repo = _make_repo(tmp_path)
+    (repo / "README.md").write_text("changed\n")
+    _run_git("commit", "-am", "a commit that never left", cwd=repo)
+
+    with pytest.raises(RuntimeError, match="ahead"):
+        _check_worktree_synced(str(repo))
+
+
+def test_check_worktree_synced_behind_the_remote_raises(tmp_path):
+    repo = _make_repo(tmp_path)
+    other = tmp_path / "other"
+    subprocess.run(["git", "clone", str(tmp_path / "repo.git"), str(other)], check=True, capture_output=True)
+    _run_git("config", "user.email", "test@example.com", cwd=other)
+    _run_git("config", "user.name", "Test", cwd=other)
+    (other / "README.md").write_text("someone else's change\n")
+    _run_git("commit", "-am", "upstream moved", cwd=other)
+    _run_git("push", cwd=other)
+    _run_git("fetch", cwd=repo)
+
+    with pytest.raises(RuntimeError, match="behind"):
+        _check_worktree_synced(str(repo))
+
+
+def test_check_worktree_synced_branch_without_an_upstream_raises(tmp_path):
+    repo = _make_repo(tmp_path)
+    _run_git("checkout", "-b", "feature", cwd=repo)
+
+    with pytest.raises(RuntimeError, match="no upstream"):
+        _check_worktree_synced(str(repo))
+
+
+def test_check_worktree_synced_non_default_branch_raises(tmp_path):
+    repo = _make_repo(tmp_path)
+    _run_git("checkout", "-b", "feature", cwd=repo)
+    _run_git("push", "-u", "origin", "feature", cwd=repo)
+
+    with pytest.raises(RuntimeError, match="default branch"):
+        _check_worktree_synced(str(repo))
+
+
+def test_check_worktree_synced_skips_the_branch_check_when_remote_head_is_unset(tmp_path, caplog):
+    repo = _make_repo(tmp_path)
+    _run_git("symbolic-ref", "-d", "refs/remotes/origin/HEAD", cwd=repo)
+    _run_git("checkout", "-b", "feature", cwd=repo)
+    _run_git("push", "-u", "origin", "feature", cwd=repo)
+
+    with caplog.at_level("WARNING"):
+        assert _check_worktree_synced(str(repo)) is None
+    assert "origin/HEAD is not set" in caplog.text
+
+
+def test_check_worktree_synced_outside_a_repository_raises(tmp_path):
+    with pytest.raises(RuntimeError, match="not inside a git repository"):
+        _check_worktree_synced(str(tmp_path))
+
+
+def test_check_worktree_synced_missing_git_raises(tmp_path, monkeypatch):
+    monkeypatch.setattr(shutil, "which", lambda name: None)
+
+    with pytest.raises(RuntimeError, match="git is required"):
+        _check_worktree_synced(str(tmp_path))
+
+
+def test_create_release_dirty_worktree_raises_before_any_gh_call(tmp_path, monkeypatch):
+    # Opt out of the autouse stub: this test is about the preflight running inside create_release.
+    monkeypatch.setattr(release, "_check_worktree_synced", _check_worktree_synced)
+    monkeypatch.setattr(shutil, "which", lambda name: "/usr/bin/gh" if name == "gh" else "/usr/bin/git")
+    repo = _make_repo(tmp_path)
+    _build_data(repo)
+    resourcePath = repo / "data.resource.yaml"
+    create_resource("data.csv", resourcePath=str(resourcePath), ignoreSchema=True, name="parcels", writeResource=True)
+
+    calls = []
+    realRun = subprocess.run
+
+    def _fake_run(args, **kwargs):
+        calls.append(args)
+        # The preflight shells out to git for real; only gh is faked.
+        if args[0] == "git":
+            return realRun(args, **kwargs)
+        return _FakeCompleted(1)
+
+    monkeypatch.setattr(subprocess, "run", _fake_run)
+
+    with pytest.raises(RuntimeError, match="uncommitted changes"):
+        create_release([str(resourcePath)], "morpc", "repo", "v2026.7.22")
+
+    assert not [args for args in calls if args[0] == "gh"]
+
+
+def test_create_release_allow_dirty_skips_the_check(tmp_path, monkeypatch):
+    monkeypatch.setattr(release, "_check_worktree_synced", _check_worktree_synced)
+    monkeypatch.setattr(shutil, "which", lambda name: "/usr/bin/gh")
+    _build_data(tmp_path)
+    resourcePath = tmp_path / "data.resource.yaml"
+    create_resource("data.csv", resourcePath=str(resourcePath), ignoreSchema=True, name="parcels", writeResource=True)
+
+    calls = []
+
+    def _fake_run(args, **kwargs):
+        calls.append(args)
+        return _FakeCompleted(1)
+
+    monkeypatch.setattr(subprocess, "run", _fake_run)
+
+    create_release([str(resourcePath)], "morpc", "repo", "v2026.7.22", allowDirty=True)
+
+    assert calls[0][:3] == ["gh", "release", "view"]
