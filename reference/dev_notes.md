@@ -68,3 +68,32 @@ command line length on the paths alone and fail the same way (WinError 206).
 release exists with only some assets. The rollback narrows that window but cannot close
 it: if the delete also fails, a partial release and its tag are left behind and must be
 removed by hand before retrying.
+
+## 2026-09-14 — Check the repository is clean and pushed before creating a release
+
+Branch: `feat/release-worktree-guard`
+
+`gh release create` with no `--target` cuts the tag at the default branch's HEAD *on
+GitHub*, not at the local HEAD. Running a notebook end to end therefore produced a
+release whose tag predated the build it describes: the rebuilt descriptors, the HTML
+export and the metadata were still only in the working tree when the release cell ran.
+
+- Added `_check_worktree_synced(dir, dryRun=False)`, called first in `create_release`.
+  It raises if the directory is not in a repository, if the working tree is dirty
+  (untracked-but-not-ignored files included), if the branch has no upstream, if it is
+  ahead of or behind that upstream, or if it is not the remote's default branch. The
+  dirty-tree message lists the offending paths.
+- `dryRun=True` downgrades all of these to a warning, since a dry run is what one does
+  mid-build with a dirty tree.
+- Added an `allowDirty` parameter as an escape hatch. It warns when set.
+- Nothing is fetched, so the ahead/behind comparison is against the last-fetched state
+  of the remote ref. That does not affect the case this guards against, which is local
+  work that has not gone out.
+- If `<remote>/HEAD` is not set locally (many clones never set it) the default-branch
+  check is skipped with a warning naming `git remote set-head`; the other checks stand.
+
+**Consequence for workflow repos:** the HTML export must now run *before* the release
+cell and be committed with everything else, so the rendered run will not show the output
+of the release cell itself. Repos that track files rewritten during a run — a `*.log`
+that is not gitignored, notably `morpc-parcels-standardize` — cannot cut a release at
+all until those are ignored.

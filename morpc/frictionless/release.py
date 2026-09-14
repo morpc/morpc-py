@@ -343,7 +343,98 @@ def _batch_assets(assets, baseLength, limit=30000):
     return batches
 
 
-def create_release(resources, owner, repo, tag, title=None, notes=None, overrideNotes=None, assets=None, dryRun=False):
+def _git(args, cwd):
+    """Run a git command in cwd and return (returncode, stdout stripped of trailing whitespace)."""
+    import subprocess
+
+    result = subprocess.run(["git", *args], cwd=cwd, capture_output=True, text=True)
+    return result.returncode, result.stdout.strip()
+
+
+def _check_worktree_synced(dir, dryRun=False):
+    """Check that dir's repository is clean and in sync with its remote, raising if it is not.
+
+    `gh release create` with no --target cuts the tag at the default branch's HEAD *on GitHub*. Work
+    that has not reached GitHub is therefore not in the release, even though the descriptors uploaded
+    as assets were built from it. The common way to hit this is to run a notebook end to end: the
+    rebuilt descriptors are still only in the working tree when the release cell runs, so the tag
+    lands on the previous build's commit.
+
+    Three states produce that outcome, and all three are checked: uncommitted changes, commits that
+    have not been pushed, and a current branch that is not the one the tag will be cut on.
+
+    The ahead/behind comparison is made against the last-fetched state of the remote ref. Nothing is
+    fetched here, so a remote commit made since the last fetch is not seen. That does not affect the
+    case this guards against, which is local work that has not gone out.
+
+    Parameters
+    ----------
+    dir : str or PathLike
+        A directory inside the repository to check. A falsy value means the working directory.
+    dryRun : bool
+        Optional. If True, log a warning instead of raising. A dry run is what one does mid-build
+        with a dirty tree, so failing it would make it useless. Defaults to False.
+
+    Raises
+    ------
+    RuntimeError
+        If the repository is dirty, out of sync, or not a repository at all, and dryRun is False.
+    """
+    import shutil
+
+    dir = dir or "."
+
+    def fail(message):
+        if dryRun:
+            logger.warning("{} Not raising because this is a dry run.".format(message))
+            return True
+        logger.error(message)
+        raise RuntimeError(message)
+
+    if shutil.which("git") is None:
+        return fail("git is required to check that the release will include your work but was not found on PATH.")
+
+    code, _ = _git(["rev-parse", "--show-toplevel"], dir)
+    if code != 0:
+        return fail("{} is not inside a git repository, so there is no way to check that the release will include your work.".format(dir))
+
+    code, status = _git(["status", "--porcelain"], dir)
+    if code != 0:
+        return fail("Could not read the status of the repository at {}.".format(dir))
+    if status:
+        paths = "\n".join("  {}".format(line) for line in status.splitlines())
+        return fail("The working tree has uncommitted changes. The release tag is cut at the branch head on GitHub, so these would not be in the release:\n{}\nCommit and push them, then create the release.".format(paths))
+
+    code, upstream = _git(["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"], dir)
+    if code != 0:
+        return fail("The current branch has no upstream branch, so there is no way to check that your commits have reached GitHub. Push it first.")
+
+    code, counts = _git(["rev-list", "--left-right", "--count", "{}...HEAD".format(upstream)], dir)
+    if code != 0:
+        return fail("Could not compare the current branch with {}.".format(upstream))
+    behind, ahead = (int(count) for count in counts.split())
+    if ahead:
+        return fail("The current branch is {} commit(s) ahead of {}. The release tag is cut at the branch head on GitHub, so those commits would not be in the release. Push them, then create the release.".format(ahead, upstream))
+    if behind:
+        return fail("The current branch is {} commit(s) behind {}. The release would be cut at commits you have not seen. Pull, re-run the build, then create the release.".format(behind, upstream))
+
+    # The remote's own HEAD names the branch the tag will be cut on. Many clones never set it, in
+    # which case the branch cannot be checked and the two checks above still stand on their own.
+    remote = upstream.split("/")[0]
+    code, defaultRef = _git(["symbolic-ref", "--short", "refs/remotes/{}/HEAD".format(remote)], dir)
+    if code != 0:
+        logger.warning("{}/HEAD is not set locally, so the current branch cannot be checked against the default branch. Run `git remote set-head {} -a` to set it.".format(remote, remote))
+        return
+
+    defaultBranch = defaultRef.split("/", 1)[1]
+    code, branch = _git(["rev-parse", "--abbrev-ref", "HEAD"], dir)
+    if code != 0:
+        return fail("Could not determine the current branch of the repository at {}.".format(dir))
+    if branch != defaultBranch:
+        return fail("The current branch is {}, but the release tag is cut at {}, the default branch on GitHub. Merge {} into {} and push, then create the release.".format(branch, defaultBranch, branch, defaultBranch))
+
+
+def create_release(resources, owner, repo, tag, title=None, notes=None, overrideNotes=None, assets=None, allowDirty=False, dryRun=False):
     """Create a GitHub release from a set of published resource descriptors.
 
     This is the multi-resource counterpart to the hand-rolled `gh release create` step a workflow
@@ -353,6 +444,10 @@ def create_release(resources, owner, repo, tag, title=None, notes=None, override
     Only descriptor paths are accepted, not in-memory frictionless.Resource objects: a Resource built
     in memory may have no known descriptor path, and the descriptor file is itself an asset that must
     be uploaded. Use prepare_release() to publish descriptors first; pass the same paths here.
+
+    The tag is cut at the default branch's head on GitHub, not at the local HEAD, so the repository
+    must be clean and pushed before the release is created. That is checked first, and nothing is
+    published if the check fails -- see _check_worktree_synced().
 
     The release is created without assets, which are then uploaded in batches small enough to fit
     within the maximum command line length. If an upload fails, the release and its tag are deleted so
@@ -381,10 +476,15 @@ def create_release(resources, owner, repo, tag, title=None, notes=None, override
     assets : list of str
         Optional. Extra asset paths to upload alongside the ones derived from resources, e.g. a data
         package descriptor.
+    allowDirty : bool
+        Optional. If True, skip the check that the repository is clean and in sync with its remote.
+        The release may then be cut at a commit that does not contain the data it describes. Defaults
+        to False.
     dryRun : bool
         Optional. If True, run every preflight check except the tag-existence check, log the resolved
         asset list and notes, and return without creating a release or calling `gh` to check the tag.
-        Defaults to False.
+        The repository check logs a warning rather than raising, since a dry run is what one does
+        mid-build with a dirty tree. Defaults to False.
 
     Returns
     -------
@@ -401,6 +501,11 @@ def create_release(resources, owner, repo, tag, title=None, notes=None, override
 
     if isinstance(resources, str):
         resources = [resources]
+
+    if allowDirty:
+        logger.warning("allowDirty is set. Not checking whether the release will include the data it describes.")
+    else:
+        _check_worktree_synced(os.path.dirname(resources[0]), dryRun=dryRun)
 
     descriptors = []
     assetPaths = []
