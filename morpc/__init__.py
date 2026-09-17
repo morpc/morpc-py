@@ -13,3 +13,4 @@ import morpc.color.palette as palette
 import morpc.rest_api
 import morpc.osm
 import morpc.utils
+import morpc.insights
