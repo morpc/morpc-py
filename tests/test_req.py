@@ -32,5 +32,12 @@ def test_get_json_safely_raises_http_error_on_failed_request():
         get_json_safely("http://example", session=_FakeSession(_Response(400)))
 
 
+def test_get_json_safely_http_error_carries_response():
+    # Callers can tell "no content" (204, e.g. a Census geography with no data for a year) from a failure.
+    with pytest.raises(HTTPError) as excinfo:
+        get_json_safely("http://example", session=_FakeSession(_Response(204)))
+    assert excinfo.value.response.status_code == 204
+
+
 def test_get_json_safely_returns_json_on_success():
     assert get_json_safely("http://example", session=_FakeSession(_Response(200, [["a"], ["1"]]))) == [["a"], ["1"]]
