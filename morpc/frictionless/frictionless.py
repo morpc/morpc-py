@@ -481,35 +481,48 @@ def _parse_hash(expected):
 
 
 def _line_end_variants(path, algorithm):
-    """Return [(digest, bytes)] for a CSV as it is on disk, with CRLF line endings, and with LF line endings.
+    """Return [(digest, bytes)] for a CSV as it is on disk and with its line endings converted.
 
     Resources hash CSVs with CRLF line endings, but git may check the same file out with LF line endings
     (e.g. under `* text=auto` on Linux). A CSV that differs from its resource only in line endings holds the
-    same data, so verification accepts any of these variants. The file itself is not modified.
+    same data, so verification accepts any of these variants. The file itself is not modified. The variants are:
+
+      - the file as it is on disk
+      - every line break as CRLF, as create_resource() writes it on Linux
+      - every line break as LF
+      - CRLF at record ends only, leaving line breaks inside quoted values as LF, as pandas writes it on Windows
+
+    A line break is inside a quoted value when an odd number of quote characters precede it. Escaped quotes
+    are doubled ("") so they do not change that count.
     """
     import hashlib
 
-    raw = hashlib.new(algorithm)
-    crlf = hashlib.new(algorithm)
-    lf = hashlib.new(algorithm)
-    (rawBytes, crlfBytes, lfBytes) = (0, 0, 0)
+    hashers = [hashlib.new(algorithm) for _ in range(4)]
+    sizes = [0, 0, 0, 0]
     carry = b''
+    inQuote = False
     with open(path, "rb") as f:
         for chunk in iter(lambda: f.read(2**20), b""):
-            raw.update(chunk)
-            rawBytes += len(chunk)
+            raw = chunk
             # Hold back a trailing CR so a CRLF split across two reads is still recognized.
             chunk = carry + chunk
             (chunk, carry) = (chunk[:-1], b'\r') if chunk.endswith(b'\r') else (chunk, b'')
             unix = chunk.replace(b'\r\n', b'\n')
             dos = unix.replace(b'\n', b'\r\n')
-            lf.update(unix)
-            lfBytes += len(unix)
-            crlf.update(dos)
-            crlfBytes += len(dos)
-    lf.update(carry)
-    crlf.update(carry)
-    return [(raw.hexdigest(), rawBytes), (crlf.hexdigest(), crlfBytes + len(carry)), (lf.hexdigest(), lfBytes + len(carry))]
+            # Splitting on quotes alternates between text outside and inside quoted values.
+            parts = unix.split(b'"')
+            for i in range(len(parts)):
+                if(inQuote == (i % 2 == 1)):
+                    parts[i] = parts[i].replace(b'\n', b'\r\n')
+            inQuote = inQuote != (len(parts) % 2 == 0)
+            records = b'"'.join(parts)
+            for (i, content) in enumerate([raw, dos, unix, records]):
+                hashers[i].update(content)
+                sizes[i] += len(content)
+    for i in range(1, 4):
+        hashers[i].update(carry)
+        sizes[i] += len(carry)
+    return [(hasher.hexdigest(), size) for (hasher, size) in zip(hashers, sizes)]
 
 
 def _verify_hash(path, expected):

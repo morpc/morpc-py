@@ -365,6 +365,19 @@ def test_verify_hash_handles_crlf_split_across_read_chunks(tmp_path):
     _verify_hash(str(path), _md5(crlf.replace(b"\r\n", b"\n")))
 
 
+# pandas on Windows ends records with CRLF but writes a line break inside a quoted value as-is, and git
+# then turns every CRLF into LF. Only the record ends should be restored to CRLF.
+@pytest.mark.parametrize("note", [b"line one\nline two", b'say ""hi""\nbye', b"x" * 2**20 + b"\nend"],
+                         ids=["simple", "escaped-quotes", "spans-read-chunks"])
+def test_verify_hash_accepts_csv_with_line_break_inside_quoted_value(tmp_path, note):
+    from morpc.frictionless.frictionless import _verify_hash
+
+    recorded = b'id,note\r\n1,"' + note + b'"\r\n2,plain\r\n'
+    path = tmp_path / "data.csv"
+    path.write_bytes(recorded.replace(b"\r\n", b"\n"))
+    _verify_hash(str(path), _md5(recorded))
+
+
 def _write_crlf_resource(tmp_path):
     from morpc.frictionless import create_resource
 
