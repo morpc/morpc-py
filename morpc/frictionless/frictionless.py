@@ -468,33 +468,78 @@ def _compute_hash(path, algorithm='md5'):
         raise RuntimeError
 
 
-def _verify_hash(path, expected):
-    """Raise if the file at path does not match the hash recorded in a resource descriptor.
+def _parse_hash(expected):
+    """Split a resource hash into (algorithm, digest).
 
     Accepts both the bare hex digest that MORPC resources have historically carried, which is assumed to
     be md5, and the self-describing "<algorithm>:<hex>" form.
     """
+    if(":" in expected):
+        (algorithm, _, digest) = expected.partition(":")
+        return (algorithm.lower(), digest)
+    return ('md5', expected)
+
+
+def _line_end_variants(path, algorithm):
+    """Return [(digest, bytes)] for a CSV as it is on disk, with CRLF line endings, and with LF line endings.
+
+    Resources hash CSVs with CRLF line endings, but git may check the same file out with LF line endings
+    (e.g. under `* text=auto` on Linux). A CSV that differs from its resource only in line endings holds the
+    same data, so verification accepts any of these variants. The file itself is not modified.
+    """
+    import hashlib
+
+    raw = hashlib.new(algorithm)
+    crlf = hashlib.new(algorithm)
+    lf = hashlib.new(algorithm)
+    (rawBytes, crlfBytes, lfBytes) = (0, 0, 0)
+    carry = b''
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(2**20), b""):
+            raw.update(chunk)
+            rawBytes += len(chunk)
+            # Hold back a trailing CR so a CRLF split across two reads is still recognized.
+            chunk = carry + chunk
+            (chunk, carry) = (chunk[:-1], b'\r') if chunk.endswith(b'\r') else (chunk, b'')
+            unix = chunk.replace(b'\r\n', b'\n')
+            dos = unix.replace(b'\n', b'\r\n')
+            lf.update(unix)
+            lfBytes += len(unix)
+            crlf.update(dos)
+            crlfBytes += len(dos)
+    lf.update(carry)
+    crlf.update(carry)
+    return [(raw.hexdigest(), rawBytes), (crlf.hexdigest(), crlfBytes + len(carry)), (lf.hexdigest(), lfBytes + len(carry))]
+
+
+def _verify_hash(path, expected):
+    """Raise if the file at path does not match the hash recorded in a resource descriptor.
+
+    Accepts both the bare hex digest that MORPC resources have historically carried, which is assumed to
+    be md5, and the self-describing "<algorithm>:<hex>" form. A CSV that differs only in line endings matches.
+    """
+    import os
     import morpc
 
     if(expected == None):
         logger.warning("Resource carries no hash, so the integrity of {} cannot be verified.".format(path))
         return
 
-    if(":" in expected):
-        (algorithm, _, digest) = expected.partition(":")
-        algorithm = algorithm.lower()
-    else:
-        (algorithm, digest) = ('md5', expected)
+    (algorithm, digest) = _parse_hash(expected)
 
-    if(algorithm == 'md5'):
-        actual = morpc.md5(path)
-    elif(algorithm == 'sha256'):
-        actual = morpc.sha256(path)
-    else:
+    if(algorithm not in ('md5', 'sha256')):
         logger.error("Resource hash uses unsupported algorithm '{}'. Unable to verify {}.".format(algorithm, path))
         raise RuntimeError
 
-    if(actual != digest):
+    if(os.path.splitext(path)[1].lower() == ".csv"):
+        digests = [variant[0] for variant in _line_end_variants(path, algorithm)]
+    elif(algorithm == 'md5'):
+        digests = [morpc.md5(path)]
+    else:
+        digests = [morpc.sha256(path)]
+    actual = digests[0]
+
+    if(digest not in digests):
         logger.error("Hash mismatch for {}. The resource records {} but the file computes {}. The data does not match the resource that describes it.".format(path, digest, actual))
         raise RuntimeError
 
@@ -828,13 +873,27 @@ def validate_resource(resourcePath):
             logger.info("Validating resource on disk including data and schema (if applicable). This may take some time.")
             resourceOnDisk = frictionless.Resource(os.path.basename(resourcePath))
 
-            results = resourceOnDisk.validate()
+            # Frictionless checks hash and bytes against the raw file, which fails for a CSV checked out with
+            # different line endings than it was hashed with. For a local CSV, check those two ourselves.
+            dataPath = resourceOnDisk.path
+            if(isinstance(dataPath, str) and not _is_url(dataPath) and dataPath.lower().endswith(".csv") and os.path.exists(dataPath)):
+                results = resourceOnDisk.validate(checklist=frictionless.Checklist(skip_errors=["hash-count", "byte-count"]))
+                (algorithm, digest) = _parse_hash(resourceOnDisk.hash) if resourceOnDisk.hash else ('md5', None)
+                integrityValid = any((digest == None or variantDigest == digest) and
+                                     (resourceOnDisk.bytes == None or variantBytes == resourceOnDisk.bytes)
+                                     for (variantDigest, variantBytes) in _line_end_variants(dataPath, algorithm))
+            else:
+                results = resourceOnDisk.validate()
+                integrityValid = True
 
         except Exception as e:
             logger.error("An unhandled error occurred while trying to validate the Frictionless resource: {}".format(e))
             raise RuntimeError
-        
-    
+
+    if(not integrityValid):
+        logger.error("Resource is NOT valid. The hash or byte count of {} does not match the resource, even allowing for differences in line endings.".format(dataPath))
+        return False
+
     if(results.valid == True):
         logger.info("Resource is valid")
         return True

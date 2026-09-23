@@ -176,6 +176,7 @@ ArcGIS Online REST API tools:
 ## Key Conventions
 
 - **CSV line endings**: Always `\r\n` (Windows). `write_table()` enforces this via `PANDAS_EXPORT_ARGS_OVERRIDE`. This ensures consistent MD5 checksums cross-platform.
+  Git may still check a CSV out with LF endings (e.g. `* text=auto` on Linux), so `_verify_hash()` and `validate_resource()` accept a CSV whose hash/bytes match with either line ending; the file on disk is never rewritten.
 - **Logging**: All modules use `logging.getLogger(__name__)`. Older code in `morpc.py` uses `print()` with `morpc.function | LEVEL |` prefix — this is legacy and should not be extended.
 - **TODO automation**: `# TODO:` comments are automatically converted to GitHub Issues on push via `.github/workflows/todo_to_issue.yml`.
 - **External dependency**: `varLookup` expects `../morpc-lookup/variable_dictionary.xlsx` — a separate repo not bundled here.
