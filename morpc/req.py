@@ -52,6 +52,7 @@ def get_json_safely(url, params=None, headers=default_headers, session: Session 
                 json = r.json()
         else:
             logger.error(f"Request failed. Content: {r.content}")
+            raise HTTPError(f"Request failed with status {r.status_code}: {r.url}")
     else:
         logger.debug(f"Request successful. Decoding return JSON.")
         try:
