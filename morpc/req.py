@@ -51,8 +51,12 @@ def get_json_safely(url, params=None, headers=default_headers, session: Session 
             else:
                 json = r.json()
         else:
-            logger.error(f"Request failed. Content: {r.content}")
-            raise HTTPError(f"Request failed with status {r.status_code}: {r.url}")
+            # 204 means the request was valid but there is nothing to return, which callers may treat as no rows.
+            if r.status_code == 204:
+                logger.warning(f"No content returned: {r.url}")
+            else:
+                logger.error(f"Request failed. Content: {r.content}")
+            raise HTTPError(f"Request failed with status {r.status_code}: {r.url}", response=r)
     else:
         logger.debug(f"Request successful. Decoding return JSON.")
         try:
