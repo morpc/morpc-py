@@ -468,33 +468,91 @@ def _compute_hash(path, algorithm='md5'):
         raise RuntimeError
 
 
-def _verify_hash(path, expected):
-    """Raise if the file at path does not match the hash recorded in a resource descriptor.
+def _parse_hash(expected):
+    """Split a resource hash into (algorithm, digest).
 
     Accepts both the bare hex digest that MORPC resources have historically carried, which is assumed to
     be md5, and the self-describing "<algorithm>:<hex>" form.
     """
+    if(":" in expected):
+        (algorithm, _, digest) = expected.partition(":")
+        return (algorithm.lower(), digest)
+    return ('md5', expected)
+
+
+def _line_end_variants(path, algorithm):
+    """Return [(digest, bytes)] for a CSV as it is on disk and with its line endings converted.
+
+    Resources hash CSVs with CRLF line endings, but git may check the same file out with LF line endings
+    (e.g. under `* text=auto` on Linux). A CSV that differs from its resource only in line endings holds the
+    same data, so verification accepts any of these variants. The file itself is not modified. The variants are:
+
+      - the file as it is on disk
+      - every line break as CRLF, as create_resource() writes it on Linux
+      - every line break as LF
+      - CRLF at record ends only, leaving line breaks inside quoted values as LF, as pandas writes it on Windows
+
+    A line break is inside a quoted value when an odd number of quote characters precede it. Escaped quotes
+    are doubled ("") so they do not change that count.
+    """
+    import hashlib
+
+    hashers = [hashlib.new(algorithm) for _ in range(4)]
+    sizes = [0, 0, 0, 0]
+    carry = b''
+    inQuote = False
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(2**20), b""):
+            raw = chunk
+            # Hold back a trailing CR so a CRLF split across two reads is still recognized.
+            chunk = carry + chunk
+            (chunk, carry) = (chunk[:-1], b'\r') if chunk.endswith(b'\r') else (chunk, b'')
+            unix = chunk.replace(b'\r\n', b'\n')
+            dos = unix.replace(b'\n', b'\r\n')
+            # Splitting on quotes alternates between text outside and inside quoted values.
+            parts = unix.split(b'"')
+            for i in range(len(parts)):
+                if(inQuote == (i % 2 == 1)):
+                    parts[i] = parts[i].replace(b'\n', b'\r\n')
+            inQuote = inQuote != (len(parts) % 2 == 0)
+            records = b'"'.join(parts)
+            for (i, content) in enumerate([raw, dos, unix, records]):
+                hashers[i].update(content)
+                sizes[i] += len(content)
+    for i in range(1, 4):
+        hashers[i].update(carry)
+        sizes[i] += len(carry)
+    return [(hasher.hexdigest(), size) for (hasher, size) in zip(hashers, sizes)]
+
+
+def _verify_hash(path, expected):
+    """Raise if the file at path does not match the hash recorded in a resource descriptor.
+
+    Accepts both the bare hex digest that MORPC resources have historically carried, which is assumed to
+    be md5, and the self-describing "<algorithm>:<hex>" form. A CSV that differs only in line endings matches.
+    """
+    import os
     import morpc
 
     if(expected == None):
         logger.warning("Resource carries no hash, so the integrity of {} cannot be verified.".format(path))
         return
 
-    if(":" in expected):
-        (algorithm, _, digest) = expected.partition(":")
-        algorithm = algorithm.lower()
-    else:
-        (algorithm, digest) = ('md5', expected)
+    (algorithm, digest) = _parse_hash(expected)
 
-    if(algorithm == 'md5'):
-        actual = morpc.md5(path)
-    elif(algorithm == 'sha256'):
-        actual = morpc.sha256(path)
-    else:
+    if(algorithm not in ('md5', 'sha256')):
         logger.error("Resource hash uses unsupported algorithm '{}'. Unable to verify {}.".format(algorithm, path))
         raise RuntimeError
 
-    if(actual != digest):
+    if(os.path.splitext(path)[1].lower() == ".csv"):
+        digests = [variant[0] for variant in _line_end_variants(path, algorithm)]
+    elif(algorithm == 'md5'):
+        digests = [morpc.md5(path)]
+    else:
+        digests = [morpc.sha256(path)]
+    actual = digests[0]
+
+    if(digest not in digests):
         logger.error("Hash mismatch for {}. The resource records {} but the file computes {}. The data does not match the resource that describes it.".format(path, digest, actual))
         raise RuntimeError
 
@@ -828,13 +886,27 @@ def validate_resource(resourcePath):
             logger.info("Validating resource on disk including data and schema (if applicable). This may take some time.")
             resourceOnDisk = frictionless.Resource(os.path.basename(resourcePath))
 
-            results = resourceOnDisk.validate()
+            # Frictionless checks hash and bytes against the raw file, which fails for a CSV checked out with
+            # different line endings than it was hashed with. For a local CSV, check those two ourselves.
+            dataPath = resourceOnDisk.path
+            if(isinstance(dataPath, str) and not _is_url(dataPath) and dataPath.lower().endswith(".csv") and os.path.exists(dataPath)):
+                results = resourceOnDisk.validate(checklist=frictionless.Checklist(skip_errors=["hash-count", "byte-count"]))
+                (algorithm, digest) = _parse_hash(resourceOnDisk.hash) if resourceOnDisk.hash else ('md5', None)
+                integrityValid = any((digest == None or variantDigest == digest) and
+                                     (resourceOnDisk.bytes == None or variantBytes == resourceOnDisk.bytes)
+                                     for (variantDigest, variantBytes) in _line_end_variants(dataPath, algorithm))
+            else:
+                results = resourceOnDisk.validate()
+                integrityValid = True
 
         except Exception as e:
             logger.error("An unhandled error occurred while trying to validate the Frictionless resource: {}".format(e))
             raise RuntimeError
-        
-    
+
+    if(not integrityValid):
+        logger.error("Resource is NOT valid. The hash or byte count of {} does not match the resource, even allowing for differences in line endings.".format(dataPath))
+        return False
+
     if(results.valid == True):
         logger.info("Resource is valid")
         return True
@@ -949,7 +1021,7 @@ def resolve_data_path(resource, sourceDir, download=True):
     return os.path.join(sourceDir, resource.path)
 
 
-def load_data(resourcePath, archiveDir=None, validate=False, forceInteger=False, forceInt64=False, useSchema="default", sheetName=None, layerName=None, tableName=None, driverName=None, targetCRS=None, lineEnds: Literal['\n', '\b\n'] = '\b\n'):
+def load_data(resourcePath, archiveDir=None, validate=False, forceInteger=False, forceInt64=False, useSchema="default", sheetName=None, layerName=None, tableName=None, driverName=None, targetCRS=None):
     """Often we want to make a copy of some input data and work with the copy, for example to protect 
     the original data or to create an archival copy of it so that we can replicate the process later.  
     The `load_data()` function simplifies the process of reading the data and 
@@ -992,8 +1064,6 @@ def load_data(resourcePath, archiveDir=None, validate=False, forceInteger=False,
         Optional. The coordinate reference system to reproject the geometry to when loading a spatial SQLite database. Only used
         when a geometry column is detected in a SQLite file. SQLite WKB geometry carries no CRS information, so it is assumed to be
         "epsg:4326" on read. If None (the default), the data's native CRS is returned without reprojection. See morpc.load_spatial_data.
-    lineEnds : ['\n', '\b\n']
-        The type of line end separator to use for the data. If does not match, try to convert. Defaults to '\b\n'
 
     Returns
     -------

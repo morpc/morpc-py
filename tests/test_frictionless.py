@@ -306,3 +306,104 @@ def test_create_package_accepts_a_resource_object_directly(tmp_path):
     assert len(reloaded.resources) == 1
     assert reloaded.resources[0].name == "in-memory"
     assert reloaded.resources[0].path == "https://example.com/data.json"
+
+
+# Resources hash CSVs with CRLF line endings, but a git checkout under `* text=auto` hands Linux users
+# the same file with LF line endings. Verification must accept a CSV that differs only in line endings.
+
+CSV_CRLF = b"id,name\r\n1,alice\r\n2,bob\r\n"
+CSV_LF = CSV_CRLF.replace(b"\r\n", b"\n")
+
+
+def _md5(content):
+    import hashlib
+
+    return hashlib.md5(content).hexdigest()
+
+
+@pytest.mark.parametrize("recorded, onDisk", [(CSV_CRLF, CSV_LF), (CSV_LF, CSV_CRLF)])
+def test_verify_hash_accepts_csv_that_differs_only_in_line_endings(tmp_path, recorded, onDisk):
+    import hashlib
+
+    from morpc.frictionless.frictionless import _verify_hash
+
+    path = tmp_path / "data.csv"
+    path.write_bytes(onDisk)
+    _verify_hash(str(path), _md5(recorded))
+    _verify_hash(str(path), "sha256:" + hashlib.sha256(recorded).hexdigest())
+    # The file on disk is left alone.
+    assert path.read_bytes() == onDisk
+
+
+def test_verify_hash_rejects_csv_with_different_data(tmp_path):
+    from morpc.frictionless.frictionless import _verify_hash
+
+    path = tmp_path / "data.csv"
+    path.write_bytes(CSV_LF.replace(b"bob", b"eve"))
+    with pytest.raises(RuntimeError):
+        _verify_hash(str(path), _md5(CSV_CRLF))
+
+
+def test_verify_hash_does_not_normalize_line_endings_of_non_csv_files(tmp_path):
+    from morpc.frictionless.frictionless import _verify_hash
+
+    path = tmp_path / "data.bin"
+    path.write_bytes(CSV_LF)
+    with pytest.raises(RuntimeError):
+        _verify_hash(str(path), _md5(CSV_CRLF))
+
+
+def test_verify_hash_handles_crlf_split_across_read_chunks(tmp_path):
+    from morpc.frictionless.frictionless import _verify_hash
+
+    # Place the CR as the last byte of the first 1 MiB read and its LF as the first byte of the next.
+    crlf = b"a" * (2**20 - 1) + b"\r\n" + b"b\r\n"
+    path = tmp_path / "data.csv"
+    path.write_bytes(crlf.replace(b"\r\n", b"\n"))
+    _verify_hash(str(path), _md5(crlf))
+    path.write_bytes(crlf)
+    _verify_hash(str(path), _md5(crlf.replace(b"\r\n", b"\n")))
+
+
+# pandas on Windows ends records with CRLF but writes a line break inside a quoted value as-is, and git
+# then turns every CRLF into LF. Only the record ends should be restored to CRLF.
+@pytest.mark.parametrize("note", [b"line one\nline two", b'say ""hi""\nbye', b"x" * 2**20 + b"\nend"],
+                         ids=["simple", "escaped-quotes", "spans-read-chunks"])
+def test_verify_hash_accepts_csv_with_line_break_inside_quoted_value(tmp_path, note):
+    from morpc.frictionless.frictionless import _verify_hash
+
+    recorded = b'id,note\r\n1,"' + note + b'"\r\n2,plain\r\n'
+    path = tmp_path / "data.csv"
+    path.write_bytes(recorded.replace(b"\r\n", b"\n"))
+    _verify_hash(str(path), _md5(recorded))
+
+
+def _write_crlf_resource(tmp_path):
+    from morpc.frictionless import create_resource
+
+    (tmp_path / "data.schema.yaml").write_text(SCHEMA_YAML)
+    (tmp_path / "data.csv").write_bytes(CSV_CRLF)
+    create_resource(
+        "data.csv",
+        resourcePath=str(tmp_path / "data.resource.yaml"),
+        schemaPath="data.schema.yaml",
+        name="people",
+        writeResource=True,
+    )
+    return tmp_path / "data.resource.yaml"
+
+
+def test_validate_resource_accepts_csv_that_differs_only_in_line_endings(tmp_path):
+    from morpc.frictionless import validate_resource
+
+    resourcePath = _write_crlf_resource(tmp_path)
+    (tmp_path / "data.csv").write_bytes(CSV_LF)
+    assert validate_resource(str(resourcePath))
+
+
+def test_validate_resource_rejects_csv_with_different_data(tmp_path):
+    from morpc.frictionless import validate_resource
+
+    resourcePath = _write_crlf_resource(tmp_path)
+    (tmp_path / "data.csv").write_bytes(CSV_LF.replace(b"bob", b"eve"))
+    assert not validate_resource(str(resourcePath))
