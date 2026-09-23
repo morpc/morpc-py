@@ -1008,7 +1008,7 @@ def resolve_data_path(resource, sourceDir, download=True):
     return os.path.join(sourceDir, resource.path)
 
 
-def load_data(resourcePath, archiveDir=None, validate=False, forceInteger=False, forceInt64=False, useSchema="default", sheetName=None, layerName=None, tableName=None, driverName=None, targetCRS=None, lineEnds: Literal['\n', '\b\n'] = '\b\n'):
+def load_data(resourcePath, archiveDir=None, validate=False, forceInteger=False, forceInt64=False, useSchema="default", sheetName=None, layerName=None, tableName=None, driverName=None, targetCRS=None):
     """Often we want to make a copy of some input data and work with the copy, for example to protect 
     the original data or to create an archival copy of it so that we can replicate the process later.  
     The `load_data()` function simplifies the process of reading the data and 
@@ -1051,8 +1051,6 @@ def load_data(resourcePath, archiveDir=None, validate=False, forceInteger=False,
         Optional. The coordinate reference system to reproject the geometry to when loading a spatial SQLite database. Only used
         when a geometry column is detected in a SQLite file. SQLite WKB geometry carries no CRS information, so it is assumed to be
         "epsg:4326" on read. If None (the default), the data's native CRS is returned without reprojection. See morpc.load_spatial_data.
-    lineEnds : ['\n', '\b\n']
-        The type of line end separator to use for the data. If does not match, try to convert. Defaults to '\b\n'
 
     Returns
     -------
