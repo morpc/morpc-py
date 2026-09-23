@@ -94,7 +94,7 @@ def datetime_from_string(date, errors: Literal['coerce', 'error']='coerce') -> d
     dt = pd.NaT
 
     try:
-        if isinstance(date, pd.api.typing.NaTType) or date is None:
+        if isinstance(date, pd.api.typing.NaTType) or date is None or date is pd.NA:
             dt = pd.NaT
 
         elif isinstance(date, float):
