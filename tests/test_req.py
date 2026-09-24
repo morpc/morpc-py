@@ -127,3 +127,16 @@ def test_redact_hides_credentials_in_urls_and_params():
     assert redact(f"http://x/y?a=1&key={SECRET}") == "http://x/y?a=1&key=REDACTED"
     assert redact({"get": "NAME", "key": SECRET}) == {"get": "NAME", "key": "REDACTED"}
     assert redact(None) is None
+
+
+def test_urllib3_debug_request_log_is_redacted(caplog):
+    # urllib3 logs every request line, including the query string, at DEBUG. Mirror its call.
+    import logging
+    import morpc.req  # noqa: F401  (installs the filter)
+    caplog.set_level("DEBUG")
+    logging.getLogger("urllib3.connectionpool").debug(
+        '%s://%s:%s "%s %s %s" %s %s', "https", "api.census.gov", 443, "GET", f"/data/2024/acs/acs5?get=NAME&key={SECRET}", "HTTP/1.1", 200, None
+    )
+    assert "api.census.gov" in caplog.text
+    assert "key=REDACTED" in caplog.text
+    assert SECRET not in caplog.text

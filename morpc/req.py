@@ -25,6 +25,20 @@ def redact(value):
     return _SENSITIVE_PATTERN.sub(r'\1REDACTED', str(value))
 
 
+class _RedactFilter(logging.Filter):
+    """Redact credentials in log records. urllib3 logs every request line, query string included, at DEBUG."""
+
+    def filter(self, record):
+        if isinstance(record.msg, str):
+            record.msg = redact(record.msg)
+        if isinstance(record.args, tuple):
+            record.args = tuple(redact(a) if isinstance(a, str) else a for a in record.args)
+        return True
+
+
+logging.getLogger("urllib3.connectionpool").addFilter(_RedactFilter())
+
+
 default_headers = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/69.0.3497.100 Safari/537.36"}
 
 
