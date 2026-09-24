@@ -1,4 +1,5 @@
 import logging
+import re
 from os import PathLike
 from time import sleep
 from httpx import head
@@ -6,6 +7,23 @@ from pydantic import FilePath
 from requests import HTTPError, Session
 
 logger = logging.getLogger(__name__)
+
+# Query parameters that carry credentials, e.g. the Census API key or an ArcGIS token.
+SENSITIVE_PARAMS = ('key', 'token', 'api_key')
+_SENSITIVE_PATTERN = re.compile(r'([?&](?:' + '|'.join(SENSITIVE_PARAMS) + r')=)[^&#]*', re.IGNORECASE)
+
+
+def redact(value):
+    """Return a URL or parameter dict with credential values replaced by "REDACTED", for logs and messages.
+
+    Logs and exception messages end up in committed notebook outputs, so they must never contain API keys.
+    """
+    if value is None:
+        return None
+    if isinstance(value, dict):
+        return {k: ('REDACTED' if str(k).lower() in SENSITIVE_PARAMS else v) for k, v in value.items()}
+    return _SENSITIVE_PATTERN.sub(r'\1REDACTED', str(value))
+
 
 default_headers = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/69.0.3497.100 Safari/537.36"}
 
@@ -16,11 +34,11 @@ def get_text_safely(url, params=None, headers=default_headers, session: Session 
     if not isinstance(session, Session):
         session = Session()
 
-    logger.debug(f"Getting data from {url} with parameters {params}.")
+    logger.debug(f"Getting data from {redact(url)} with parameters {redact(params)}.")
     r = session.get(url, headers=headers, params=params)
     if r.status_code != 200:
-        logger.error(f"Request content: {r.url}")
-        raise requests.HTTPError
+        logger.error(f"Request failed with status {r.status_code}: {redact(r.url)}")
+        raise requests.HTTPError(f"Request failed with status {r.status_code}: {redact(r.url)}", response=r)
     else:
         logger.debug(f"Request successful. Returning plain text.")
 
@@ -36,7 +54,7 @@ def get_json_safely(url, params=None, headers=default_headers, session: Session 
     if not isinstance(session, Session):
         session = Session()
 
-    logger.debug(f"Getting data from {url} with parameters {params}.")
+    logger.debug(f"Getting data from {redact(url)} with parameters {redact(params)}.")
     r = session.get(url, params=params, headers=headers)
     if r.status_code != 200:
         if "Output format not supported" in r.text:
@@ -53,10 +71,10 @@ def get_json_safely(url, params=None, headers=default_headers, session: Session 
         else:
             # 204 means the request was valid but there is nothing to return, which callers may treat as no rows.
             if r.status_code == 204:
-                logger.warning(f"No content returned: {r.url}")
+                logger.warning(f"No content returned: {redact(r.url)}")
             else:
                 logger.error(f"Request failed. Content: {r.content}")
-            raise HTTPError(f"Request failed with status {r.status_code}: {r.url}", response=r)
+            raise HTTPError(f"Request failed with status {r.status_code}: {redact(r.url)}", response=r)
     else:
         logger.debug(f"Request successful. Decoding return JSON.")
         try:
@@ -68,12 +86,12 @@ def get_json_safely(url, params=None, headers=default_headers, session: Session 
                         r=session.get(url=url, params=params, headers=headers)
                         json = r.json()
                     except Exception as e:
-                        logger.error(f"Request failed: {r.url}")
+                        logger.error(f"Request failed: {redact(r.url)}")
                         logger.error(f"Failed second attempt. {e}")
                         raise RuntimeError
                 logger.error(f"Server returned error {json['error']}")
         except:
-            logger.error(f"JSONDecoderError. Check the url. {r.url}")
+            logger.error(f"JSONDecoderError. Check the url. {redact(r.url)}")
             raise requests.JSONDecodeError
 
     if returnurl:
@@ -91,9 +109,13 @@ def get_file_safely(url, output_dir: str | PathLike, chunk_size:int=4096, params
     filename = os.path.basename(url)
     filepath = os.path.join(output_dir, filename)
 
-    logger.debug(f"Getting file from {url} with parameters {params}.")
+    logger.debug(f"Getting file from {redact(url)} with parameters {redact(params)}.")
     with session.get(url, params=params, headers=headers, stream=True) as r:
-        r.raise_for_status()
+        try:
+            r.raise_for_status()
+        except HTTPError as e:
+            # requests puts the full URL, including any credentials, in the message.
+            raise HTTPError(redact(str(e)), response=e.response) from None
         with open(filepath, "wb") as file:
             for chunk in r.iter_content(chunk_size=chunk_size):
                 file.write(chunk)
@@ -104,7 +126,7 @@ def get_file_safely(url, output_dir: str | PathLike, chunk_size:int=4096, params
 def post_safely(url, params=None, headers=None):
     import requests
 
-    logger.info(f"Posting data to {url} with parameters {params}.")
+    logger.info(f"Posting data to {redact(url)} with parameters {redact(params)}.")
     r = requests.post(url, headers=headers, params=params)
     if r.status_code != 201:
         logger.error(f"Request content: {r.content}")
@@ -114,7 +136,7 @@ def post_safely(url, params=None, headers=None):
         try:
             json = r.json()
         except:
-            logger.error(f"JSONDecoderError. Check the url. {r.url}")
+            logger.error(f"JSONDecoderError. Check the url. {redact(r.url)}")
             raise requests.JSONDecodeError
     r.close()
 
@@ -123,7 +145,7 @@ def post_safely(url, params=None, headers=None):
 def delete_safely(url, params=None, headers=None):
     import requests
 
-    logger.info(f"Deleting data at {url} with parameters {params}.")
+    logger.info(f"Deleting data at {redact(url)} with parameters {redact(params)}.")
     r = requests.post(url, headers=headers, params=params)
     if r.status_code != 204:
         logger.error(f"Request content: {r.content}")
