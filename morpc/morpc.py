@@ -871,6 +871,15 @@ SUMLEVEL_DESCRIPTIONS = {
         "idField":"REGIONSWACOID",
         "nameField":"REGIONSWACO",
         "censusQueryName": None
+    },  
+    'M31': {
+        "singular":"library district",
+        "plural":"library districts",
+        "hierarchy_string":"LIBRARYD",
+        "authority":"morpc",
+        "idField":"LIBRARYDID",
+        "nameField":"LIBRARYD",
+        "censusQueryName": None
     },    
 }
 
@@ -2269,7 +2278,7 @@ def recursiveUpdate(original, updates):
             original[key] = value
     return original
 
-def data_chart_to_excel(df, writer, sheet_name="Sheet1", chartType="column", dataOptions=None, chartOptions=None):
+def data_chart_to_excel(df, writer, sheet_name="Sheet1", chartType="column", dataOptions=None, chartOptions=None, na_rep=None):
     # TODO: simplify docstring
     """
     Create an Excel worksheet consisting of the contents of a pandas dataframe (as a formatted table)
@@ -2414,6 +2423,9 @@ def data_chart_to_excel(df, writer, sheet_name="Sheet1", chartType="column", dat
             "y2AxisOptions": dict
                 Options to control the appearance of the secondary y axis.  Will be used directly by chart.set_y2_axis(). No defaults are applied.
                 All required values must by specified. See https://xlsxwriter.readthedocs.io/chart.html#chart-set-y2-axis
+     na_rep: str
+        Value to use represent null values in the data frame.  Default is ''. Use '=NA()' to use Excel-compatible
+        null values.  This is necessary when including null values in ranges to be shown in a line chart.
     
     Returns
     -------
@@ -2516,11 +2528,13 @@ def data_chart_to_excel(df, writer, sheet_name="Sheet1", chartType="column", dat
         },
         "smooth": False
     })
+    seriesOptionsDefault["scatter"] = json.loads(json.dumps(seriesOptionsDefault["line"]))
     
     subtypesDefaults = {
         "bar": None,
         "column": None,
-        "line": None
+        "line": None,
+        "scatter": None
     }
      
     myDataOptions = {
@@ -2574,7 +2588,7 @@ def data_chart_to_excel(df, writer, sheet_name="Sheet1", chartType="column", dat
       
     workbook = writer.book
 
-    df.to_excel(writer, sheet_name=sheet_name, index=myDataOptions["index"])
+    df.to_excel(writer, sheet_name=sheet_name, index=myDataOptions["index"], na_rep=na_rep)
 
     worksheet = writer.sheets[sheet_name]
 
@@ -2668,7 +2682,6 @@ def data_chart_to_excel(df, writer, sheet_name="Sheet1", chartType="column", dat
                 color = myChartOptions["colors"][(i-1) % len(myChartOptions["colors"])]        
             elif(type(myChartOptions["colors"]) == dict):
                 color = myChartOptions["colors"].get(colname, styleDefaults["seriesColor"])   # Revert to default if color is not specified for column
-            json.dumps(mySeriesOptions, indent=4)
         # Else if we have more than one series, cycle through the default set of colors
         elif(nColumns > 1):
             color = colorsDefault[(i-1) % len(colorsDefault)]
@@ -2732,7 +2745,7 @@ def data_chart_to_excel(df, writer, sheet_name="Sheet1", chartType="column", dat
         # the y-axis title was not provided in the dict, revert to the default. 
         if(type(myChartOptions["titles"]) == dict):
             myYAxisOptions["name"] = myChartOptions["titles"].get("yTitle", yAxisOptionsDefaults["name"])
-           
+
         if(colname in y2AxisColumns):
             mySeriesOptions["y2_axis"] = True
             chart.add_series(mySeriesOptions)
