@@ -38,6 +38,11 @@ def test_string_NaT_returns_nat():
 def test_empty_string_returns_nat():
     assert is_nat(datetime_from_string(''))
 
+def test_pandas_na_returns_nat():
+    # pd.NA is the missing value in pandas string columns. Stringified it is "<NA>", which the
+    # natural-language parser reads as "now".
+    assert is_nat(datetime_from_string(pd.NA))
+
 
 # --- Already-datetime / already-date inputs ---
 

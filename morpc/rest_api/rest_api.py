@@ -15,7 +15,7 @@ import frictionless
 from frictionless.dialect import Control
 from requests import HTTPError
 
-from morpc.req import get_json_safely
+from morpc.req import get_json_safely, redact
 
 logger = logging.getLogger(__name__)
 
@@ -301,7 +301,7 @@ def _max_record_count(url):
         logger.error("Could not find maxRecordCount in response.")
         raise
     except KeyError:
-        logger.error(f"maxRecordCount not in response: {fetched_url}")
+        logger.error(f"maxRecordCount not in response: {redact(fetched_url)}")
         raise
 
     logger.info(f"Max record count: {max_record_count}")
