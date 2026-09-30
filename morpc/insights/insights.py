@@ -44,8 +44,8 @@ class DataPackage(frictionless.Package):
             return True
 
         complete = True
-        if(not "table" in self.resources):
-            logger.error(f"Resources must include one resource named 'table' which provides the metadata for the long-form data table")
+        if(not "output" in self.resources):
+            logger.error(f"Resources must include one resource named 'output' which provides the metadata for the long-form data table")
             complete = False
         if(not "process" in self.resource_names):
             logger.error(f"Resources must include one resource named 'process' which provides the metadata for a document describing the process by which the data was produced.")
@@ -89,8 +89,8 @@ class PresentationPackage(frictionless.Package):
             return True
 
         complete = True
-        if(not "commentary" in self.resource_names):
-            logger.error(f"Resources must include one resource named 'commentary' which provides a descriptor for the commentary table")
+        if(not "catalog" in self.resource_names):
+            logger.error(f"Resources must include one resource named 'catalog' which provides a descriptor for the catalog table")
             complete = False
 
         return complete
@@ -149,7 +149,7 @@ class TilesetPackage(frictionless.Package):
         if(not "catalog" in self.resource_names):
             logger.error(f"Resources must include one resource named 'catalog' which provides the metadata for an Excel document which includes the details required for this tileset for inclusion in the Insights platform catalog")
             complete = False
-        if(not "table" in self.resource_names):
+        if(not "output" in self.resource_names):
             logger.error(f"Resources must include one resource named 'table' which provides the metadata for the long-form data table")
             complete = False
         if(not "process" in self.resource_names):
@@ -164,7 +164,7 @@ class TilesetPackage(frictionless.Package):
         
         return complete
 
-def assemble_tileset_package(tilesetSlug, tilesetTitle, tilesetBasepath="./", dataPackagePath=None, presentationPackagePath=None, tilesetVersion=None, tilesetDescription=None, thumbnailUrlBase=None):
+def assemble_tileset_package(tilesetSlug, tilesetTitle, tilesetBasepath="./", dataPackagePath=None, presentationPackagePath=None, tilesetVersion=None, tilesetDescription=None, thumbnailUrlBase=None, produceReadme=False):
     """
     Given an Insights Data Package and an Insights Presentation Package, create an Insights Tileset Package including the associated 
     Frictionless package file and all of metadata and artifacts provided in the two input packages.
@@ -198,6 +198,9 @@ def assemble_tileset_package(tilesetSlug, tilesetTitle, tilesetBasepath="./", da
         The base URL by which the thumbnail images will be accessed. Each thumbnail should be accessible by appending the thumbnail
         filename to the base URL. Typically the URL would point to a GitHub repository. If thumbnailUrlBase is not specified, the script
         will assume that GitHub is being used and will construct a URL using the tilesetSlug and the figures directory (see below)
+    produceReadme : bool
+        If set to True, the function will automatically produce a basic README.md file using the available metadata. By 
+        default, no README.md file will be produced.
 
     Returns
     -------
@@ -214,6 +217,7 @@ def assemble_tileset_package(tilesetSlug, tilesetTitle, tilesetBasepath="./", da
     import pandas as pd
     import os
     import posixpath
+    import pathlib
     import shutil
     import logging
 
@@ -311,8 +315,8 @@ def assemble_tileset_package(tilesetSlug, tilesetTitle, tilesetBasepath="./", da
     tp.set_property("title", tilesetTitle)
     tp.set_property("description", tilesetDescription)
     tp.set_property("version", tilesetVersion)
-    tp.dataPackageBasepath = posixpath.dirname(dataPackagePath)
-    tp.presentationPackageBasepath = posixpath.dirname(presentationPackagePath)
+    tp.dataPackageBasepath = posixpath.dirname(pathlib.PurePath(dataPackagePath).as_posix())
+    tp.presentationPackageBasepath = posixpath.dirname(pathlib.PurePath(presentationPackagePath).as_posix())
     tp.resources = []
 
     # ### Add resources to tileset package
@@ -321,7 +325,7 @@ def assemble_tileset_package(tilesetSlug, tilesetTitle, tilesetBasepath="./", da
     readmeResource = frictionless.Resource()
     readmeResource.name = "readme"
     readmeResource.title= f"{TITLE_PREFIX} | {tilesetTitle} | README"
-    readmeResource.description = "This document provides an overview and metadata about the insights-pop (Historic and Forecasted Population by Year) tileset in a human-readable form."
+    readmeResource.description = f"This document provides an overview of the {tilesetSlug} ({tilesetTitle}) tileset and its components."
     readmeResource.path = "README.md"
     tp.add_resource(readmeResource);
 
@@ -335,7 +339,7 @@ def assemble_tileset_package(tilesetSlug, tilesetTitle, tilesetBasepath="./", da
     tp.add_resource(maintainerResource);
 
     # #### Resources from data package
-    # Add resources to tileset package.
+    # Add resources to tileset package descriptor.
     logger.info("Adding resources defined in data package.")
     for resource in dp.resources:
         if(resource.name in tp.resource_names):
@@ -343,20 +347,26 @@ def assemble_tileset_package(tilesetSlug, tilesetTitle, tilesetBasepath="./", da
             raise RuntimeError
         else:
             logger.info(f"--> Resource: {resource.name}")
-            if((resource.name == "table") or (resource.name.find("output") != -1)):
-                # Put the data table (and schema and resource file if available) in the data directory. If there are other outputs, do the same for those.
-                destinationDir = posixpath.normpath(OUTPUT_DATA_DIR)
+            if(resource.name.find("output") != -1):
+                # Put the primary output table (and schema and resource file if available) in the output data directory. If there are other outputs, do the same for those.
+                destinationDir = OUTPUT_DATA_DIR
             elif(resource.name.find("process") != -1):
                 # Put any process definitions (i.e. any resources whose names include "process") in the root directory
                 destinationDir = ""
             elif(resource.name.find("input") != -1):
                 # Put any input data (and schema and resource file if available) in the input data directory
-                destinationDir = posixpath.normpath(INPUT_DATA_DIR)
+                destinationDir = INPUT_DATA_DIR
             else:
-                # Put all other resources in the misc direcotry
-                destinationDir = posixpath.normpath(MISC_DIR)
-            resource.path = posixpath.join(destinationDir, posixpath.basename(resource.path))
-            tp.add_resource(resource)
+                # Put all other resources in the misc directory
+                destinationDir = MISC_DIR
+            newResource = resource.to_copy()
+            if("_cache" in resource.custom):
+                newResource.custom["_cache"] = posixpath.join(destinationDir, posixpath.basename(pathlib.PurePath(resource.custom["_cache"]).as_posix()))
+            else:
+                newResource.path = posixpath.join(destinationDir, posixpath.basename(pathlib.PurePath(resource.path).as_posix()))
+            if("schema" in resource.metadata_export()):
+                newResource.schema = posixpath.join(destinationDir, posixpath.basename(pathlib.PurePath(resource.metadata_export()["schema"]).as_posix()))
+            tp.add_resource(newResource)
 
     # Copy files specified as resources from the data package file structure to the tileset package file structure. For data files, attempt
     # to copy the schema and resource files too, if available.
@@ -423,19 +433,26 @@ def assemble_tileset_package(tilesetSlug, tilesetTitle, tilesetBasepath="./", da
             raise RuntimeError
         else:
             logger.info(f"--> Resource: {resource.name}")
-            if(resource.name == "catalog"):
-                # Put the catalog in the root directory
+            newResource = resource.to_copy()
+            if(resource.name == "commentary"):
+                # We'll use the commentary spreadsheet as the basis for the tileset catalog, which
+                # goes in the root directory
                 destinationDir = ""
+                newResource.path = posixpath.join(destinationDir, "catalog.xlsx")
+                newResource.schema = posixpath.join(destinationDir, "catalog.schema.yaml")
+                newResource.name = "catalog"
+                tp.add_resource(newResource)
             else:
                 # Put all other resources in the misc direcotry
-                destinationDir = posixpath.normpath(os.path.join(tp.basepath, MISC_DIR))
-            resource.path = posixpath.join(destinationDir, posixpath.basename(resource.path))
-            tp.add_resource(resource)
+                destinationDir = posixpath.join(tp.basepath, MISC_DIR)
+                newResource.path = posixpath.join(destinationDir, posixpath.basename(pathlib.PurePath(resource.path).as_posix()))
+                tp.add_resource(newResource)
 
     # Copy files specified as resources from the presentation package file structure to the tileset package file structure.
     resource_names = pp.resource_names
-    # We will not copy the catalog. Rather, we'll read it, make some adjustments, and write the adjusted version
-    resource_names.remove("catalog")
+    # We will not copy the commentary. Rather, we'll read it, make some adjustments, and write the adjusted version
+    # as the tileset catalog
+    resource_names.remove("commentary")
     for resourceName in pp.resource_names:
         logger.info(f"Copying files associated with Presentation Package resource '{resourceName}'")
         resource = pp.get_resource(resourceName)
@@ -447,15 +464,15 @@ def assemble_tileset_package(tilesetSlug, tilesetTitle, tilesetBasepath="./", da
             logger.info(f"--> Copying file from {sourcePath} to {destinationPath}")
             shutil.copyfile(sourcePath, destinationPath)
 
-    # ## Update catalog
-    logger.info("Loading catalog provided with presentation package")
-    catalogResource = pp.get_resource("catalog")
-    catalog = pd.read_excel(catalogResource.path)
+    # ## Create catalog
+    logger.info("Loading commentary provided with presentation package")
+    commentaryResource = pp.get_resource("commentary")
+    commentary = pd.read_excel(commentaryResource.path)
 
     # Ensure that all values expected in the Presentation Package have been populated.
     missingFlag = False
-    for column in ["GeographyType","GeographyName","Headline","Commentary","ThumbnailURL","DataProductURL"]:
-        if(not catalog.loc[catalog[column].isna()].empty):
+    for column in ["GeoType","GeoName","Headline","Commentary","ThumbnailURL","DataProductURL"]:
+        if(not commentary.loc[commentary[column].isna()].empty):
             missingFlag = True
             if(column == "Headline"):
                 additionalInstructions = "The headlines for community-level geographies may be identical."
@@ -473,10 +490,10 @@ def assemble_tileset_package(tilesetSlug, tilesetTitle, tilesetBasepath="./", da
 
     # Update thumbnail URLs and copy provided images from the presentation package to the tileset package if necessary
     visualizationSpec = pp.get_property("_visualizationSpec")
-    if(visualizationSpec == "useProvidedCopy"):
+    if(visualizationSpec == "useProvided"):
         logger.info("Creating copies of the thumbnails in the tileset package.")
-        filenames = catalog["ThumbnailURL"].apply(lambda x:os.path.basename(x))
-        catalog["ThumbnailURL"] = thumbnailUrlBase + filenames
+        filenames = commentary["ThumbnailURL"].apply(lambda x:os.path.basename(x))
+        commentary["ThumbnailURL"] = thumbnailUrlBase + filenames
         showNotification = True
         for file in filenames:
             sourcePath = os.path.normpath(os.path.join(tp.presentationPackageBasepath, FIGURES_DIR, file))
@@ -487,35 +504,53 @@ def assemble_tileset_package(tilesetSlug, tilesetTitle, tilesetBasepath="./", da
                     showNotification = False
             else:
                 shutil.copyfile(sourcePath, destinationPath)            
-    elif(visualizationSpec == "useProvidedInPlace"):
-        # In this case, we'll use the provided URL as-is. Make no changes.
-        logger.info("Using provided thumbnail URLs as-is. No changes required")  
     else:
         # Eventually we will support construction of figures from a visualization specification. As of September 2026, 
         # this is not implemented. Return an error.
         logger.error("Only visualizationSpec values useProvidedCopy and useProvidedInPlace are currently supported.")
         raise RuntimeError
 
-    # Ensure TileID, TilesetID, Category, and ShareURL are blank.  These are managed by a downstream workflow.
+    # Create the tileset catalog using the commentary spreadsheet as the base
+    catalog = commentary.copy()
+    catalogSchema = tp.get_resource("catalog").schema
+    
+    # Create new fields TileID, TilesetID, Category, and ShareURL and leave them blank.  These are managed 
+    # by a downstream workflow.
     catalog["TileID"] = None
     catalog["TilesetID"] = None
     catalog["Category"] = None
-    catalog["ShareURL"] = None
+    catalog["Priority"] = None
 
-    # Populate Contributor, Vintage, and UpdateInterval from metadata originally from the Data Package
+    # Populate Contributor, Vintage, UpdateInterval, and TechDetailsURL from metadata originally from the Data Package
     catalog["Contributor"] = tp.contributors[0]["title"]
     catalog["Vintage"] = tp.get_property("_vintage")
     catalog["UpdateInterval"] = tp.get_property("_updateInterval")
+    catalog["TechDetailsURL"] = tp.get_property("_techDetailsUrl")
+
+    # Population MoreContextURL from metadata originally from the PresentationPackage
+    catalog["MoreContextURL"] = tp.get_property("_moreContextUrl")
+
+    # Ensure the catalog has only the fields required by the schema and that they are in the correct order
+    catalog = catalog.filter(items=catalogSchema.field_names, axis="columns")
+
+    # Ensure that the fields in the catalog are cast as the types specified in the schema
+    catalog = morpc.frictionless.cast_field_types(catalog, catalogSchema)
+    
+    # Sort the catalog according to the fields which comprise the primary key
+    catalog = catalog.sort_values(by=catalogSchema.primary_key)
 
     # Write the updated catalog to disk in the Tileset Package file structure
     logger.info("Writing updated catalog to disk")
-    sourcePath = os.path.normpath(os.path.join(tp.presentationPackageBasepath, catalogResource.path))
-    destinationPath = os.path.normpath(os.path.join(tp.basepath, os.path.basename(catalogResource.path)))
-    if(os.path.abspath(sourcePath) == os.path.abspath(destinationPath)):
-        logger.info(f"Destination path and source path resolve to the same absolute path ({os.path.abspath(sourcePath)}). Existing catalog will be updated in-place.")
-    else:
-        logger.info(f"Destination path ({os.path.abspath(destinationPath)}) is different than source path ({os.path.abspath(sourcePath)}). Catalog provided with Presentation Package will be left unaltered.")       
+    destinationPath = os.path.normpath(os.path.join(tp.basepath, "catalog.xlsx"))
     catalog.to_excel(destinationPath, index=False)
+
+    # Compute the hash and filesize for the catalog on disk and update the resource in the
+    # Tileset Package
+    resource = tp.get_resource("catalog")
+    tp.remove_resource("catalog")
+    resource.hash = morpc.md5(destinationPath)
+    resource.bytes = os.path.getsize(destinationPath)
+    tp.add_resource(resource)
     
     # ### Validate tileset package
     logger.info("Checking completeness of Tileset Package object")
@@ -528,43 +563,51 @@ def assemble_tileset_package(tilesetSlug, tilesetTitle, tilesetBasepath="./", da
     # ## Create README.md file
     logger.info("Creating README.md file")
 
-    README_TEMPLATE = f'''
-    # {tp.title}
+    README_TEMPLATE = f'''# {tp.title}
 
-    ## Version
+## Version
 
-    Current version: {tp.version}
+Current version: {tp.version}
 
-    ## Contributors
+## Contributors
 
-    {"\n".join([f"{x['title']}, {x['organization']}, {x['email']}" for x in tp.contributors])}
+{"\n".join([f"{x['title']}, {x['organization']}, {x['email']}" for x in tp.contributors])}
 
-    ## Introduction
+## Introduction
 
-    {tp.description}
+{tp.description}
 
-    ## Data
+## Data
 
-    Data file: {tp.get_resource("table").path}
+Data file: {tp.get_resource("output").path}
 
-    Schema: {schemaPath}
+Schema: {schemaPath}
 
-    ## Processes
+## Processes
 
-    Process documentation: {tp.get_resource("process").path}
-    '''
+Process documentation: {tp.get_resource("process").path}
 
-    with open(os.path.join(tilesetBasepath, readmeResource.path), "w") as f:
-        f.write(README_TEMPLATE)
+## Catalog
+
+The catalog spreadsheet includes links to visualizations of the data for each included geography as well as expert commentary for select geographies describing key insights suggested by the data.
+
+Catalog: {tp.get_resource("catalog").path} 
+'''
+
+    if(produceReadme == True):
+        with open(os.path.join(tilesetBasepath, readmeResource.path), "w") as f:
+            f.write(README_TEMPLATE)
    
     # ## Write tileset package to disk and validate it
     logger.info(f"Writing tileset package descriptor to disk")
     destinationPath = os.path.normpath(os.path.join(tilesetBasepath, TILESET_PACKAGE_FILENAME))
     tp.to_yaml(destinationPath);
-    results = morpc.frictionless.validate(destinationPath)
+    results = frictionless.validate(destinationPath)
     if(not results.valid):
         logger.error("Tileset Package is not a valid Frictionless Package. Details follow.")
         logger.error(results)
+    else:
+        logger.info("Tileset Package is a valid Frictionless Package.")
 
     # ## Clean up
     # Delete the misc directory if it is empty.  Not all tilesets include misc content. Same with input data directory.
