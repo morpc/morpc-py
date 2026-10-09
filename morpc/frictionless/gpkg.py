@@ -199,6 +199,7 @@ def create_gpkgresource(
     validate=False,
     cache=None,
     hashAlgorithm="md5",
+    **validateArgs
 ):
     """Create one Frictionless Resource per layer of a GeoPackage file.
 
@@ -228,6 +229,10 @@ def create_gpkgresource(
     resourceDir : str, optional
         Directory to write each layer's resource file to. Each file is named
         "{dataFileName}-{layerName}.resource.yaml". Required if writeResource is True.
+    **validateArgs
+        This allows you to enter keyword arguments that will be passed through to frictionless.validate.  For example, if
+        you include checkValidGeometry=False when calling this function, frictionless.validate will be called with
+        checkValidGeometry=False.
 
     Returns
     -------
@@ -277,6 +282,7 @@ def create_gpkgresource(
             control=GpkgControl(layer=layerName),
             cache=cache,
             hashAlgorithm=hashAlgorithm,
+            **validateArgs
         )
         resources.append(resource)
 
