@@ -562,7 +562,7 @@ def _verify_hash(path, expected):
 def create_resource(dataPath, title=None, name=None, description=None, sources=None, resourcePath=None, schemaPath=None, resFormat=None,
                                  resProfile=None, resMediaType=None, computeHash=True, computeBytes=True, ignoreSchema=False, 
                                  writeResource=False, validate=False, control=None, lineEnds: Literal['dos', 'unix'] = 'dos',
-                                 cache=None, hashAlgorithm: Literal['md5', 'sha256'] = 'md5'):
+                                 cache=None, hashAlgorithm: Literal['md5', 'sha256'] = 'md5', **validateArgs):
     """Create a Frictionless resource object using sane default values for some attributes.  Optionally, write the 
     resource file to disk and validate the resource file, schema, and data. 
 
@@ -631,6 +631,10 @@ def create_resource(dataPath, title=None, name=None, description=None, sources=N
         Optional. The algorithm used to compute the hash attribute.  Defaults to 'md5', which is emitted as a bare hex digest
         for backward compatibility (Data Package v1 style).  'sha256' is emitted in the self-describing Data Package v2 form
         "sha256:<hex>".
+    **validateArgs
+        This allows you to enter keyword arguments that will be passed through to frictionless.validate.  For example, if
+        you include checkValidGeometry=False when calling this function, frictionless.validate will be called with
+        checkValidGeometry=False.
 
     Returns
     -------
@@ -834,16 +838,21 @@ def create_resource(dataPath, title=None, name=None, description=None, sources=N
             logger.info("Writing Frictionless Resource file to {}".format(resourceFilePath))
             write_resource(resource, resourceFilePath)
         else:
-            logger.error("Unable to validate resource.  No resource file path specified.")
+            logger.error("Unable to write resource.  No resource file path specified.")
             raise RuntimeError            
 
     if(validate == True):
         if(resourceFilePath != None):
             logger.info("Validating resource on disk.")
-            validate_resource(resourceFilePath)
+            resourceValid = validate_resource(resourceFilePath, **validateArgs)
         else:
             logger.error("Unable to validate resource.  No resource file path specified.")
-            raise RuntimeError            
+            raise RuntimeError
+            
+        if(not resourceValid):
+            logger.error("Validation failed. Errors should be described above.")    
+            if(validateArgs.get("raiseErrors", None) != False):
+                raise RuntimeError
         
     return resource
 
@@ -876,7 +885,7 @@ def write_resource(resource, resourcePath):
         
     os.chdir(cwd)
 
-def validate_resource(resourcePath):
+def validate_resource(resourcePath, raiseErrors=True, **kwargs):
     import os
     import frictionless
 
@@ -890,13 +899,13 @@ def validate_resource(resourcePath):
             # different line endings than it was hashed with. For a local CSV, check those two ourselves.
             dataPath = resourceOnDisk.path
             if(isinstance(dataPath, str) and not _is_url(dataPath) and dataPath.lower().endswith(".csv") and os.path.exists(dataPath)):
-                results = resourceOnDisk.validate(checklist=frictionless.Checklist(skip_errors=["hash-count", "byte-count"]))
+                results = resourceOnDisk.validate(checklist=frictionless.Checklist(skip_errors=["hash-count", "byte-count"]), **kwargs)
                 (algorithm, digest) = _parse_hash(resourceOnDisk.hash) if resourceOnDisk.hash else ('md5', None)
                 integrityValid = any((digest == None or variantDigest == digest) and
                                      (resourceOnDisk.bytes == None or variantBytes == resourceOnDisk.bytes)
                                      for (variantDigest, variantBytes) in _line_end_variants(dataPath, algorithm))
             else:
-                results = resourceOnDisk.validate()
+                results = resourceOnDisk.validate(**kwargs)
                 integrityValid = True
 
         except Exception as e:
@@ -912,6 +921,8 @@ def validate_resource(resourcePath):
         return True
     else:
         logger.error(f"Resource is NOT valid. Errors follow. {results}")
+        if(raiseErrors):
+            raise RuntimeError
         return False
 
 def _detect_sqlite_geometry_column(con, tableName):
@@ -1021,7 +1032,7 @@ def resolve_data_path(resource, sourceDir, download=True):
     return os.path.join(sourceDir, resource.path)
 
 
-def load_data(resourcePath, archiveDir=None, validate=False, forceInteger=False, forceInt64=False, useSchema="default", sheetName=None, layerName=None, tableName=None, driverName=None, targetCRS=None):
+def load_data(resourcePath, archiveDir=None, validate=False, forceInteger=False, forceInt64=False, useSchema="default", sheetName=None, layerName=None, tableName=None, driverName=None, targetCRS=None, **validateArgs):
     """Often we want to make a copy of some input data and work with the copy, for example to protect 
     the original data or to create an archival copy of it so that we can replicate the process later.  
     The `load_data()` function simplifies the process of reading the data and 
@@ -1064,6 +1075,10 @@ def load_data(resourcePath, archiveDir=None, validate=False, forceInteger=False,
         Optional. The coordinate reference system to reproject the geometry to when loading a spatial SQLite database. Only used
         when a geometry column is detected in a SQLite file. SQLite WKB geometry carries no CRS information, so it is assumed to be
         "epsg:4326" on read. If None (the default), the data's native CRS is returned without reprojection. See morpc.load_spatial_data.
+    **validateArgs
+        This allows you to enter keyword arguments that will be passed through to frictionless.validate.  For example, if
+        you include checkValidGeometry=False when calling this function, frictionless.validate will be called with
+        checkValidGeometry=False.
 
     Returns
     -------
@@ -1185,10 +1200,11 @@ def load_data(resourcePath, archiveDir=None, validate=False, forceInteger=False,
     
     if(validate):
         logger.info("Validating resource including data and schema (if applicable).")    
-        resourceValid = validate_resource(targetResource)
+        resourceValid = validate_resource(targetResource, **validateArgs)
         if(not resourceValid):
             logger.error("Validation failed. Errors should be described above.")    
-            raise RuntimeError
+            if(validateArgs.get("raiseErrors", None) != False):
+                raise RuntimeError
       
     logger.info("Loading data.")          
     if(dataFileExtension == ".csv"):
